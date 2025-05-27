@@ -1,4 +1,3 @@
-import axiosInstance from "./axiosInstance";
 import { ExampleData } from "../types/example";
 
 export async function fetchExampleData(): Promise<ExampleData> {
