@@ -4,53 +4,35 @@ import Link from "next/link";
 import { useState, useEffect, use } from "react";
 import { Product } from "@/types/product";
 import { toast } from 'react-hot-toast';
-import { useCart } from "@/contexts/CartContext";
 import { productService } from "@/api/productService";
+import { useRouter } from 'next/navigation';
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const router = useRouter();
   const resolvedParams = use(params);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [quantity, setQuantity] = useState(1);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
-  const { addToCart, items } = useCart();
 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         const productData = await productService.getProductById(resolvedParams.id);
+        if (!productData || !productData.productImages?.length) {
+          throw new Error('Product not found or has no images');
+        }
         setProduct(productData);
       } catch (error) {
         console.error('Error fetching product:', error);
         toast.error('Failed to load product details');
+        router.push('/');
       } finally {
         setLoading(false);
       }
     };
 
     fetchProduct();
-  }, [resolvedParams.id]);
-
-  const handleAddToCart = async () => {
-    if (!product || adding) return;
-    
-    try {
-      setAdding(true);
-      await addToCart(product, quantity);
-      toast.success('Added to cart successfully!', {
-        duration: 2000,
-        icon: '🛒',
-      });
-    } catch (error) {
-      console.error('Failed to add to cart:', error);
-      toast.error('Failed to add to cart');
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  const isInCart = items.some(item => item.product.id === product?.id);
+  }, [resolvedParams.id, router]);
 
   if (loading) {
     return (
@@ -80,7 +62,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="flex items-center space-x-2 mb-8">
           <Link href="/" className="text-gray-600 hover:text-blue-600">Home</Link>
           <span className="text-gray-400">/</span>
-          <span className="text-gray-800">{product?.productName}</span>
+          <span className="text-gray-800">{product?.productName || 'Loading...'}</span>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -89,7 +71,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <div className="md:w-1/2 p-6">
               {/* Main Image */}
               <div className="relative h-[500px] rounded-lg overflow-hidden mb-4">
-                {product?.productImages?.[selectedImageIndex] && (
+                {product?.productImages && product.productImages.length > 0 ? (
                   <Image
                     src={product.productImages[selectedImageIndex]}
                     alt={product.productName}
@@ -97,6 +79,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     className="object-contain"
                     priority
                   />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                    <span className="text-gray-400">No image available</span>
+                  </div>
                 )}
                 {product?.salePercentage > 0 && (
                   <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full">
@@ -107,21 +93,27 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               
               {/* Thumbnail Images */}
               <div className="grid grid-cols-4 gap-2">
-                {product?.productImages?.map((image, index) => (
-                  <button
-                    key={`image-${index}`}
-                    onClick={() => setSelectedImageIndex(index)}
-                    className={`relative h-24 rounded-lg overflow-hidden border-2 transition-all
-                      ${selectedImageIndex === index ? 'border-blue-500' : 'border-transparent'}`}
-                  >
-                    <Image
-                      src={image}
-                      alt={`${product.productName} ${index + 1}`}
-                      fill
-                      className="object-cover"
-                    />
-                  </button>
-                ))}
+                {product?.productImages && product.productImages.length > 0 ? (
+                  product.productImages.map((image, index) => (
+                    <button
+                      key={`image-${index}`}
+                      onClick={() => setSelectedImageIndex(index)}
+                      className={`relative h-24 rounded-lg overflow-hidden border-2 transition-all
+                        ${selectedImageIndex === index ? 'border-blue-500' : 'border-transparent'}`}
+                    >
+                      <Image
+                        src={image}
+                        alt={`${product.productName} ${index + 1}`}
+                        fill
+                        className="object-cover"
+                      />
+                    </button>
+                  ))
+                ) : (
+                  <div className="col-span-4 text-center py-4 text-gray-500">
+                    No product images available
+                  </div>
+                )}
               </div>
             </div>
 
@@ -130,7 +122,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               {/* Basic Info */}
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-2">
-                  {product?.category.map((cat, index) => (
+                  {product?.category && product.category.map((cat, index) => (
                     <span 
                       key={`category-${index}`}
                       className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
@@ -194,58 +186,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   <div>
                     <h3 className="font-medium text-gray-700">Stock</h3>
                     <p className="text-gray-600">{product.stock} units</p>
-                  </div>
-                </div>
-
-                {/* Quantity and Add to Cart */}
-                <div className="space-y-4 pt-6 border-t">
-                  <div className="flex items-center gap-4">
-                    <label className="font-medium text-gray-700">Quantity:</label>
-                    <div className="flex items-center border rounded-lg">
-                      <button
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        className="px-3 py-2 border-r hover:bg-gray-100"
-                        disabled={quantity <= 1}
-                      >
-                        -
-                      </button>
-                      <input
-                        type="number"
-                        min="1"
-                        max={product.stock}
-                        value={quantity}
-                        onChange={(e) => setQuantity(Math.min(product.stock, Math.max(1, Number(e.target.value))))}
-                        className="w-16 text-center px-3 py-2"
-                      />
-                      <button
-                        onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                        className="px-3 py-2 border-l hover:bg-gray-100"
-                        disabled={quantity >= product.stock}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <button
-                      onClick={handleAddToCart}
-                      disabled={!product?.stock || adding}
-                      className={`w-full py-3 px-6 rounded-lg transition-colors ${
-                        adding ? 'bg-gray-400' :
-                        product?.stock === 0 ? 'bg-gray-400' :
-                        'bg-blue-600 hover:bg-blue-700'
-                      } text-white`}
-                    >
-                      {adding ? 'Adding...' :
-                       product?.stock === 0 ? 'Out of Stock' :
-                       'Add to Cart'}
-                    </button>
-                    {isInCart && (
-                      <p className="text-green-600 text-sm text-center">
-                        ✓ This item is in your cart
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>
