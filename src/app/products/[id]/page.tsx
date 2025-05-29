@@ -6,6 +6,7 @@ import { Product } from "@/types/product";
 import { toast } from 'react-hot-toast';
 import { productService } from "@/api/productService";
 import { useRouter } from 'next/navigation';
+import AddToCart from '@/components/product/AddToCart';
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -188,6 +189,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     <p className="text-gray-600">{product.stock} units</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Add to Cart Section */}
+              <div className="mt-8">
+                <AddToCart productId={resolvedParams.id} />
               </div>
             </div>
           </div>

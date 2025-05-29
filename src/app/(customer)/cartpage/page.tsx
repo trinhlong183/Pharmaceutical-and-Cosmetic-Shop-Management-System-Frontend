@@ -1,174 +1,222 @@
 'use client';
+
+import { useEffect, useState } from 'react';
+import { cartService } from '@/api/cartService';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Trash2, MinusCircle, PlusCircle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import Image from 'next/image';
-import Link from 'next/link';
-import { useCart } from '@/contexts/CartContext';
-import { FiTrash2, FiMinus, FiPlus } from 'react-icons/fi';
+import { useCart } from '@/hooks/useCart';
+import { Product } from '@/types/product';
+
+interface CartProduct extends Omit<Product, 'id'> {
+  _id: string;
+}
+
+interface CartItem {
+  _id: string;
+  productId: CartProduct;
+  quantity: number;
+  price: number;
+}
+
+interface Cart {
+  _id: string;
+  items: CartItem[];
+  totalAmount: number;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message: string;
+}
 
 export default function CartPage() {
-  const { items, removeFromCart, updateQuantity, totalItems, totalPrice } = useCart();
+  const [cart, setCart] = useState<Cart | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { removeFromCart } = useCart();
 
-  if (items.length === 0) {
+  const fetchCart = async () => {
+    try {
+      const response = await cartService.getMyCart();
+      console.log('Cart data:', response);
+      if (response.success && response.data) {
+        setCart(response.data);
+      } else {
+        console.error('Invalid cart data structure:', response);
+        toast.error('Error loading cart data');
+      }
+    } catch (error) {
+      console.error('Error fetching cart:', error);
+      toast.error('Failed to fetch cart');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveItem = async (productId: string) => {
+    try {
+      await removeFromCart(productId);
+      await fetchCart();
+      toast.success('Item removed from cart');
+    } catch (error) {
+      toast.error('Failed to remove item');
+    }
+  };  const handleUpdateQuantity = async (productId: string, newQuantity: number) => {
+    try {
+      const existingItem = cart?.items.find(item => item.productId._id === productId);
+      if (!existingItem) return;
+
+      const currentQuantity = existingItem.quantity;
+      if (newQuantity === currentQuantity) return;
+
+      // Tính toán độ chênh lệch số lượng
+      const quantityChange = newQuantity - currentQuantity;
+      
+      if (newQuantity >= 1 && newQuantity <= (existingItem.productId.stock || 0)) {
+        await cartService.addToCart(productId, quantityChange);
+        await fetchCart();
+      }
+    } catch (error) {
+      toast.error('Failed to update quantity');
+    }
+  };
+
+  const handleCheckout = async () => {
+    try {
+      await cartService.checkoutSelected();
+      toast.success('Checkout successful');
+      await fetchCart();
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast.error('Checkout failed');
+    }
+  };
+
+  const handleClearCart = async () => {
+    try {
+      await cartService.clearCart();
+      toast.success('Cart cleared');
+      await fetchCart();
+    } catch (error) {
+      console.error('Clear cart error:', error);
+      toast.error('Failed to clear cart');
+    }
+  };
+
+  useEffect(() => {
+    fetchCart();
+  }, []);
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="container mx-auto px-4">
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-            <div className="mb-6">
-              <Image 
-                src="/empty-cart.png" 
-                alt="Empty Cart" 
-                width={200} 
-                height={200} 
-                className="mx-auto"
-              />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Your Cart is Empty</h1>
-            <p className="text-gray-600 mb-6">Looks like you haven't added anything to your cart yet</p>
-            <Link
-              href="/"
-              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Continue Shopping
-            </Link>
-          </div>
+      <div className="container mx-auto p-4 text-center">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mx-auto mb-4"></div>
+          <div className="h-32 bg-gray-200 rounded mb-4"></div>
         </div>
       </div>
     );
   }
 
+  if (!cart || !cart.items || cart.items.length === 0) {
+    return (
+      <div className="container mx-auto p-4 text-center">
+        <h2 className="text-2xl font-bold mb-4">Your cart is empty</h2>
+        <Button variant="outline" onClick={() => window.history.back()}>
+          Continue Shopping
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Shopping Cart ({totalItems} items)</h1>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
-            {items.map((item) => (
-              <div
-                key={item.product._id}
-                className="bg-white rounded-lg shadow-md p-4 flex items-start gap-4"
-              >
-                {/* Product Image */}
-                <Link href={`/products/${item.product._id}`} className="relative w-24 h-24 flex-shrink-0">
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Shopping Cart</h1>
+      
+      <div className="grid grid-cols-1 gap-4 mb-4">
+        {cart.items.map((item) => (
+          <Card key={item._id} className="p-4">
+            {item && item.productId ? (
+              <div className="flex items-center gap-4">
+                <div className="relative w-24 h-24">
                   <Image
-                    src={item.product.productImages[0]}
-                    alt={item.product.productName}
+                    src={Array.isArray(item.productId.productImages) && item.productId.productImages.length > 0 
+                      ? item.productId.productImages[0] 
+                      : '/placeholder.png'}
+                    alt={item.productId.productName || 'Product'}
                     fill
-                    className="object-cover rounded-md"
+                    className="object-cover rounded"
                   />
-                </Link>
-
-                {/* Product Details */}
-                <div className="flex-grow">
-                  <div className="flex justify-between">
-                    <div>
-                      <Link
-                        href={`/products/${item.product._id}`}
-                        className="text-lg font-semibold text-gray-900 hover:text-blue-600"
-                      >
-                        {item.product.productName}
-                      </Link>
-                      <p className="text-gray-600 text-sm">{item.product.brand}</p>
-                    </div>
-                    <button
-                      onClick={() => removeFromCart(item.product._id)}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold">{item.productId.productName}</h3>
+                  <p className="text-gray-600">
+                    ${item.price.toFixed(2)}
+                  </p>
+                  {item.productId.salePercentage > 0 && (
+                    <p className="text-sm text-red-500">
+                      {item.productId.salePercentage}% OFF
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 mt-2">
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => handleUpdateQuantity(item.productId._id, item.quantity - 1)}
+                      disabled={item.quantity <= 1}
                     >
-                      <FiTrash2 size={20} />
-                    </button>
+                      <MinusCircle className="h-4 w-4" />
+                    </Button>
+                    <span className="min-w-[2rem] text-center">{item.quantity}</span>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => handleUpdateQuantity(item.productId._id, item.quantity + 1)}
+                      disabled={item.quantity >= (item.productId.stock || 0)}
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
                   </div>
-                  
-                  <div className="mt-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center border rounded-lg">
-                        <button
-                          onClick={() => updateQuantity(item.product._id, item.quantity - 1)}
-                          className="p-2 hover:bg-gray-100 rounded-l-lg"
-                          disabled={item.quantity <= 1}
-                        >
-                          <FiMinus size={16} />
-                        </button>
-                        <span className="px-4 py-1 border-x">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.product._id, item.quantity + 1)}
-                          className="p-2 hover:bg-gray-100 rounded-r-lg"
-                          disabled={item.quantity >= item.product.stock}
-                        >
-                          <FiPlus size={16} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      {item.product.salePercentage ? (
-                        <div className="space-y-1">
-                          <div className="text-lg font-bold text-red-500">
-                            ${((item.product.price * (1 - item.product.salePercentage / 100)) * item.quantity).toFixed(2)}
-                          </div>
-                          <div className="text-sm text-gray-400 line-through">
-                            ${(item.product.price * item.quantity).toFixed(2)}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-lg font-bold text-gray-900">
-                          ${(item.product.price * item.quantity).toFixed(2)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <p className="font-semibold">
+                    Total: ${(item.price * item.quantity).toFixed(2)}
+                  </p>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => handleRemoveItem(item.productId._id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-md p-6 sticky top-4">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Order Summary</h2>
-              
-              <div className="space-y-4">
-                <div className="flex justify-between text-gray-600">
-                  <span>Subtotal ({totalItems} items)</span>
-                  <span>${totalPrice.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Shipping</span>
-                  <span>Free</span>
-                </div>
-
-                {/* Promo Code Input */}
-                <div className="pt-4 border-t">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Enter promo code"
-                      className="flex-grow px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
-                      Apply
-                    </button>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4 mt-4">
-                  <div className="flex justify-between font-bold text-xl text-gray-900">
-                    <span>Total</span>
-                    <span>${totalPrice.toFixed(2)}</span>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1">Including VAT</p>
-                </div>
+            ) : (
+              <div className="p-4 text-center text-gray-500">
+                Invalid product data
               </div>
+            )}
+          </Card>
+        ))}
+      </div>
 
-              <button
-                className="w-full bg-blue-600 text-white py-3 rounded-lg mt-6 hover:bg-blue-700 transition-colors"
-                onClick={() => {
-                  // Implement checkout logic
-                  console.log('Proceeding to checkout...');
-                }}
-              >
-                Proceed to Checkout
-              </button>
-            </div>
-          </div>
+      <div className="flex flex-col gap-4 md:flex-row md:justify-between items-center">
+        <div className="text-xl font-bold">
+          Total: ${(cart.totalAmount || 0).toFixed(2)}
+        </div>
+        <div className="flex gap-2">
+          <Button variant="destructive" onClick={handleClearCart}>
+            Clear Cart
+          </Button>
+          <Button onClick={handleCheckout}>
+            Checkout
+          </Button>
         </div>
       </div>
     </div>

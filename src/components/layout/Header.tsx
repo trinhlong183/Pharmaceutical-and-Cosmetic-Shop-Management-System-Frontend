@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { ShoppingCart, Menu, X } from "lucide-react";
+import CartIcon from "./CartIcon";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -68,6 +69,7 @@ export default function Header() {
               {totalItems}
             </span>
           </Link> */}
+          <CartIcon />
 
           {/* User Menu */}
           {loading ? (

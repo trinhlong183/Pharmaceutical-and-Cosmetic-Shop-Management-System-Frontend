@@ -1,6 +1,6 @@
 import { Product } from '@/types/product';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_API_ENDPOINT;
 
 interface ApiResponse<T> {
   success: boolean;
