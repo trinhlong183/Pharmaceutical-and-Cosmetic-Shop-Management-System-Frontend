@@ -28,10 +28,12 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { useUser } from "@/contexts/UserContext";
 
 export default function LoginForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const { setUser } = useUser();
 
   const form = useForm<LoginBodyType>({
     resolver: zodResolver(LoginBody),
@@ -46,17 +48,13 @@ export default function LoginForm() {
     setIsSubmitting(true);
     try {
       const result = await authApiRequest.login(values);
-      // Không cần kiểm tra status, nếu lỗi đã throw
       toast.success("Login successful!");
-      // Save tokens/user info here if needed
-      console.log("Login result:", result);
-
       if (result?.payload?.token) {
         localStorage.setItem("accessToken", result.payload.token);
-        // Phát event để header cập nhật user ngay lập tức
-        window.dispatchEvent(new Event("userChanged"));
+        // Lấy profile và cập nhật context user
+        const profile = await authApiRequest.myProfile();
+        setUser(profile?.payload || null);
       }
-
       router.push("/");
     } catch (error: any) {
       handleErrorApi({

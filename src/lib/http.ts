@@ -128,8 +128,6 @@ const request = async <Response>(
             // Vì đã có thông báo lỗi được hiển thị ở phía server
           } finally {
             localStorage.removeItem("accessToken");
-            localStorage.removeItem("userId");
-            localStorage.removeItem("userEmail");
             clientLogoutRequest = null;
             location.href = "/login";
           }
