@@ -71,9 +71,9 @@ const request = async <Response>(
           "Content-Type": "application/json",
         };
   if (isClient()) {
-    const sessionToken = localStorage.getItem("sessionToken");
-    if (sessionToken) {
-      baseHeaders.Authorization = `Bearer ${sessionToken}`;
+    const accessToken = localStorage.getItem("accessToken");
+    if (accessToken) {
+      baseHeaders.Authorization = `Bearer ${accessToken}`;
     }
   }
   // Nếu không truyền baseUrl (hoặc baseUrl = undefined) thì lấy từ envConfig.NEXT_PUBLIC_API_ENDPOINT
@@ -127,17 +127,16 @@ const request = async <Response>(
             // Nếu có lỗi xảy ra trong quá trình logout, chúng ta không cần làm gì cả
             // Vì đã có thông báo lỗi được hiển thị ở phía server
           } finally {
-            localStorage.removeItem("sessionToken");
-            localStorage.removeItem("sessionTokenExpiresAt");
+            localStorage.removeItem("accessToken");
             clientLogoutRequest = null;
             location.href = "/login";
           }
         }
       } else {
-        const sessionToken = (options?.headers as any)?.Authorization.split(
+        const accessToken = (options?.headers as any)?.Authorization?.split(
           "Bearer "
         )[1];
-        redirect(`/logout?sessionToken=${sessionToken}`);
+        redirect(`/logout?accessToken=${accessToken}`);
       }
     } else {
       throw new HttpError(data);

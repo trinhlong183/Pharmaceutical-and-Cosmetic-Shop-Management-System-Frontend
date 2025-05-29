@@ -1,12 +1,15 @@
-'use client';
-import { CartProvider } from '@/contexts/CartContext';
-import { Toaster } from 'react-hot-toast';
+"use client";
+import { CartProvider } from "@/contexts/CartContext";
+import { UserProvider } from "@/contexts/UserContext";
+import { Toaster } from "react-hot-toast";
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <CartProvider>
-      {children}
-      <Toaster position="top-right" />
+      <UserProvider>
+        {children}
+        <Toaster position="top-right" />
+      </UserProvider>
     </CartProvider>
   );
 }

@@ -5,7 +5,7 @@ import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 import CartIcon from "@/components/CartIcon";
 import { Toaster } from "react-hot-toast";
-import { Providers } from "./providers";
+import { AppProviders } from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,15 +34,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning={true}
       >
-        <Providers>
+        <AppProviders>
           <Header />
-          <nav className="fixed top-4 right-4 z-50">
-            <CartIcon />
-          </nav>
           {children}
           <Toaster position="top-right" />
           <Footer />
-        </Providers>
+        </AppProviders>
       </body>
     </html>
   );
