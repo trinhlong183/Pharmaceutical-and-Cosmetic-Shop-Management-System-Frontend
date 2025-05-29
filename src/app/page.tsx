@@ -1,28 +1,31 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Product, SuitableForType } from "@/types/product";
+import { useEffect, useState } from "react";
+import { productService } from "@/api/productService";
 
-// Demo products (replace with API call later)
-const demoProducts: Product[] = [
-  {
-    _id: "1",
-    productName: "Vitamin C Serum",
-    productDescription: "High potency vitamin C serum for bright, healthy skin",
-    price: 29.99,
-    stock: 50,
-    category: [{ _id: "1", name: "Skincare" }],
-    brand: "Beauty Science",
-    productImages: ["/products/vitamin-c-1.jpg", "/products/vitamin-c-2.jpg"],
-    ingredients: "Water, Ascorbic Acid, Glycerin, Propylene Glycol",
-    suitableFor: SuitableForType.ALL,
-    reviews: [],
-    salePercentage: 10,
-    expiryDate: new Date("2025-12-31")
-  },
-  // Add more demo products...
-];
 
 export default function Home() {
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await productService.getAllProducts();
+
+        if (!response) {
+          throw new Error('Failed to fetch products');
+        }
+        setProducts(response);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      }
+    };
+    fetchProducts();
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
@@ -92,7 +95,7 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-white">
+      {/* <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
@@ -156,7 +159,7 @@ export default function Home() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Products Section */}
       <section className="py-16 bg-gray-50">
@@ -165,10 +168,10 @@ export default function Home() {
           
           {/* Products Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {demoProducts.map((product) => (
+            {products.map((product) => (
               <Link 
-                href={`/products/${product._id}`}
-                key={product._id}
+                href={`/products/${product.id}`}
+                key={product.id}
                 className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
               >
                 <div className="relative h-64">
@@ -212,7 +215,7 @@ export default function Home() {
                       )}
                     </div>
                     <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                      {product.category[0].name}
+                      {product.category[0]}
                     </span>
                   </div>
                 </div>

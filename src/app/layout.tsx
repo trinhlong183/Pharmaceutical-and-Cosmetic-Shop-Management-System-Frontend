@@ -4,7 +4,6 @@ import "./globals.css";
 import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 import CartIcon from "@/components/CartIcon";
-import CartDevTools from "@/components/CartDevTools";
 import { Toaster } from "react-hot-toast";
 import { Providers } from "./providers";
 
@@ -33,6 +32,7 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        suppressHydrationWarning={true}
       >
         <Providers>
           <Header />
@@ -41,7 +41,6 @@ export default function RootLayout({
           </nav>
           {children}
           <Toaster position="top-right" />
-          <CartDevTools />
           <Footer />
         </Providers>
       </body>

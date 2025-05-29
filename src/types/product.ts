@@ -11,17 +11,19 @@ export interface Category {
 }
 
 export interface Product {
-  _id: string;
+  id: string;
   productName: string;
   productDescription: string;
   price: number;
   stock: number;
-  category: Category[];
+  category: string[];
   brand: string;
   productImages: string[];
   ingredients: string;
-  suitableFor: SuitableForType;
-  reviews: string[];
-  salePercentage: number | null;
-  expiryDate: Date;
+  suitableFor: string;
+  reviews: any[];
+  salePercentage: number;
+  expiryDate: string;
+  createdAt: string;
+  updatedAt: string;
 }
