@@ -3,7 +3,6 @@
 import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -47,11 +46,17 @@ export default function LoginForm() {
     setIsSubmitting(true);
     try {
       const result = await authApiRequest.login(values);
-      if (result.status !== 200) {
-        throw new Error("Login failed");
-      }
+      // Không cần kiểm tra status, nếu lỗi đã throw
       toast.success("Login successful!");
       // Save tokens/user info here if needed
+      console.log("Login result:", result);
+
+      if (result?.payload?.token) {
+        localStorage.setItem("accessToken", result.payload.token);
+        // Phát event để header cập nhật user ngay lập tức
+        window.dispatchEvent(new Event("userChanged"));
+      }
+
       router.push("/");
     } catch (error: any) {
       handleErrorApi({

@@ -1,17 +1,56 @@
 "use client";
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import authApiRequest from "@/api/auth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchUser = () => {
+      const accessToken =
+        typeof window !== "undefined"
+          ? localStorage.getItem("accessToken")
+          : null;
+      if (accessToken) {
+        authApiRequest
+          .myProfile()
+          .then((res) => {
+            setUser(res?.payload || null);
+          })
+          .catch(() => setUser(null));
+      } else {
+        setUser(null);
+      }
+    };
+
+    fetchUser();
+
+    // Lắng nghe event userChanged để cập nhật user khi login/logout
+    window.addEventListener("userChanged", fetchUser);
+
+    return () => {
+      window.removeEventListener("userChanged", fetchUser);
+    };
+  }, []);
 
   return (
     <header className="bg-white shadow-sm">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <div className="flex items-center space-x-2">
+        <Link href="/" className="flex items-center space-x-2">
           <span className="text-blue-600 text-3xl">💊</span>
           <h1 className="text-xl font-bold text-gray-800">PharmaCosmetic</h1>
-        </div>
+        </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex space-x-8">
@@ -31,22 +70,51 @@ export default function Header() {
 
         {/* User Menu */}
         <div className="flex items-center">
-          <button className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 mr-3">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+          {/* Nếu đã đăng nhập, hiển thị avatar, nếu chưa thì hiển thị nút Sign In */}
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 mr-3">
+                  <Avatar>
+                    {/* Nếu có thể, bạn có thể truyền AvatarImage src={user.avatarUrl} */}
+                    <AvatarFallback>
+                      {user.fullName ? user.fullName[0].toUpperCase() : "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>
+                  <div className="font-semibold">
+                    {user.fullName || user.email}
+                  </div>
+                  <div className="text-xs text-gray-500">{user.email}</div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <Link href="/profile" passHref>
+                  <DropdownMenuItem >My Profile</DropdownMenuItem>
+                </Link>
+                <DropdownMenuItem
+                  onClick={() => {
+                    localStorage.removeItem("accessToken");
+                    localStorage.removeItem("userId");
+                    localStorage.removeItem("userEmail");
+                    window.dispatchEvent(new Event("userChanged")); // Phát event khi logout
+                    window.location.href = "/login";
+                  }}
+                >
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link
+              href="/login"
+              className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
             >
-              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-            </svg>
-          </button>
-          <Link
-            href="/login"
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-          >
-            <span>Sign In</span>
-          </Link>
+              <span>Sign In</span>
+            </Link>
+          )}
 
           {/* Mobile Menu Button */}
           <button

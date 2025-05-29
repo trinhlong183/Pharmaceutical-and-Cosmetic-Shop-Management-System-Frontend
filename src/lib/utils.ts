@@ -26,7 +26,7 @@ export const handleErrorApi = ({
     });
   } else {
     // Sử dụng API của sonner thay vì toast cũ
-    toast.error(error?.payload?.message ?? "Lỗi không xác định test o utils", {
+    toast.error(error?.payload?.message ?? "Lỗi không xác định", {
       duration: duration ?? 5000,
     });
   }

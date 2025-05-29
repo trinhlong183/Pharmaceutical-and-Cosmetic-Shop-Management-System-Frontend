@@ -31,31 +31,29 @@ export type RegisterBodyType = z.infer<typeof RegisterBody>;
 
 export const LoginBody = z
   .object({
-    email: z.string().min(1, { message: "required" }).email({
-      message: "invalidEmail",
+    email: z.string().min(1, { message: "Email is required" }).email({
+      message: "Invalid email address",
     }),
-    password: z.string().min(6, "minmaxPassword").max(100, "minmaxPassword"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
   })
   .strict();
 
 export type LoginBodyType = z.TypeOf<typeof LoginBody>;
 
+
+
 export const LoginRes = z.object({
-  data: z.object({
-    accessToken: z.string(),
-    refreshToken: z.string(),
-    account: z.object({
-      id: z.number(),
-      name: z.string(),
-      email: z.string(),
-      role: z.enum([Role.Owner, Role.Employee]),
-      avatar: z.string().nullable(),
-    }),
-  }),
   message: z.string(),
+  token: z.string(),
+  user: z.object({
+    email: z.string(),
+    phone: z.string().nullable(),
+    address: z.string().nullable(),
+    dob: z.string().nullable(),
+  }),
 });
 
-export type LoginResType = z.TypeOf<typeof LoginRes>;
+export type LoginResType = z.infer<typeof LoginRes>;
 
 export const RefreshTokenBody = z
   .object({
@@ -82,3 +80,5 @@ export const LogoutBody = z
   .strict();
 
 export type LogoutBodyType = z.TypeOf<typeof LogoutBody>;
+
+
