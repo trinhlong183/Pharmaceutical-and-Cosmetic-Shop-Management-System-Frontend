@@ -1,16 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['example.com'], // Add all domains you need to load images from
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'example.com',
-        port: '',
-        pathname: '/images/**',
-      },
-      // Add more patterns if needed
-    ],
+    domains: ['example.com'], // Replace with your actual image domain
   },
 }
 

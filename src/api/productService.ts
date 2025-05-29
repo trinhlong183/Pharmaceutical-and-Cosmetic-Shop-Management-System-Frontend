@@ -23,48 +23,7 @@ export const productService = {
     if (!response.ok) {
       throw new Error('Failed to fetch product');
     }
-    const data: ApiResponse<{product: Product}> = await response.json();
-    return data.data.product;
-  },
-  
-
-    // Create new product
-    async createProduct(product: Omit<Product, '_id'>): Promise<Product> {
-        const response = await fetch(`${API_URL}/products`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(product),
-        });
-        if (!response.ok) {
-            throw new Error('Failed to create product');
-        }
-        return response.json();
-    },
-
-    // Update product
-    async updateProduct(id: string, product: Partial<Product>): Promise<Product> {
-        const response = await fetch(`${API_URL}/products/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(product),
-        });
-        if (!response.ok) {
-            throw new Error('Failed to update product');
-        }
-        return response.json();
-    },
-
-    // Delete product
-    async deleteProduct(id: string): Promise<void> {
-        const response = await fetch(`${API_URL}/products/${id}`, {
-            method: 'DELETE',
-        });
-        if (!response.ok) {
-            throw new Error('Failed to delete product');
-        }
-    }
+    const data: ApiResponse<Product> = await response.json();
+    return data.data;
+  }
 };

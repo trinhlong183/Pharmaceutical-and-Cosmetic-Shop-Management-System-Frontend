@@ -1,50 +1,64 @@
 'use client';
 import Image from "next/image";
 import Link from "next/link";
-import { useState, use } from "react";
-import { Product, SuitableForType } from "@/types/product";
+import { useState, useEffect, use } from "react";
+import { Product } from "@/types/product";
 import { toast } from 'react-hot-toast';
 import { useCart } from "@/contexts/CartContext";
-
-// Demo data - sẽ thay thế bằng API call sau
-const demoProducts: Product[] = [
-  {
-    _id: "1",
-    productName: "Vitamin C Serum",
-    productDescription: "High potency vitamin C serum for bright, healthy skin",
-    price: 29.99,
-    stock: 50,
-    category: [{ _id: "1", name: "Skincare" }],
-    brand: "Beauty Science",
-    productImages: ["/products/vitamin-c-1.jpg", "/products/vitamin-c-2.jpg"],
-    ingredients: "Water, Ascorbic Acid, Glycerin, Propylene Glycol",
-    suitableFor: SuitableForType.ALL,
-    reviews: [],
-    salePercentage: 10,
-    expiryDate: new Date("2025-12-31")
-  },
-];
+import { productService } from "@/api/productService";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  
-  const resolvedParams = use(params);
-  const product = demoProducts.find(p => p._id === resolvedParams.id);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
   const { addToCart, items } = useCart();
 
-  const handleAddToCart = () => {
-    if (product) {
-      addToCart(product, quantity);
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const productData = await productService.getProductById(resolvedParams.id);
+        setProduct(productData);
+      } catch (error) {
+        console.error('Error fetching product:', error);
+        toast.error('Failed to load product details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [resolvedParams.id]);
+
+  const handleAddToCart = async () => {
+    if (!product || adding) return;
+    
+    try {
+      setAdding(true);
+      await addToCart(product, quantity);
       toast.success('Added to cart successfully!', {
         duration: 2000,
         icon: '🛒',
       });
+    } catch (error) {
+      console.error('Failed to add to cart:', error);
+      toast.error('Failed to add to cart');
+    } finally {
+      setAdding(false);
     }
   };
 
-  // Kiểm tra sản phẩm đã có trong giỏ hàng chưa
-  const isInCart = items.some(item => item.product._id === product?._id);
+  const isInCart = items.some(item => item.product.id === product?.id);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -66,7 +80,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         <div className="flex items-center space-x-2 mb-8">
           <Link href="/" className="text-gray-600 hover:text-blue-600">Home</Link>
           <span className="text-gray-400">/</span>
-          <span className="text-gray-800">{product.productName}</span>
+          <span className="text-gray-800">{product?.productName}</span>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -75,14 +89,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <div className="md:w-1/2 p-6">
               {/* Main Image */}
               <div className="relative h-[500px] rounded-lg overflow-hidden mb-4">
-                <Image
-                  src={product.productImages[selectedImageIndex]}
-                  alt={product.productName}
-                  fill
-                  className="object-contain"
-                  priority
-                />
-                {product.salePercentage && product.salePercentage > 0 && (
+                {product?.productImages?.[selectedImageIndex] && (
+                  <Image
+                    src={product.productImages[selectedImageIndex]}
+                    alt={product.productName}
+                    fill
+                    className="object-contain"
+                    priority
+                  />
+                )}
+                {product?.salePercentage > 0 && (
                   <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full">
                     -{product.salePercentage}%
                   </div>
@@ -91,9 +107,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               
               {/* Thumbnail Images */}
               <div className="grid grid-cols-4 gap-2">
-                {product.productImages.map((image, index) => (
+                {product?.productImages?.map((image, index) => (
                   <button
-                    key={index}
+                    key={`image-${index}`}
                     onClick={() => setSelectedImageIndex(index)}
                     className={`relative h-24 rounded-lg overflow-hidden border-2 transition-all
                       ${selectedImageIndex === index ? 'border-blue-500' : 'border-transparent'}`}
@@ -114,31 +130,36 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               {/* Basic Info */}
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                    {product.category[0].name}
-                  </span>
+                  {product?.category.map((cat, index) => (
+                    <span 
+                      key={`category-${index}`}
+                      className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                    >
+                      {cat}
+                    </span>
+                  ))}
                   <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                    {product.stock > 0 ? 'In Stock' : 'Out of Stock'}
+                    {product?.stock > 0 ? 'In Stock' : 'Out of Stock'}
                   </span>
                 </div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.productName}</h1>
-                <p className="text-gray-600 text-lg">{product.brand}</p>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">{product?.productName}</h1>
+                <p className="text-gray-600 text-lg">{product?.brand}</p>
               </div>
 
               {/* Price Section */}
               <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                {product.salePercentage && product.salePercentage > 0 ? (
+                {product.salePercentage > 0 ? (
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="text-3xl font-bold text-red-500">
-                        ${(product.price * (1 - product.salePercentage / 100)).toFixed(2)}
+                        ${((product.price * (100 - product.salePercentage)) / 100).toFixed(2)}
                       </span>
                       <span className="text-xl text-gray-400 line-through">
                         ${product.price.toFixed(2)}
                       </span>
                     </div>
                     <p className="text-sm text-gray-600">
-                      Save ${(product.price * (product.salePercentage / 100)).toFixed(2)}
+                      Save ${((product.price * product.salePercentage) / 100).toFixed(2)}
                     </p>
                   </div>
                 ) : (
@@ -209,19 +230,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   <div className="space-y-4">
                     <button
                       onClick={handleAddToCart}
+                      disabled={!product?.stock || adding}
                       className={`w-full py-3 px-6 rounded-lg transition-colors ${
-                        isInCart 
-                          ? 'bg-green-600 hover:bg-green-700' 
-                          : 'bg-blue-600 hover:bg-blue-700'
+                        adding ? 'bg-gray-400' :
+                        product?.stock === 0 ? 'bg-gray-400' :
+                        'bg-blue-600 hover:bg-blue-700'
                       } text-white`}
-                      disabled={product.stock === 0}
                     >
-                      {product.stock === 0 
-                        ? 'Out of Stock' 
-                        : isInCart 
-                          ? 'Add More to Cart' 
-                          : 'Add to Cart'
-                      }
+                      {adding ? 'Adding...' :
+                       product?.stock === 0 ? 'Out of Stock' :
+                       'Add to Cart'}
                     </button>
                     {isInCart && (
                       <p className="text-green-600 text-sm text-center">
