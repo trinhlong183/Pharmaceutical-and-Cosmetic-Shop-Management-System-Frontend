@@ -44,7 +44,12 @@ function RegisterForm() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const result = await authApiRequest.register(values);
+      // Convert empty dob string to null
+      const payload = {
+        ...values,
+        dob: values.dob && values.dob.trim() !== "" ? values.dob : null,
+      };
+      const result = await authApiRequest.register(payload);
       console.log("Registration result:", result);
 
       toast.success("Account created successfully!");

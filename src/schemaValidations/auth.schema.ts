@@ -7,16 +7,21 @@ export const RegisterBody = z
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string(),
     fullName: z.string().min(2, "Full name is required"),
-    phone: z.string().optional(),
+    phone: z
+      .string()
+      .optional()
+      .refine((val) => !val || val.length >= 10, {
+        message: "Phone number must be at least 10 characters",
+      }),
     address: z.string().optional(),
-    dob: z.string().optional(),
+    dob: z.string().optional() || null,
   })
   .strict()
   .superRefine(({ confirmPassword, password }, ctx) => {
     if (confirmPassword !== password) {
       ctx.addIssue({
         code: "custom",
-        message: "Mật khẩu không khớp",
+        message: "Passwords do not match",
         path: ["confirmPassword"],
       });
     }

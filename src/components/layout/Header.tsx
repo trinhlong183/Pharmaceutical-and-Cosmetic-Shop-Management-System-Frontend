@@ -1,4 +1,5 @@
-'use client';
+"use client";
+import Link from "next/link";
 import React, { useState } from "react";
 
 export default function Header() {
@@ -14,7 +15,6 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex space-x-8">
-          
           <a href="#" className="text-gray-600 hover:text-blue-600 font-medium">
             Products
           </a>
@@ -41,9 +41,12 @@ export default function Header() {
               <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
             </svg>
           </button>
-          <button className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+          <Link
+            href="/login"
+            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
             <span>Sign In</span>
-          </button>
+          </Link>
 
           {/* Mobile Menu Button */}
           <button
