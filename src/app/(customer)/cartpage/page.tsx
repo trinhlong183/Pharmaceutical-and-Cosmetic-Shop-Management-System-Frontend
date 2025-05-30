@@ -49,7 +49,6 @@ export default function CartPage() {
   // Check VNPay return status
   useEffect(() => {
     const vnp_ResponseCode = searchParams.get("vnp_ResponseCode");
-    const vnp_OrderInfo = searchParams.get("vnp_OrderInfo");
     
     if (vnp_ResponseCode) {
       handlePaymentReturn();
@@ -102,34 +101,6 @@ export default function CartPage() {
     }
   };
 
-  const handlePaymentReturn = async () => {
-    try {
-      const response = await paymentService.verifyVNPayReturn(searchParams);
-      
-      if (response.success) {
-        // Xóa items đã thanh toán khỏi cart
-        const selectedItems = JSON.parse(localStorage.getItem('selectedCartItems') || '[]');
-        if (selectedItems.length > 0) {
-          await cartService.clearCart(); // Xóa cart sau khi thanh toán thành công
-        }
-
-        // Xóa dữ liệu trong localStorage
-        localStorage.removeItem('selectedCartItems');
-        localStorage.removeItem('cartId');
-        
-        toast.success('Payment successful!');
-        router.push('/orders'); // Chuyển hướng đến trang orders
-      } else {
-        toast.error('Payment failed: ' + response.message);
-        router.push('/cart');
-      }
-    } catch (error) {
-      console.error('Payment verification error:', error);
-      toast.error('Payment verification failed');
-      router.push('/cart');
-    }
-  };
-
   const handleCheckout = async () => {
     try {
       if (!cart || cart.items.length === 0) {
@@ -138,37 +109,102 @@ export default function CartPage() {
       }
 
       setCheckoutLoading(true);
-      
-      // Prepare checkout data
+      const loadingToast = toast.loading('Processing checkout...');
+
+      // 1. Prepare selected items in correct format
+      const selectedItems = cart.items.map(item => ({
+        productId: item.productId._id,
+        price: item.price,
+        quantity: item.quantity
+      }));
+
+      // 2. Save items for verification
+      localStorage.setItem('selectedCartItems', JSON.stringify(selectedItems));
+      localStorage.setItem('cartId', cart._id);
+
+      // 3. Prepare checkout data
       const checkoutData = {
         cart: {
           _id: cart._id,
-          items: cart.items.map(item => ({
-            productId: item.productId._id,
-            price: item.price,
-            quantity: item.quantity
-          })),
+          items: selectedItems,
           totalPrice: cart.totalAmount
         },
-        returnUrl: window.location.origin + '/cart' // Return to cart page after payment
+        returnUrl: `${window.location.origin}/cart`
       };
 
-      // Save cart info for verification
-      localStorage.setItem('cartId', cart._id);
-      localStorage.setItem('selectedCartItems', JSON.stringify(checkoutData.cart.items));
+      try {
+        const response = await paymentService.cartCheckout(checkoutData);
+        toast.dismiss(loadingToast);
 
-      const response = await paymentService.cartCheckout(checkoutData);
-      
-      if (response.paymentUrl) {
-        window.location.href = response.paymentUrl;
-      } else {
-        throw new Error('No payment URL received');
+        // Validate response
+        if (!response) {
+          throw new Error('No response from payment service');
+        }
+
+        console.log('Payment response:', response);
+
+        if (response.success && response.data?.paymentUrl) {
+          window.location.href = response.data.paymentUrl;
+        } else {
+          throw new Error(response.message || 'Payment URL not received');
+        }
+      } catch (error) {
+        console.error('Payment API error:', error);
+        throw new Error(error instanceof Error ? error.message : 'Payment creation failed');
       }
     } catch (error) {
+      toast.dismiss();
       console.error('Checkout error:', error);
-      toast.error('Checkout failed');
+      toast.error(error instanceof Error ? error.message : 'Checkout failed');
     } finally {
       setCheckoutLoading(false);
+    }
+  };
+
+  const handlePaymentReturn = async () => {
+    try {
+      const vnp_ResponseCode = searchParams.get("vnp_ResponseCode");
+      
+      if (vnp_ResponseCode === "00") {
+        // Payment successful
+        const productIds = JSON.parse(localStorage.getItem('selectedCartItems') || '[]')
+          .map((item: { productId: string }) => item.productId);
+        
+        if (productIds.length > 0) {
+          // Show loading state
+          toast.loading('Confirming your order...', { id: 'orderConfirmation' });
+          
+          // Call checkout-selected API
+          await paymentService.checkoutSelected(productIds);
+          
+          // Clear cart and localStorage
+          await cartService.clearCart();
+          localStorage.removeItem('selectedCartItems');
+          localStorage.removeItem('cartId');
+          
+          // Refresh cart data
+          await fetchCart();
+          
+          // Clear loading toast and show success message
+          toast.dismiss('orderConfirmation');
+          toast.success('Order placed successfully! Thank you for your purchase.', {
+            duration: 5000,
+            position: 'top-center'
+          });
+
+          // Add router.push to ensure we're on the cart page
+          router.push('/cart');
+          router.refresh(); // Refresh the page to update cart state
+        }
+      } else {
+        // Payment failed
+        toast.error('Payment failed. Please try again.');
+        router.push('/cart'); // Redirect back to cart on failure too
+      }
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      toast.error('Failed to verify payment. Please contact support.');
+      router.push('/cart'); // Redirect back to cart on error
     }
   };
 

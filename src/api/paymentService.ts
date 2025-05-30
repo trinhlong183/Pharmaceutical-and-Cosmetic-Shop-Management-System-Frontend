@@ -1,15 +1,10 @@
 const API_URL = process.env.NEXT_PUBLIC_API_ENDPOINT;
 
-const getAuthHeader = () => {
-  let token = '';
-  if (typeof window !== 'undefined') {
-    token = localStorage.getItem('accessToken') || '';
-  }
-  return {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  };
-};
+interface ApiResponse<T = any> {
+  success: boolean;
+  message: string;
+  data?: T;
+}
 
 interface BankResponse {
   code: string;
@@ -17,7 +12,11 @@ interface BankResponse {
 }
 
 interface CheckoutResponse {
-  paymentUrl: string;
+  success: boolean;
+  message: string;
+  data?: {
+    paymentUrl: string;
+  };
 }
 
 interface PaymentVerifyResponse {
@@ -29,6 +28,17 @@ interface PaymentVerifyResponse {
     amount: number;
   };
 }
+
+const getAuthHeader = () => {
+  let token = '';
+  if (typeof window !== 'undefined') {
+    token = localStorage.getItem('accessToken') || '';
+  }
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  };
+};
 
 export const paymentService = {
   async getBanks(): Promise<BankResponse[]> {
@@ -56,16 +66,64 @@ export const paymentService = {
     };
     returnUrl: string;
   }): Promise<CheckoutResponse> {
-    const response = await fetch(`${API_URL}/payments/cart-checkout`, {
+    try {
+      const response = await fetch(`${API_URL}/payments/cart-checkout`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+        credentials: 'include',
+        body: JSON.stringify(cartData)
+      });
+
+      const data = await response.json();
+      console.log('Raw payment API response:', data); // Debug log
+
+      // Check if response is ok first
+      if (!response.ok) {
+        throw new Error(data.message || 'Payment request failed');
+      }
+
+      // Less strict checking of response format
+      if (data && typeof data === 'object') {
+        // If data has direct paymentUrl property
+        if (data.paymentUrl) {
+          return {
+            success: true,
+            message: 'Payment URL generated successfully',
+            data: {
+              paymentUrl: data.paymentUrl
+            }
+          };
+        }
+        
+        // If data has nested paymentUrl in data property
+        if (data.data?.paymentUrl) {
+          return {
+            success: true,
+            message: 'Payment URL generated successfully',
+            data: {
+              paymentUrl: data.data.paymentUrl
+            }
+          };
+        }
+      }
+
+      throw new Error('Invalid payment response format - No payment URL found');
+    } catch (error) {
+      console.error('Payment service error:', error);
+      throw error;
+    }
+  },
+
+  async checkoutSelected(productIds: string[]): Promise<ApiResponse<void>> {
+    const response = await fetch(`${API_URL}/cart/checkout-selected`, {
       method: 'POST',
       headers: getAuthHeader(),
       credentials: 'include',
-      body: JSON.stringify(cartData)
+      body: JSON.stringify({ productIds })
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Checkout failed');
+      throw new Error('Checkout selected items failed');
     }
 
     return response.json();
