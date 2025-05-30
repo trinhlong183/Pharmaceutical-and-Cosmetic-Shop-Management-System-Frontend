@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { cartService } from '@/api/cartService';
+import { paymentService } from '@/api/paymentService';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Trash2, MinusCircle, PlusCircle } from 'lucide-react';
@@ -9,6 +10,7 @@ import { toast } from 'react-hot-toast';
 import Image from 'next/image';
 import { useCart } from '@/hooks/useCart';
 import { Product } from '@/types/product';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface CartProduct extends Omit<Product, 'id'> {
   _id: string;
@@ -39,7 +41,20 @@ interface ApiResponse<T> {
 export default function CartPage() {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
-  const { removeFromCart } = useCart();
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const { removeFromCart } = useCart(); // Add this line to properly destructure the hook
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Check VNPay return status
+  useEffect(() => {
+    const vnp_ResponseCode = searchParams.get("vnp_ResponseCode");
+    const vnp_OrderInfo = searchParams.get("vnp_OrderInfo");
+    
+    if (vnp_ResponseCode) {
+      handlePaymentReturn();
+    }
+  }, [searchParams]);
 
   const fetchCart = async () => {
     try {
@@ -87,22 +102,81 @@ export default function CartPage() {
     }
   };
 
+  const handlePaymentReturn = async () => {
+    try {
+      const response = await paymentService.verifyVNPayReturn(searchParams);
+      
+      if (response.success) {
+        // Xóa items đã thanh toán khỏi cart
+        const selectedItems = JSON.parse(localStorage.getItem('selectedCartItems') || '[]');
+        if (selectedItems.length > 0) {
+          await cartService.clearCart(); // Xóa cart sau khi thanh toán thành công
+        }
+
+        // Xóa dữ liệu trong localStorage
+        localStorage.removeItem('selectedCartItems');
+        localStorage.removeItem('cartId');
+        
+        toast.success('Payment successful!');
+        router.push('/orders'); // Chuyển hướng đến trang orders
+      } else {
+        toast.error('Payment failed: ' + response.message);
+        router.push('/cart');
+      }
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      toast.error('Payment verification failed');
+      router.push('/cart');
+    }
+  };
+
   const handleCheckout = async () => {
     try {
-      await cartService.checkoutSelected();
-      toast.success('Checkout successful');
-      await fetchCart();
+      if (!cart || cart.items.length === 0) {
+        toast.error('Cart is empty');
+        return;
+      }
+
+      setCheckoutLoading(true);
+      
+      // Prepare checkout data
+      const checkoutData = {
+        cart: {
+          _id: cart._id,
+          items: cart.items.map(item => ({
+            productId: item.productId._id,
+            price: item.price,
+            quantity: item.quantity
+          })),
+          totalPrice: cart.totalAmount
+        },
+        returnUrl: window.location.origin + '/cart' // Return to cart page after payment
+      };
+
+      // Save cart info for verification
+      localStorage.setItem('cartId', cart._id);
+      localStorage.setItem('selectedCartItems', JSON.stringify(checkoutData.cart.items));
+
+      const response = await paymentService.cartCheckout(checkoutData);
+      
+      if (response.paymentUrl) {
+        window.location.href = response.paymentUrl;
+      } else {
+        throw new Error('No payment URL received');
+      }
     } catch (error) {
       console.error('Checkout error:', error);
       toast.error('Checkout failed');
+    } finally {
+      setCheckoutLoading(false);
     }
   };
 
   const handleClearCart = async () => {
     try {
       await cartService.clearCart();
-      toast.success('Cart cleared');
       await fetchCart();
+      toast.success('Cart cleared');
     } catch (error) {
       console.error('Clear cart error:', error);
       toast.error('Failed to clear cart');
@@ -211,11 +285,18 @@ export default function CartPage() {
           Total: ${(cart.totalAmount || 0).toFixed(2)}
         </div>
         <div className="flex gap-2">
-          <Button variant="destructive" onClick={handleClearCart}>
+          <Button 
+            variant="destructive" 
+            onClick={handleClearCart}
+            disabled={checkoutLoading || !cart || cart.items.length === 0}
+          >
             Clear Cart
           </Button>
-          <Button onClick={handleCheckout}>
-            Checkout
+          <Button 
+            onClick={handleCheckout}
+            disabled={checkoutLoading || !cart || cart.items.length === 0}
+          >
+            {checkoutLoading ? 'Processing...' : 'Checkout'}
           </Button>
         </div>
       </div>
