@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { cartService } from '@/api/cartService';
+import { paymentService } from '@/api/paymentService';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Trash2, MinusCircle, PlusCircle } from 'lucide-react';
@@ -9,6 +10,7 @@ import { toast } from 'react-hot-toast';
 import Image from 'next/image';
 import { useCart } from '@/hooks/useCart';
 import { Product } from '@/types/product';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface CartProduct extends Omit<Product, 'id'> {
   _id: string;
@@ -39,7 +41,19 @@ interface ApiResponse<T> {
 export default function CartPage() {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
-  const { removeFromCart } = useCart();
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const { removeFromCart } = useCart(); // Add this line to properly destructure the hook
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Check VNPay return status
+  useEffect(() => {
+    const vnp_ResponseCode = searchParams.get("vnp_ResponseCode");
+    
+    if (vnp_ResponseCode) {
+      handlePaymentReturn();
+    }
+  }, [searchParams]);
 
   const fetchCart = async () => {
     try {
@@ -89,20 +103,116 @@ export default function CartPage() {
 
   const handleCheckout = async () => {
     try {
-      await cartService.checkoutSelected();
-      toast.success('Checkout successful');
-      await fetchCart();
+      if (!cart || cart.items.length === 0) {
+        toast.error('Cart is empty');
+        return;
+      }
+
+      setCheckoutLoading(true);
+      const loadingToast = toast.loading('Processing checkout...');
+
+      // 1. Prepare selected items in correct format
+      const selectedItems = cart.items.map(item => ({
+        productId: item.productId._id,
+        price: item.price,
+        quantity: item.quantity
+      }));
+
+      // 2. Save items for verification
+      localStorage.setItem('selectedCartItems', JSON.stringify(selectedItems));
+      localStorage.setItem('cartId', cart._id);
+
+      // 3. Prepare checkout data
+      const checkoutData = {
+        cart: {
+          _id: cart._id,
+          items: selectedItems,
+          totalPrice: cart.totalAmount
+        },
+        returnUrl: `${window.location.origin}/cart`
+      };
+
+      try {
+        const response = await paymentService.cartCheckout(checkoutData);
+        toast.dismiss(loadingToast);
+
+        // Validate response
+        if (!response) {
+          throw new Error('No response from payment service');
+        }
+
+        console.log('Payment response:', response);
+
+        if (response.success && response.data?.paymentUrl) {
+          window.location.href = response.data.paymentUrl;
+        } else {
+          throw new Error(response.message || 'Payment URL not received');
+        }
+      } catch (error) {
+        console.error('Payment API error:', error);
+        throw new Error(error instanceof Error ? error.message : 'Payment creation failed');
+      }
     } catch (error) {
+      toast.dismiss();
       console.error('Checkout error:', error);
-      toast.error('Checkout failed');
+      toast.error(error instanceof Error ? error.message : 'Checkout failed');
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const handlePaymentReturn = async () => {
+    try {
+      const vnp_ResponseCode = searchParams.get("vnp_ResponseCode");
+      
+      if (vnp_ResponseCode === "00") {
+        // Payment successful
+        const productIds = JSON.parse(localStorage.getItem('selectedCartItems') || '[]')
+          .map((item: { productId: string }) => item.productId);
+        
+        if (productIds.length > 0) {
+          // Show loading state
+          toast.loading('Confirming your order...', { id: 'orderConfirmation' });
+          
+          // Call checkout-selected API
+          await paymentService.checkoutSelected(productIds);
+          
+          // Clear cart and localStorage
+          await cartService.clearCart();
+          localStorage.removeItem('selectedCartItems');
+          localStorage.removeItem('cartId');
+          
+          // Refresh cart data
+          await fetchCart();
+          
+          // Clear loading toast and show success message
+          toast.dismiss('orderConfirmation');
+          toast.success('Order placed successfully! Thank you for your purchase.', {
+            duration: 5000,
+            position: 'top-center'
+          });
+
+          // Add router.push to ensure we're on the cart page
+          router.push('/cart');
+          router.refresh(); // Refresh the page to update cart state
+        }
+      } else {
+        // Payment failed
+        toast.error('Payment failed. Please try again.');
+        router.push('/cart'); // Redirect back to cart on failure too
+      }
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      toast.error('Failed to verify payment. Please contact support.');
+      router.push('/cart'); // Redirect back to cart on error
     }
   };
 
   const handleClearCart = async () => {
     try {
       await cartService.clearCart();
-      toast.success('Cart cleared');
       await fetchCart();
+      toast.success('Cart cleared');
     } catch (error) {
       console.error('Clear cart error:', error);
       toast.error('Failed to clear cart');
@@ -211,11 +321,18 @@ export default function CartPage() {
           Total: ${(cart.totalAmount || 0).toFixed(2)}
         </div>
         <div className="flex gap-2">
-          <Button variant="destructive" onClick={handleClearCart}>
+          <Button 
+            variant="destructive" 
+            onClick={handleClearCart}
+            disabled={checkoutLoading || !cart || cart.items.length === 0}
+          >
             Clear Cart
           </Button>
-          <Button onClick={handleCheckout}>
-            Checkout
+          <Button 
+            onClick={handleCheckout}
+            disabled={checkoutLoading || !cart || cart.items.length === 0}
+          >
+            {checkoutLoading ? 'Processing...' : 'Checkout'}
           </Button>
         </div>
       </div>
