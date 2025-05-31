@@ -11,6 +11,7 @@ import Image from 'next/image';
 import { useCart } from '@/hooks/useCart';
 import { Product } from '@/types/product';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { userService, User } from '@/api/userService';
 
 interface CartProduct extends Omit<Product, 'id'> {
   _id: string;
@@ -42,6 +43,7 @@ export default function CartPage() {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const { removeFromCart } = useCart(); // Add this line to properly destructure the hook
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,12 +57,55 @@ export default function CartPage() {
     }
   }, [searchParams]);
 
+  const fetchUserInfo = async (userId: string) => {
+    try {
+      if (!userId) {
+        console.error('No userId provided');
+        return;
+      }
+      
+      // Call the user service and directly use the response data
+      const userData = await userService.getUserById(userId);
+      
+      // Check if we have the required user data fields
+      if (userData && userData._id && userData.fullName) {
+        setUser({
+          _id: userData._id,
+          email: userData.email,
+          fullName: userData.fullName,
+          phone: userData.phone || '',
+          address: userData.address || '',
+          dob: userData.dob || '',
+          photoUrl: userData.photoUrl,
+          isVerified: userData.isVerified,
+          isActive: userData.isActive,
+          skinAnalysisHistory: userData.skinAnalysisHistory || [],
+          purchaseHistory: userData.purchaseHistory || [],
+          role: userData.role,
+          createdAt: userData.createdAt,
+          updatedAt: userData.updatedAt
+        });
+      } else {
+        console.error('Missing required user data fields:', userData);
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+      setUser(null);
+      // Silent fail - don't show error toast since user info is not critical
+    }
+  };
+
   const fetchCart = async () => {
     try {
       const response = await cartService.getMyCart();
       console.log('Cart data:', response);
       if (response.success && response.data) {
         setCart(response.data);
+        // Fetch user info after getting cart data
+        if (response.data.userId) {
+          await fetchUserInfo(response.data.userId);
+        }
       } else {
         console.error('Invalid cart data structure:', response);
         toast.error('Error loading cart data');
@@ -246,94 +291,175 @@ export default function CartPage() {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Shopping Cart</h1>
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
+        <p className="text-gray-600 mt-2">{cart.items.length} items in your cart</p>
+      </div>
       
-      <div className="grid grid-cols-1 gap-4 mb-4">
-        {cart.items.map((item) => (
-          <Card key={item._id} className="p-4">
-            {item && item.productId ? (
-              <div className="flex items-center gap-4">
-                <div className="relative w-24 h-24">
-                  <Image
-                    src={Array.isArray(item.productId.productImages) && item.productId.productImages.length > 0 
-                      ? item.productId.productImages[0] 
-                      : '/placeholder.png'}
-                    alt={item.productId.productName || 'Product'}
-                    fill
-                    className="object-cover rounded"
-                  />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold">{item.productId.productName}</h3>
-                  <p className="text-gray-600">
-                    ${item.price.toFixed(2)}
-                  </p>
-                  {item.productId.salePercentage > 0 && (
-                    <p className="text-sm text-red-500">
-                      {item.productId.salePercentage}% OFF
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2 mt-2">
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => handleUpdateQuantity(item.productId._id, item.quantity - 1)}
-                      disabled={item.quantity <= 1}
-                    >
-                      <MinusCircle className="h-4 w-4" />
-                    </Button>
-                    <span className="min-w-[2rem] text-center">{item.quantity}</span>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => handleUpdateQuantity(item.productId._id, item.quantity + 1)}
-                      disabled={item.quantity >= (item.productId.stock || 0)}
-                    >
-                      <PlusCircle className="h-4 w-4" />
-                    </Button>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Cart Items - Left Side (8 columns) */}
+        <div className="lg:col-span-8">
+          <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
+            {cart.items.map((item) => (
+              <div key={item._id} className="flex flex-col sm:flex-row gap-4 pb-6 border-b last:border-0 last:pb-0">
+                {item && item.productId ? (
+                  <>
+                    <div className="relative w-full sm:w-32 h-32 sm:h-32 flex-shrink-0">
+                      <Image
+                        src={Array.isArray(item.productId.productImages) && item.productId.productImages.length > 0 
+                          ? item.productId.productImages[0] 
+                          : '/placeholder.png'}
+                        alt={item.productId.productName || 'Product'}
+                        fill
+                        className="object-cover rounded-lg"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <div className="flex justify-between">
+                        <h3 className="font-semibold text-lg text-gray-900">{item.productId.productName}</h3>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveItem(item.productId._id)}
+                          className="text-gray-500 hover:text-red-500"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <p className="text-lg font-semibold text-gray-900">
+                          ${item.price.toFixed(2)}
+                        </p>
+                        {item.productId.salePercentage > 0 && (
+                          <span className="px-2 py-1 text-xs font-semibold text-red-500 bg-red-50 rounded-full">
+                            {item.productId.salePercentage}% OFF
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center border rounded-lg">
+                          <Button 
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleUpdateQuantity(item.productId._id, item.quantity - 1)}
+                            disabled={item.quantity <= 1}
+                            className="text-gray-500 hover:text-gray-700"
+                          >
+                            <MinusCircle className="h-4 w-4" />
+                          </Button>
+                          <span className="w-12 text-center font-medium">{item.quantity}</span>
+                          <Button 
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleUpdateQuantity(item.productId._id, item.quantity + 1)}
+                            disabled={item.quantity >= (item.productId.stock || 0)}
+                            className="text-gray-500 hover:text-gray-700"
+                          >
+                            <PlusCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <p className="font-medium text-gray-900">
+                          Total: ${(item.price * item.quantity).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-4 text-center text-gray-500">
+                    Invalid product data
                   </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Order Summary & User Info - Right Side (4 columns) */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* User Information */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Delivery Information</h2>
+            
+            {user ? (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-600">Full Name</p>
+                  <p className="font-medium text-gray-900">{user.fullName}</p>
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <p className="font-semibold">
-                    Total: ${(item.price * item.quantity).toFixed(2)}
-                  </p>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => handleRemoveItem(item.productId._id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
+                
+                <div>
+                  <p className="text-sm text-gray-600">Phone Number</p>
+                  <p className="font-medium text-gray-900">{user.phone || 'Not provided'}</p>
+                </div>
+                
+                <div>
+                  <p className="text-sm text-gray-600">Email</p>
+                  <p className="font-medium text-gray-900">{user.email}</p>
+                </div>
+                
+                <div>
+                  <p className="text-sm text-gray-600">Delivery Address</p>
+                  <p className="font-medium text-gray-900">{user.address || 'No address provided'}</p>
+                </div>
+
+                {!user.address && (
+                  <Button variant="outline" className="w-full mt-4" onClick={() => router.push('/profile')}>
+                    Add Delivery Address
                   </Button>
-                </div>
+                )}
               </div>
             ) : (
-              <div className="p-4 text-center text-gray-500">
-                Invalid product data
+              <div className="text-center py-4">
+                <p className="text-gray-500 mb-4">Please sign in to continue checkout</p>
+                <Button variant="outline" className="w-full" onClick={() => router.push('/login')}>
+                  Sign In
+                </Button>
               </div>
             )}
-          </Card>
-        ))}
-      </div>
+          </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:justify-between items-center">
-        <div className="text-xl font-bold">
-          Total: ${(cart.totalAmount || 0).toFixed(2)}
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="destructive" 
-            onClick={handleClearCart}
-            disabled={checkoutLoading || !cart || cart.items.length === 0}
-          >
-            Clear Cart
-          </Button>
-          <Button 
-            onClick={handleCheckout}
-            disabled={checkoutLoading || !cart || cart.items.length === 0}
-          >
-            {checkoutLoading ? 'Processing...' : 'Checkout'}
-          </Button>
+          {/* Order Summary */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Order Summary</h2>
+            
+            <div className="space-y-4">
+              <div className="flex justify-between text-gray-600">
+                <span>Subtotal</span>
+                <span>${cart.totalAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Shipping</span>
+                <span>Free</span>
+              </div>
+              <div className="border-t pt-4">
+                <div className="flex justify-between text-lg font-semibold text-gray-900">
+                  <span>Total</span>
+                  <span>${cart.totalAmount.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-4">
+                <Button 
+                  className="w-full"
+                  onClick={handleCheckout}
+                  disabled={checkoutLoading || !cart || cart.items.length === 0}
+                >
+                  {checkoutLoading ? 'Processing...' : 'Proceed to Checkout'}
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="w-full text-red-600 hover:bg-red-50"
+                  onClick={handleClearCart}
+                  disabled={checkoutLoading || !cart || cart.items.length === 0}
+                >
+                  Clear Cart
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
