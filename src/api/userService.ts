@@ -72,15 +72,22 @@ export const userService = {
         throw new Error(error.message || 'Failed to fetch user');
       }
 
-      const data: ApiResponse<User> = await response.json();
-      if (!data.success || !data.data) {
-        throw new Error('Invalid user data received');
+      const responseData = await response.json();
+      
+      // If the API returns the user data directly without the ApiResponse wrapper
+      if (responseData._id && responseData.fullName) {
+        return responseData;
+      }
+      
+      // If the API returns data wrapped in ApiResponse format
+      if (responseData.success && responseData.data) {
+        return responseData.data;
       }
 
-      return data.data;
+      throw new Error('Invalid user data structure received');
     } catch (error) {
       console.error('Error fetching user:', error);
-      throw new Error('Failed to fetch user data');
+      throw error instanceof Error ? error : new Error('Failed to fetch user data');
     }
   },
 
