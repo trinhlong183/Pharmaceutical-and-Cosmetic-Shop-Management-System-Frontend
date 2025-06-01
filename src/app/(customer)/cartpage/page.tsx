@@ -174,7 +174,7 @@ export default function CartPage() {
           items: selectedItems,
           totalPrice: cart.totalAmount
         },
-        returnUrl: `${window.location.origin}/cart`
+        returnUrl: `${window.location.origin}/payment-result` // Thay đổi đường dẫn return
       };
 
       try {
@@ -219,37 +219,43 @@ export default function CartPage() {
           // Show loading state
           toast.loading('Confirming your order...', { id: 'orderConfirmation' });
           
-          // Call checkout-selected API
-          await paymentService.checkoutSelected(productIds);
-          
-          // Clear cart and localStorage
-          await cartService.clearCart();
-          localStorage.removeItem('selectedCartItems');
-          localStorage.removeItem('cartId');
-          
-          // Refresh cart data
-          await fetchCart();
-          
-          // Clear loading toast and show success message
-          toast.dismiss('orderConfirmation');
-          toast.success('Order placed successfully! Thank you for your purchase.', {
-            duration: 5000,
-            position: 'top-center'
-          });
+          try {
+            // Call checkout-selected API first
+            await paymentService.checkoutSelected(productIds);
+            
+            // Then clear cart
+            await cartService.clearCart();
+            
+            // Clear localStorage
+            localStorage.removeItem('selectedCartItems');
+            localStorage.removeItem('cartId');
+            
+            // Clear loading toast and show success message
+            toast.dismiss('orderConfirmation');
+            toast.success('Order placed successfully!');
 
-          // Add router.push to ensure we're on the cart page
-          router.push('/cart');
-          router.refresh(); // Refresh the page to update cart state
+            // Clear cart state immediately
+            setCart(null);
+            
+            // Force a page reload after a short delay to ensure cart is refreshed
+            setTimeout(() => {
+              window.location.reload();
+            }, 500);
+            
+          } catch (error) {
+            console.error('Process order error:', error);
+            toast.error('Failed to process order');
+          }
         }
       } else {
         // Payment failed
         toast.error('Payment failed. Please try again.');
-        router.push('/cart'); // Redirect back to cart on failure too
+        router.replace('/cartpage');
       }
     } catch (error) {
       console.error('Payment verification error:', error);
-      toast.error('Failed to verify payment. Please contact support.');
-      router.push('/cart'); // Redirect back to cart on error
+      toast.error('Failed to verify payment');
+      router.replace('/cartpage');
     }
   };
 
@@ -330,7 +336,7 @@ export default function CartPage() {
                       
                       <div className="flex items-center gap-2">
                         <p className="text-lg font-semibold text-gray-900">
-                          ${item.price.toFixed(2)}
+                          {item.price}
                         </p>
                         {item.productId.salePercentage > 0 && (
                           <span className="px-2 py-1 text-xs font-semibold text-red-500 bg-red-50 rounded-full">
@@ -362,7 +368,7 @@ export default function CartPage() {
                           </Button>
                         </div>
                         <p className="font-medium text-gray-900">
-                          Total: ${(item.price * item.quantity).toFixed(2)}
+                          Tổng: {item.price * item.quantity}
                         </p>
                       </div>
                     </div>
@@ -427,17 +433,17 @@ export default function CartPage() {
             
             <div className="space-y-4">
               <div className="flex justify-between text-gray-600">
-                <span>Subtotal</span>
-                <span>${cart.totalAmount.toFixed(2)}</span>
+                <span>Tạm tính</span>
+                <span>{cart.totalAmount}</span>
               </div>
               <div className="flex justify-between text-gray-600">
-                <span>Shipping</span>
-                <span>Free</span>
+                <span>Phí vận chuyển</span>
+                <span>Miễn phí</span>
               </div>
               <div className="border-t pt-4">
                 <div className="flex justify-between text-lg font-semibold text-gray-900">
-                  <span>Total</span>
-                  <span>${cart.totalAmount.toFixed(2)}</span>
+                  <span>Tổng tiền</span>
+                  <span>{cart.totalAmount}</span>
                 </div>
               </div>
 

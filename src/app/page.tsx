@@ -32,73 +32,71 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white relative overflow-hidden">
-        {/* Background elements */}
-        <div className="absolute inset-0 overflow-hidden opacity-20">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-white rounded-full blur-3xl"></div>
-          <div className="absolute top-60 -left-20 w-60 h-60 bg-indigo-300 rounded-full blur-3xl"></div>
+      <section className="relative min-h-[80vh] bg-gradient-to-br from-pink-50 via-white to-blue-50">
+        {/* Animated background particles */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute animate-float top-20 left-20 w-32 h-32 rounded-full bg-pink-100/40 blur-xl"></div>
+          <div className="absolute animate-float-delayed top-40 right-20 w-40 h-40 rounded-full bg-blue-100/40 blur-xl"></div>
+          <div className="absolute animate-float-slow bottom-20 left-1/3 w-36 h-36 rounded-full bg-purple-100/40 blur-xl"></div>
         </div>
 
-        <div className="container mx-auto px-4 py-24 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h1 className="text-4xl lg:text-6xl font-bold mb-6">
-                Pharmaceutical & Cosmetic Shop{" "}
-                <span className="text-blue-200">Management</span>
-              </h1>
-              <p className="text-xl text-blue-100 mb-8">
-                An all-in-one solution for inventory management, sales tracking,
-                and customer relationship management.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link
-                  href="/dashboard"
-                  className="bg-white text-blue-600 hover:bg-blue-50 px-8 py-3 rounded-lg font-medium shadow-lg transition-all hover:scale-105 inline-block text-center"
-                >
-                  Get Started
-                </Link>
-                <Link
-                  href="/contact"
-                  className="bg-transparent border-2 border-white text-white hover:bg-white/10 px-8 py-3 rounded-lg font-medium transition-all hover:scale-105 inline-block text-center"
-                >
-                  Contact Us
-                </Link>
-              </div>
+        <div className="container mx-auto px-4 pt-32 pb-20 relative z-10">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-5xl lg:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
+              Beauty & Health
+              <span className="block mt-2">In One Place</span>
+            </h1>
+            <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
+              Discover our premium selection of pharmaceutical and cosmetic products. 
+              Your journey to wellness and beauty starts here.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link
+                href="/shop"
+                className="group relative px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-medium shadow-lg transition-all hover:shadow-pink-200 hover:scale-105"
+              >
+                Shop Now
+                <span className="absolute right-4 top-1/2 transform -translate-y-1/2 group-hover:translate-x-2 transition-transform">
+                  →
+                </span>
+              </Link>
+              <Link
+                href="/categories"
+                className="px-8 py-4 border-2 border-purple-600 text-purple-600 rounded-full font-medium hover:bg-purple-50 transition-colors"
+              >
+                Browse Categories
+              </Link>
             </div>
-            <div className="hidden lg:block relative">
-              <div className="bg-white/90 p-3 rounded-xl shadow-2xl relative z-10 transform hover:scale-[1.02] transition-transform">
-                <div className="aspect-[4/3] relative rounded-lg overflow-hidden">
-                  <Image
-                    src="/dashboard-preview.png"
-                    alt="Dashboard Preview"
-                    fill
-                    className="object-cover"
-                    priority
-                  />
-                </div>
+            
+            {/* Trust badges */}
+            <div className="mt-12 flex items-center justify-center gap-8 flex-wrap">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm text-gray-600">Certified Products</span>
               </div>
-              {/* Decorative elements */}
-              <div className="absolute -top-10 -right-10 w-24 h-24 bg-blue-400/30 rounded-full blur-xl"></div>
-              <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-xl"></div>
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                  <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1V8a1 1 0 00-1-1h-3z" />
+                </svg>
+                <span className="text-sm text-gray-600">Free Delivery</span>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Wave separator */}
         <div className="absolute bottom-0 left-0 right-0">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 1440 120"
-            fill="#ffffff"
-            preserveAspectRatio="none"
-          >
-            <path d="M0,96L48,80C96,64,192,32,288,32C384,32,480,64,576,74.7C672,85,768,75,864,69.3C960,64,1056,64,1152,58.7C1248,53,1344,43,1392,37.3L1440,32L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z" />
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320">
+            <path fill="#f9fafb" fillOpacity="1" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,128C672,128,768,160,864,170.7C960,181,1056,171,1152,144C1248,117,1344,75,1392,53.3L1440,32L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
           </svg>
         </div>
       </section>
 
       {/* Products Section */}
-      <section className="py-16 bg-gray-50">
+      <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-8">Our Products</h2>
           

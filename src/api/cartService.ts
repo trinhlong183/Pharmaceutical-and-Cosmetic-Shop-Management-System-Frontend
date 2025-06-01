@@ -82,7 +82,8 @@ async removeFromCart(productId: string): Promise<void> {
   async clearCart(): Promise<void> {
     const response = await fetch(`${API_URL}/cart/clear`, {
       method: 'DELETE',
-      headers: getAuthHeader()
+      headers: getAuthHeader(),
+      credentials: 'include'  // Thêm dòng này
     });
     
     if (!response.ok) {
@@ -90,10 +91,12 @@ async removeFromCart(productId: string): Promise<void> {
     }
   },
 
-  async checkoutSelected(): Promise<void> {
+  async checkoutSelected(productIds: string[]): Promise<void> {  // Sửa lại parameter
     const response = await fetch(`${API_URL}/cart/checkout-selected`, {
       method: 'POST',
-      headers: getAuthHeader()
+      headers: getAuthHeader(),
+      credentials: 'include',  // Thêm dòng này
+      body: JSON.stringify({ productIds })  // Thêm body với productIds
     });
     
     if (!response.ok) {
