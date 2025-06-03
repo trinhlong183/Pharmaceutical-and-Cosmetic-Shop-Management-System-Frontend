@@ -4,14 +4,25 @@ import { useEffect, useState } from 'react';
 import { cartService } from '@/api/cartService';
 import { paymentService } from '@/api/paymentService';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Trash2, MinusCircle, PlusCircle } from 'lucide-react';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { 
+  Trash2, 
+  MinusCircle, 
+  PlusCircle, 
+  ShoppingBag, 
+  ArrowLeft, 
+  ShoppingCart, 
+  Truck, 
+  CreditCard
+} from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
 import { useCart } from '@/hooks/useCart';
 import { Product } from '@/types/product';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { userService, User } from '@/api/userService';
+import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 interface CartProduct extends Omit<Product, 'id'> {
   _id: string;
@@ -38,6 +49,20 @@ interface ApiResponse<T> {
   data: T;
   message: string;
 }
+
+// Helper function to format price in Vietnamese currency
+const formatVND = (price: number): string => {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    minimumFractionDigits: 0
+  }).format(price);
+};
+
+// Helper to convert decimal prices to VND integer (no decimal)
+const convertToVNDAmount = (price: number): number => {
+  return Math.round(price);
+};
 
 export default function CartPage() {
   const [cart, setCart] = useState<Cart | null>(null);
@@ -349,10 +374,40 @@ export default function CartPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-4 text-center">
+      <div className="container mx-auto p-6 max-w-7xl">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mx-auto mb-4"></div>
-          <div className="h-32 bg-gray-200 rounded mb-4"></div>
+          <div className="h-10 bg-gray-200 rounded-lg w-1/3 mb-8"></div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Left column skeleton */}
+            <div className="lg:col-span-8">
+              <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <div className="h-6 bg-gray-200 rounded-lg w-1/4 mb-6"></div>
+                {[1, 2].map(i => (
+                  <div key={i} className="flex gap-4 mb-6 last:mb-0 pb-6 last:pb-0 border-b last:border-0">
+                    <div className="h-24 w-24 bg-gray-200 rounded-lg"></div>
+                    <div className="flex-1 space-y-3">
+                      <div className="h-5 bg-gray-200 rounded-lg w-3/4"></div>
+                      <div className="h-4 bg-gray-200 rounded-lg w-1/4"></div>
+                      <div className="h-8 bg-gray-200 rounded-lg w-1/3"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Right column skeleton */}
+            <div className="lg:col-span-4">
+              <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <div className="h-6 bg-gray-200 rounded-lg w-2/3 mb-4"></div>
+                <div className="space-y-3 mb-4">
+                  <div className="h-4 bg-gray-200 rounded-lg"></div>
+                  <div className="h-4 bg-gray-200 rounded-lg"></div>
+                </div>
+                <div className="h-10 bg-gray-200 rounded-lg mt-4"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -360,184 +415,265 @@ export default function CartPage() {
 
   if (!cart || !cart.items || cart.items.length === 0) {
     return (
-      <div className="container mx-auto p-4 text-center">
-        <h2 className="text-2xl font-bold mb-4">Your cart is empty</h2>
-        <Button variant="outline" onClick={() => window.history.back()}>
-          Continue Shopping
-        </Button>
+      <div className="container mx-auto py-16 px-4">
+        <Card className="max-w-md mx-auto shadow-lg border-0">
+          <CardContent className="pt-6 pb-8 px-6 flex flex-col items-center text-center">
+            <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-6">
+              <ShoppingBag className="h-10 w-10 text-gray-400" />
+            </div>
+            <CardTitle className="text-2xl mb-3">Giỏ hàng trống</CardTitle>
+            <p className="text-gray-500 mb-6">
+              Bạn chưa thêm bất kỳ sản phẩm nào vào giỏ hàng
+            </p>
+            <Link href="/products" passHref>
+              <Button className="w-full">
+                <ShoppingCart className="mr-2 h-4 w-4" />
+                Tiếp tục mua sắm
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
-        <p className="text-gray-600 mt-2">{cart.items.length} items in your cart</p>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Cart Items - Left Side (8 columns) */}
-        <div className="lg:col-span-8">
-          <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
-            {cart.items.map((item) => (
-              <div key={item._id} className="flex flex-col sm:flex-row gap-4 pb-6 border-b last:border-0 last:pb-0">
-                {item && item.productId ? (
-                  <>
-                    <div className="relative w-full sm:w-32 h-32 sm:h-32 flex-shrink-0">
-                      <Image
-                        src={Array.isArray(item.productId.productImages) && item.productId.productImages.length > 0 
-                          ? item.productId.productImages[0] 
-                          : '/placeholder.png'}
-                        alt={item.productId.productName || 'Product'}
-                        fill
-                        className="object-cover rounded-lg"
-                      />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <div className="flex justify-between">
-                        <h3 className="font-semibold text-lg text-gray-900">{item.productId.productName}</h3>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveItem(item.productId._id)}
-                          className="text-gray-500 hover:text-red-500"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <p className="text-lg font-semibold text-gray-900">
-                          {item.price}
-                        </p>
-                        {item.productId.salePercentage > 0 && (
-                          <span className="px-2 py-1 text-xs font-semibold text-red-500 bg-red-50 rounded-full">
-                            {item.productId.salePercentage}% OFF
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center border rounded-lg">
-                          <Button 
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleUpdateQuantity(item.productId._id, item.quantity - 1)}
-                            disabled={item.quantity <= 1}
-                            className="text-gray-500 hover:text-gray-700"
-                          >
-                            <MinusCircle className="h-4 w-4" />
-                          </Button>
-                          <span className="w-12 text-center font-medium">{item.quantity}</span>
-                          <Button 
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleUpdateQuantity(item.productId._id, item.quantity + 1)}
-                            disabled={item.quantity >= (item.productId.stock || 0)}
-                            className="text-gray-500 hover:text-gray-700"
-                          >
-                            <PlusCircle className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <p className="font-medium text-gray-900">
-                          Tổng: {item.price * item.quantity}
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="p-4 text-center text-gray-500">
-                    Invalid product data
-                  </div>
-                )}
-              </div>
-            ))}
+    <div className="bg-gray-50 min-h-screen py-8">
+      <div className="container mx-auto p-4 max-w-7xl">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">Giỏ hàng</h1>
+          <div className="flex items-center gap-2 mt-2">
+            <Badge variant="secondary">
+              {cart.items.length} sản phẩm
+            </Badge>
           </div>
         </div>
-
-        {/* Order Summary & User Info - Right Side (4 columns) */}
-        <div className="lg:col-span-4 space-y-6">
-          {/* User Information */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Delivery Information</h2>
-            
-            {user ? (
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-600">Full Name</p>
-                  <p className="font-medium text-gray-900">{user.fullName}</p>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-gray-600">Phone Number</p>
-                  <p className="font-medium text-gray-900">{user.phone || 'Not provided'}</p>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-gray-600">Email</p>
-                  <p className="font-medium text-gray-900">{user.email}</p>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-gray-600">Delivery Address</p>
-                  <p className="font-medium text-gray-900">{user.address || 'No address provided'}</p>
-                </div>
-
-                {!user.address && (
-                  <Button variant="outline" className="w-full mt-4" onClick={() => router.push('/profile')}>
-                    Add Delivery Address
+        
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Cart Items - Left Side */}
+          <div className="lg:col-span-8">
+            <Card className="border shadow-sm mb-6">
+              <CardHeader className="pb-3 border-b">
+                <div className="flex justify-between items-center">
+                  <CardTitle>Sản phẩm đã chọn</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                    onClick={handleClearCart}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Xóa giỏ hàng
                   </Button>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <p className="text-gray-500 mb-4">Please sign in to continue checkout</p>
-                <Button variant="outline" className="w-full" onClick={() => router.push('/login')}>
-                  Sign In
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Order Summary */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Order Summary</h2>
-            
-            <div className="space-y-4">
-              <div className="flex justify-between text-gray-600">
-                <span>Tạm tính</span>
-                <span>{cart.totalAmount}</span>
-              </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Phí vận chuyển</span>
-                <span>Miễn phí</span>
-              </div>
-              <div className="border-t pt-4">
-                <div className="flex justify-between text-lg font-semibold text-gray-900">
-                  <span>Tổng tiền</span>
-                  <span>{cart.totalAmount}</span>
                 </div>
+              </CardHeader>
+              
+              <div className="max-h-[500px] overflow-auto">
+                {cart.items.map((item, index) => (
+                  <div key={item._id} className="group">
+                    {index > 0 && <hr className="my-0" />}
+                    <div className="p-4 hover:bg-gray-50">
+                      {item && item.productId ? (
+                        <div className="flex gap-4">
+                          <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border">
+                            <Image
+                              src={Array.isArray(item.productId.productImages) && item.productId.productImages.length > 0 
+                                ? item.productId.productImages[0] 
+                                : '/placeholder.png'}
+                              alt={item.productId.productName || 'Product'}
+                              fill
+                              className="object-cover"
+                              sizes="80px"
+                            />
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between">
+                              <div>
+                                <h3 className="font-medium line-clamp-2 text-sm md:text-base">
+                                  {item.productId.productName}
+                                </h3>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {formatVND(item.price)}
+                                </p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRemoveItem(item.productId._id)}
+                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-red-600" />
+                              </Button>
+                            </div>
+                            
+                            <div className="flex items-center justify-between mt-4">
+                              <div className="flex items-center border rounded-md px-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleUpdateQuantity(item.productId._id, item.quantity - 1)}
+                                  disabled={item.quantity <= 1}
+                                  className="h-7 w-7"
+                                >
+                                  <MinusCircle className="h-3 w-3" />
+                                </Button>
+                                <span className="w-7 text-center text-sm font-medium">{item.quantity}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleUpdateQuantity(item.productId._id, item.quantity + 1)}
+                                  disabled={item.quantity >= (item.productId.stock || 0)}
+                                  className="h-7 w-7"
+                                >
+                                  <PlusCircle className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-medium">
+                                  {formatVND(item.price * item.quantity)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Còn lại: {item.productId.stock || 0} sản phẩm
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center text-muted-foreground p-4">
+                          Sản phẩm không hợp lệ
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-
-              <div className="space-y-2 pt-4">
+            </Card>
+            
+            {/* Shipping Info Card */}
+            <Card className="border shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="bg-blue-50 p-2 rounded-full">
+                    <Truck className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Giao hàng miễn phí</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Đơn hàng sẽ được giao trong vòng 2-3 ngày làm việc kể từ khi thanh toán thành công.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Order Summary - Right Side */}
+          <div className="lg:col-span-4 space-y-6">
+            {/* Order Summary Card */}
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Tóm tắt đơn hàng</CardTitle>
+              </CardHeader>
+              <CardContent className="pb-4 space-y-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Tạm tính</span>
+                  <span>{formatVND(cart.totalAmount)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Phí vận chuyển</span>
+                  <span className="text-green-600">Miễn phí</span>
+                </div>
+                <hr className="my-2" />
+                <div className="flex justify-between pt-2">
+                  <span className="font-medium">Tổng tiền</span>
+                  <span className="font-bold text-xl">{formatVND(cart.totalAmount)}</span>
+                </div>
+              </CardContent>
+              <CardFooter className="flex flex-col space-y-3 pt-0">
                 <Button 
                   className="w-full"
+                  size="lg"
                   onClick={handleCheckout}
-                  disabled={checkoutLoading || !cart || cart.items.length === 0}
+                  disabled={checkoutLoading || !user?.address}
                 >
-                  {checkoutLoading ? 'Processing...' : 'Proceed to Checkout'}
+                  {checkoutLoading ? (
+                    <>
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      {user?.address ? 'Tiến hành thanh toán' : 'Cần cập nhật địa chỉ'}
+                    </>
+                  )}
                 </Button>
                 <Button 
                   variant="outline"
-                  className="w-full text-red-600 hover:bg-red-50"
-                  onClick={handleClearCart}
-                  disabled={checkoutLoading || !cart || cart.items.length === 0}
+                  onClick={() => router.push('/products')}
+                  className="w-full"
                 >
-                  Clear Cart
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Tiếp tục mua sắm
                 </Button>
-              </div>
-            </div>
+              </CardFooter>
+            </Card>
+            
+            {/* User Information Card */}
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg">
+                    Thông tin giao hàng
+                  </CardTitle>
+                  {user && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => router.push('/profile')}
+                    >
+                      Chỉnh sửa
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {user ? (
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Họ tên</p>
+                      <p className="font-medium">{user.fullName}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Số điện thoại</p>
+                      <p className="font-medium">{user.phone || 'Chưa cung cấp'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Địa chỉ giao hàng</p>
+                      <p className="font-medium">{user.address || 'Chưa cung cấp'}</p>
+                      {!user.address && (
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto text-blue-600"
+                          onClick={() => router.push('/profile')}
+                        >
+                          + Thêm địa chỉ giao hàng
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-muted-foreground mb-4">Vui lòng đăng nhập để tiếp tục thanh toán</p>
+                    <Button className="w-full" onClick={() => router.push('/login')}>
+                      Đăng nhập / Đăng ký
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
