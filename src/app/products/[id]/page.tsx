@@ -122,13 +122,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             <div className="md:w-1/2 p-8">
               {/* Basic Info */}
               <div className="mb-6">
-                <div className="flex items-center gap-2 mb-2">
-                  {product?.category && product.category.map((cat, index) => (
+                <div className="flex items-center gap-2 mb-2">                  {product?.category && product.category.map((cat, index) => (
                     <span 
                       key={`category-${index}`}
                       className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
                     >
-                      {cat}
+                      {typeof cat === 'string' ? cat : cat?.categoryName || 'Uncategorized'}
                     </span>
                   ))}
                   <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm">
