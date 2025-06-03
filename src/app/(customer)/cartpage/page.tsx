@@ -95,12 +95,38 @@ export default function CartPage() {
       // Silent fail - don't show error toast since user info is not critical
     }
   };
-
   const fetchCart = async () => {
     try {
       const response = await cartService.getMyCart();
       console.log('Cart data:', response);
       if (response.success && response.data) {
+        // Validate cart items to ensure no null productId exists
+        if (response.data.items && Array.isArray(response.data.items)) {
+          // Check for invalid items
+          const hasInvalidItems = response.data.items.some(item => !item.productId || !item.productId._id);
+          
+          if (hasInvalidItems) {
+            console.warn('Cart contains invalid items with missing productId', 
+              response.data.items.filter(item => !item.productId || !item.productId._id));
+            
+            // Clean up the cart by filtering out invalid items
+            response.data.items = response.data.items.filter(item => item.productId && item.productId._id);
+            
+            // Notify user if items were removed
+            if (response.data.items.length === 0) {
+              toast.error('Your cart contains invalid products. Please try adding products again.');
+            } else {
+              toast('Some invalid items were removed from your cart', {
+                icon: '⚠️',
+                style: {
+                  background: '#FFF3CD',
+                  color: '#856404'
+                }
+              });
+            }
+          }
+        }
+        
         setCart(response.data);
         // Fetch user info after getting cart data
         if (response.data.userId) {
@@ -128,21 +154,45 @@ export default function CartPage() {
     }
   };  const handleUpdateQuantity = async (productId: string, newQuantity: number) => {
     try {
-      const existingItem = cart?.items.find(item => item.productId._id === productId);
-      if (!existingItem) return;
+      if (!cart || !cart.items) {
+        toast.error('Cart data unavailable');
+        return;
+      }
+      
+      const existingItem = cart.items.find(item => 
+        item.productId && item.productId._id === productId
+      );
+      
+      if (!existingItem) {
+        console.error('Product not found in cart:', productId);
+        toast.error('Product not found in your cart');
+        await fetchCart(); // Refresh cart to ensure it's in sync
+        return;
+      }
+
+      if (!existingItem.productId) {
+        console.error('Invalid product data in cart item:', existingItem);
+        toast.error('Invalid product data');
+        await fetchCart(); // Refresh cart to ensure it's in sync
+        return;
+      }
 
       const currentQuantity = existingItem.quantity;
       if (newQuantity === currentQuantity) return;
 
-      // Tính toán độ chênh lệch số lượng
+      // Calculate quantity change
       const quantityChange = newQuantity - currentQuantity;
       
       if (newQuantity >= 1 && newQuantity <= (existingItem.productId.stock || 0)) {
         await cartService.addToCart(productId, quantityChange);
         await fetchCart();
+      } else {
+        toast.error(`Quantity must be between 1 and ${existingItem.productId.stock || 0}`);
       }
     } catch (error) {
+      console.error('Error updating quantity:', error);
       toast.error('Failed to update quantity');
+      await fetchCart(); // Refresh cart to ensure it's in sync
     }
   };
 
@@ -154,14 +204,32 @@ export default function CartPage() {
       }
 
       setCheckoutLoading(true);
-      const loadingToast = toast.loading('Processing checkout...');
-
-      // 1. Prepare selected items in correct format
-      const selectedItems = cart.items.map(item => ({
-        productId: item.productId._id,
-        price: item.price,
-        quantity: item.quantity
-      }));
+      const loadingToast = toast.loading('Processing checkout...');      // 1. Prepare selected items in correct format
+      const selectedItems = cart.items
+        .filter(item => item.productId && item.productId._id) // Filter out items with null productId
+        .map(item => ({
+          productId: item.productId._id,
+          price: item.price,
+          quantity: item.quantity
+        }));
+        
+      // Check if we have any valid items after filtering
+      if (selectedItems.length === 0) {
+        toast.dismiss(loadingToast);
+        setCheckoutLoading(false);
+        toast.error('Your cart contains invalid products. Please try refreshing or contact support.');
+        return;
+      }
+        // If some items were filtered out but we still have valid ones, inform the user
+      if (selectedItems.length < cart.items.length) {
+        toast(`${cart.items.length - selectedItems.length} invalid item(s) were removed from checkout`, {
+          icon: '⚠️',
+          style: {
+            background: '#FFF3CD',
+            color: '#856404'
+          }
+        });
+      }
 
       // 2. Save items for verification
       localStorage.setItem('selectedCartItems', JSON.stringify(selectedItems));
@@ -196,11 +264,16 @@ export default function CartPage() {
       } catch (error) {
         console.error('Payment API error:', error);
         throw new Error(error instanceof Error ? error.message : 'Payment creation failed');
-      }
-    } catch (error) {
+      }    } catch (error) {
       toast.dismiss();
       console.error('Checkout error:', error);
-      toast.error(error instanceof Error ? error.message : 'Checkout failed');
+      
+      // Check if error is related to _id property
+      if (error instanceof TypeError && error.message.includes("_id")) {
+        toast.error('There was a problem with some products in your cart. Please try refreshing the page.');
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Checkout failed');
+      }
     } finally {
       setCheckoutLoading(false);
     }
