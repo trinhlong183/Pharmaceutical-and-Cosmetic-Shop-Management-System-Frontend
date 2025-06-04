@@ -1,78 +1,125 @@
+"use client";
+
 import Image from "next/image";
-import React from "react";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+
+const heroImages = [
+  {
+    src: "https://juliettearmand.com.vn/wp-content/uploads/2023/04/PQ7255.jpg",
+    alt: "Sữa chống nắng bí đao",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80",
+    alt: "Skin care products",
+  },
+  {
+    src: "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1976&q=80",
+    alt: "Cosmetic products",
+  }
+];
 
 export default function HeroSection() {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // Auto-rotate images
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % heroImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const goToNextSlide = () => {
+    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % heroImages.length);
+  };
+
+  const goToPrevSlide = () => {
+    setCurrentImageIndex((prevIndex) => (prevIndex - 1 + heroImages.length) % heroImages.length);
+  };
+
   return (
-    <section className="bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-700 text-white overflow-hidden relative">
-      {/* Abstract shapes for background */}
-      <div className="text-red-600 text-4xl">helo em</div>
-      <div className="absolute inset-0 overflow-hidden opacity-20">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-white rounded-full blur-3xl"></div>
-        <div className="absolute top-60 -left-20 w-60 h-60 bg-indigo-300 rounded-full blur-3xl"></div>
-      </div>
-
-      <div className="container mx-auto px-4 py-20 md:py-28 flex flex-col md:flex-row items-center relative z-10">
-        <div className="md:w-1/2 mb-10 md:mb-0">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6 opacity-0 animate-fade-in-left">
-            Manage Your <span className="text-blue-200">Pharmaceutical</span> &{" "}
-            <span className="text-blue-200">Cosmetic</span> Shop Effortlessly
-          </h1>
-          <p className="text-xl mb-8 text-blue-100 max-w-lg opacity-0 animate-fade-in-left [animation-delay:200ms]">
-            An all-in-one solution for inventory management, sales tracking, and
-            customer relationship management.
-          </p>
-          <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 opacity-0 animate-fade-in-left [animation-delay:400ms]">
-            <button className="bg-white text-blue-600 hover:bg-blue-50 px-8 py-3 rounded-lg font-medium shadow-lg transition-all hover:scale-105">
-              Get Started
-            </button>
-            <button className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-blue-600 px-8 py-3 rounded-lg font-medium transition-all hover:scale-105">
-              Schedule Demo
-            </button>
+    <div className="relative h-[90vh] flex flex-col md:flex-row overflow-hidden">
+      {/* Left side content - Yellow background */}
+      <div className="w-full md:w-1/2 bg-yellow-300 flex items-center justify-center">
+        <div className="p-8 md:p-12 lg:p-16">
+          <div className="max-w-md">
+            <h2 className="text-xl uppercase tracking-wider mb-4">CHỐNG NẮNG PHỔ RỘNG</h2>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
+              Sữa chống nắng bí đao
+            </h1>
+            <p className="mb-8 text-lg">
+              Bảo vệ da trước tia UVA, UVB và ánh sáng nắng lượng cao nhìn thấy được. 
+              Với kết cấu không trọng lượng, thấm nhanh vào da mà không để lại vết trắng 
+              và mang đến cảm giác thoải mái khi sử dụng.
+            </p>
+            <Link 
+              href="/products" 
+              className="inline-block px-8 py-4 bg-black text-white font-medium text-lg rounded-md hover:bg-gray-800 transition-colors"
+            >
+              XEM NGAY
+              <span className="ml-2">→</span>
+            </Link>
           </div>
         </div>
-        <div className="md:w-1/2 md:pl-10 opacity-0 animate-fade-in-right">
-          <div className="bg-white/90 p-3 rounded-xl shadow-2xl backdrop-blur-sm transform hover:scale-[1.02] transition-transform">
-            <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden">
-              {/* <Image
-                src="https://placehold.co/1200x800/e2e8f0/1e40af?text=Dashboard+Preview"
-                alt="System Dashboard"
+      </div>
+
+      {/* Right side image carousel */}
+      <div className="w-full md:w-1/2 h-full relative">
+        {/* Image carousel */}
+        <div className="w-full h-full relative">
+          {heroImages.map((image, index) => (
+            <div 
+              key={index}
+              className={`absolute inset-0 transition-opacity duration-1000 ${
+                index === currentImageIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
+              }`}
+            >
+              <Image
+                src={image.src}
+                alt={image.alt}
                 fill
-                className="rounded object-cover"
                 priority
-                sizes="(max-width: 768px) 100vw, 50vw"
-              /> */}
+                className="object-cover"
+              />
             </div>
-
-            {/* Dashboard stats indicators */}
-            <div className="flex justify-between mt-3 px-2">
-              <div className="flex items-center">
-                <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                <span className="text-xs text-gray-600">Sales +24%</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
-                <span className="text-xs text-gray-600">Inventory 98%</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 rounded-full bg-purple-500 mr-2"></div>
-                <span className="text-xs text-gray-600">Orders 152</span>
-              </div>
-            </div>
+          ))}
+          
+          {/* Navigation arrows */}
+          <div className="absolute z-20 inset-0 flex items-center justify-between p-4">
+            <button 
+              onClick={goToPrevSlide}
+              className="bg-white/30 backdrop-blur-sm rounded-full p-2 text-white hover:bg-white/50 transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button 
+              onClick={goToNextSlide}
+              className="bg-white/30 backdrop-blur-sm rounded-full p-2 text-white hover:bg-white/50 transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+          
+          {/* Dots indicator */}
+          <div className="absolute z-20 bottom-4 left-0 right-0 flex justify-center gap-2">
+            {heroImages.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentImageIndex(index)}
+                className={`w-2.5 h-2.5 rounded-full transition-all ${
+                  index === currentImageIndex ? 'bg-white scale-125' : 'bg-white/50'
+                }`}
+                aria-label={`Go to slide ${index + 1}`}
+              />
+            ))}
           </div>
         </div>
       </div>
-
-      {/* Wave separator */}
-      <div className="absolute bottom-0 left-0 right-0">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 1440 120"
-          fill="#ffffff"
-          preserveAspectRatio="none"
-        >
-          <path d="M0,96L48,80C96,64,192,32,288,32C384,32,480,64,576,74.7C672,85,768,75,864,69.3C960,64,1056,64,1152,58.7C1248,53,1344,43,1392,37.3L1440,32L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z" />
-        </svg>
-      </div>
-    </section>
+    </div>
   );
 }

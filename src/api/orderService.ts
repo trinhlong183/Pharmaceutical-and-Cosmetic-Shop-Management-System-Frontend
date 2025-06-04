@@ -22,12 +22,23 @@ interface ApiResponse<T> {
 
 const API_URL = process.env.NEXT_PUBLIC_API_ENDPOINT;
 
+// Helper function to get auth token
+const getAuthToken = (): string | null => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('accessToken');
+  }
+  return null;
+};
+
 export const orderService = {
   async createOrder(orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order> {
+    const token = getAuthToken();
+    
     const response = await fetch(`${API_URL}/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify(orderData),
     });
@@ -39,7 +50,13 @@ export const orderService = {
   },
 
   async getAllOrders(): Promise<Order[]> {
-    const response = await fetch(`${API_URL}/orders`);
+    const token = getAuthToken();
+    
+    const response = await fetch(`${API_URL}/orders`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
     if (!response.ok) {
       throw new Error('Failed to fetch orders');
     }
@@ -48,16 +65,36 @@ export const orderService = {
   },
 
   async getCurrentUserOrders(): Promise<Order[]> {
-    const response = await fetch(`${API_URL}/orders/by-user`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch user orders');
+    const token = getAuthToken();
+    
+    if (!token) {
+      throw new Error('Authentication token is missing');
     }
+    
+    const response = await fetch(`${API_URL}/orders/by-user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error:', response.status, errorText);
+      throw new Error(`Failed to fetch user orders: ${response.status}`);
+    }
+    
     const data: ApiResponse<Order[]> = await response.json();
     return data.data;
   },
 
   async getOrderById(id: string): Promise<Order> {
-    const response = await fetch(`${API_URL}/orders/${id}`);
+    const token = getAuthToken();
+    
+    const response = await fetch(`${API_URL}/orders/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
     if (!response.ok) {
       throw new Error('Failed to fetch order');
     }
@@ -66,10 +103,13 @@ export const orderService = {
   },
 
   async updateOrder(id: string, orderData: Partial<Order>): Promise<Order> {
+    const token = getAuthToken();
+    
     const response = await fetch(`${API_URL}/orders/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify(orderData),
     });
@@ -81,8 +121,13 @@ export const orderService = {
   },
 
   async deleteOrder(id: string): Promise<void> {
+    const token = getAuthToken();
+    
     const response = await fetch(`${API_URL}/orders/${id}`, {
       method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
     });
     if (!response.ok) {
       throw new Error('Failed to delete order');
@@ -90,10 +135,13 @@ export const orderService = {
   },
 
   async updateOrderStatus(id: string, status: string): Promise<Order> {
+    const token = getAuthToken();
+    
     const response = await fetch(`${API_URL}/orders/${id}/status`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({ status }),
     });
@@ -105,8 +153,13 @@ export const orderService = {
   },
 
   async processOrder(id: string): Promise<Order> {
+    const token = getAuthToken();
+    
     const response = await fetch(`${API_URL}/orders/${id}/process`, {
       method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
     });
     if (!response.ok) {
       throw new Error('Failed to process order');

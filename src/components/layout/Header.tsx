@@ -99,7 +99,7 @@ export default function Header() {
                     My Profile
                   </DropdownMenuItem>
                 </Link>
-                <Link href="/orders" passHref>
+                <Link href="/myorders" passHref>
                   <DropdownMenuItem className="cursor-pointer">
                     My Orders
                   </DropdownMenuItem>
