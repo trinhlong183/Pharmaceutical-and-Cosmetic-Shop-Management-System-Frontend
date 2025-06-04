@@ -55,8 +55,10 @@ export default function LoginForm() {
         const profile = await authApiRequest.myProfile();
         setUser(profile?.payload || null);
       }
-      router.push("/");
+      // router.push("/");
     } catch (error: any) {
+      console.log("Login error:", error);
+
       handleErrorApi({
         error,
         setError: form.setError,

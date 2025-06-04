@@ -112,33 +112,40 @@ const request = async <Response>(
         }
       );
     } else if (res.status === AUTHENTICATION_ERROR_STATUS) {
-      if (isClient()) {
-        if (!clientLogoutRequest) {
-          clientLogoutRequest = fetch("/api/auth/logout", {
-            method: "POST",
-            body: JSON.stringify({ force: true }),
-            headers: {
-              ...baseHeaders,
-            } as any,
-          });
-          try {
-            await clientLogoutRequest;
-          } catch (error) {
-            // Nếu có lỗi xảy ra trong quá trình logout, chúng ta không cần làm gì cả
-            // Vì đã có thông báo lỗi được hiển thị ở phía server
-          } finally {
-            localStorage.removeItem("accessToken");
-            clientLogoutRequest = null;
-            location.href = "/login";
+      if (!["auth/login", "auth/register"].includes(normalizePath(url))) {
+        if (isClient()) {
+          if (!clientLogoutRequest) {
+            console.log("clientLogoutRequest", clientLogoutRequest);
+
+            clientLogoutRequest = fetch("/api/auth/logout", {
+              method: "POST",
+              body: JSON.stringify({ force: true }),
+              headers: {
+                ...baseHeaders,
+              } as any,
+            });
+            try {
+              await clientLogoutRequest;
+            } catch (error) {
+              // Nếu có lỗi xảy ra trong quá trình logout, chúng ta không cần làm gì cả
+              // Vì đã có thông báo lỗi được hiển thị ở phía server
+            } finally {
+              localStorage.removeItem("accessToken");
+              clientLogoutRequest = null;
+              location.href = "/login";
+            }
           }
+        } else {
+          const accessToken = (options?.headers as any)?.Authorization?.split(
+            "Bearer "
+          )[1];
+          redirect(`/logout?accessToken=${accessToken}`);
         }
       } else {
-        const accessToken = (options?.headers as any)?.Authorization?.split(
-          "Bearer "
-        )[1];
-        redirect(`/logout?accessToken=${accessToken}`);
+        throw new HttpError(data);
       }
     } else {
+      // Nếu là login/register thì throw lỗi để phía client xử lý và hiển thị thông báo
       throw new HttpError(data);
     }
   }
