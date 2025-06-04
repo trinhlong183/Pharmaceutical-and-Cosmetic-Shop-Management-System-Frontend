@@ -146,6 +146,8 @@ const request = async <Response>(
       }
     } else {
       // Nếu là login/register thì throw lỗi để phía client xử lý và hiển thị thông báo
+      console.log("Error in login:", data);
+
       throw new HttpError(data);
     }
   }

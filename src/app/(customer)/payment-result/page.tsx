@@ -53,7 +53,7 @@ export default function PaymentResult() {
 
   const handleContinue = () => {
     if (success) {
-      router.push('/orders'); // Redirect to orders page if payment successful
+      router.push('/myorders'); // Redirect to myorders page if payment successful
     } else {
       router.push('/cartpage'); // Return to cart if payment failed
     }
@@ -78,7 +78,7 @@ export default function PaymentResult() {
                 onClick={handleContinue}
                 className="w-full bg-green-600 hover:bg-green-700"
               >
-                View Orders
+                View My Orders
               </Button>
             </div>
           </div>

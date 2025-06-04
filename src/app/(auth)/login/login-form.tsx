@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/card";
 import { useUser } from "@/contexts/UserContext";
 
+
 export default function LoginForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -57,8 +58,7 @@ export default function LoginForm() {
       }
       // router.push("/");
     } catch (error: any) {
-      console.log("Login error:", error);
-
+      console.log("Login error o login-form:", error);
       handleErrorApi({
         error,
         setError: form.setError,
