@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   User,
-  Mail,
   Phone,
   MapPin,
   Calendar,
@@ -18,17 +17,19 @@ import {
   Edit3,
   Save,
   X,
-  Shield,
-  Star,
+  Mail,
 } from "lucide-react";
 import { toast } from "sonner";
+import userService from "@/api/userService";
+import { log } from "console";
 
 export default function ProfilePage() {
   const { user, setUser } = useUser();
   const [isEditing, setIsEditing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     fullName: user?.fullName || "",
-    email: user?.email || "",
     phone: user?.phone || "",
     address: user?.address || "",
     dob: user?.dob || "",
@@ -46,20 +47,25 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     try {
-      // Here you would typically make an API call to update the user profile
-      // For now, we'll just update the local state
-      setUser((prev) => (prev ? { ...prev, ...formData } : null));
+      // Validate and format dob as ISO 8601 or null
+      const formattedData = {
+        ...formData,
+        dob: formData.dob ? new Date(formData.dob).toISOString() : null,
+      };
+
+      await userService.updateProfile(formattedData);
+      setUser((prev) => (prev ? { ...prev, ...formattedData } : null));
       setIsEditing(false);
       toast.success("Profile updated successfully!");
     } catch (error) {
       toast.error("Failed to update profile");
+      console.error(error);
     }
   };
 
   const handleCancel = () => {
     setFormData({
       fullName: user?.fullName || "",
-      email: user?.email || "",
       phone: user?.phone || "",
       address: user?.address || "",
       dob: user?.dob || "",
@@ -67,20 +73,58 @@ export default function ProfilePage() {
     setIsEditing(false);
   };
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            Please sign in to view your profile
-          </h2>
-          <Button asChild>
-            <a href="/login">Sign In</a>
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Kiểm tra kích thước file (tối đa 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size should not exceed 5MB");
+      return;
+    }
+
+    // Kiểm tra định dạng file
+    const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/gif"];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Only JPG, PNG and GIF images are supported");
+      return;
+    }
+
+    try {
+      setUploading(true);
+
+      // Tạo FormData để gửi file
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      // Gọi API upload avatar với xử lý phản hồi linh hoạt hơn
+      const response = await userService.uploadAvatar(formData);
+      console.log("Avatar upload response:", response);
+
+      // Xử lý phản hồi từ API một cách linh hoạt hơn
+      let avatarUrl: string | undefined;
+
+      // Kiểm tra các cấu trúc phản hồi có thể có
+      if (response.payload?.data?.avatarUrl) {
+        avatarUrl = response.payload.data.avatarUrl;
+      } else if (typeof response.payload === "string") {
+        avatarUrl = response.payload;
+      }
+
+      if (avatarUrl) {
+        setUser((prev) => (prev ? { ...prev, avatar: avatarUrl } : null));
+        toast.success("Avatar updated successfully");
+      } else {
+        toast.error("Couldn't get avatar URL from response");
+        console.error("Unexpected response format:", response)
+      }
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      toast.error("Failed to upload avatar");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 py-8 px-4">
@@ -102,18 +146,36 @@ export default function ProfilePage() {
               <CardContent className="p-6 text-center">
                 <div className="relative inline-block mb-6">
                   <Avatar className="w-32 h-32 mx-auto border-4 border-white shadow-lg">
-                    <AvatarImage src={user.avatar} />
+                    <AvatarImage src={user?.avatar} />
                     <AvatarFallback className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-4xl">
-                      {user.fullName ? user.fullName[0].toUpperCase() : "U"}
+                      {user?.fullName ? user?.fullName[0].toUpperCase() : "U"}
                     </AvatarFallback>
                   </Avatar>
-                  <button className="absolute bottom-2 right-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white p-2 rounded-full shadow-lg hover:from-blue-600 hover:to-purple-600 transition-all">
-                    <Camera className="w-4 h-4" />
+
+                  {/* Hidden file input để upload avatar */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleAvatarUpload}
+                    accept="image/jpeg,image/png,image/gif"
+                    className="hidden"
+                  />
+
+                  <button
+                    className="absolute bottom-2 right-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white p-2 rounded-full shadow-lg hover:from-blue-600 hover:to-purple-600 transition-all"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Camera className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
 
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                  {user.fullName || "User"}
+                  {user?.fullName || "User"}
                 </h2>
 
                 <div className="flex justify-center mb-4">
@@ -121,7 +183,7 @@ export default function ProfilePage() {
                     variant="secondary"
                     className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-0"
                   >
-                    {user.email}
+                    {user?.email}
                   </Badge>
                 </div>
 
@@ -166,7 +228,15 @@ export default function ProfilePage() {
                 </CardTitle>
                 {!isEditing ? (
                   <Button
-                    onClick={() => setIsEditing(true)}
+                    onClick={() => {
+                      setFormData({
+                        fullName: user?.fullName || "",
+                        phone: user?.phone || "",
+                        address: user?.address || "",
+                        dob: user?.dob || "",
+                      });
+                      setIsEditing(true);
+                    }}
                     className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
                   >
                     <Edit3 className="w-4 h-4 mr-2" />
@@ -209,7 +279,7 @@ export default function ProfilePage() {
                     />
                   ) : (
                     <div className="p-3 bg-gray-50 rounded-lg text-gray-800">
-                      {user.fullName || "Not provided"}
+                      {user?.fullName || "Not provided"}
                     </div>
                   )}
                 </div>
@@ -224,7 +294,7 @@ export default function ProfilePage() {
                     Email Address
                   </Label>
                   <div className="p-3 bg-gray-50 rounded-lg text-gray-800">
-                    {user.email}
+                    {user?.email}
                     <Badge variant="secondary" className="ml-2 text-xs">
                       Verified
                     </Badge>
@@ -251,7 +321,7 @@ export default function ProfilePage() {
                     />
                   ) : (
                     <div className="p-3 bg-gray-50 rounded-lg text-gray-800">
-                      {user.phone || "Not provided"}
+                      {user?.phone || "Not provided"}
                     </div>
                   )}
                 </div>
@@ -276,7 +346,8 @@ export default function ProfilePage() {
                     />
                   ) : (
                     <div className="p-3 bg-gray-50 rounded-lg text-gray-800">
-                      {user.dob || "Not provided"}
+                      {new Date(user?.dob).toLocaleDateString() ||
+                        "Not provided"}
                     </div>
                   )}
                 </div>
@@ -302,7 +373,7 @@ export default function ProfilePage() {
                     />
                   ) : (
                     <div className="p-3 bg-gray-50 rounded-lg text-gray-800 min-h-[80px]">
-                      {user.address || "Not provided"}
+                      {user?.address || "Not provided"}
                     </div>
                   )}
                 </div>
