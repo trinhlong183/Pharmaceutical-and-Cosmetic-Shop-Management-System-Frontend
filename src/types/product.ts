@@ -1,38 +1,37 @@
+import { SuitableFor } from "@/schemaValidations/product.schema";
+import { Category } from "./category";
+
 export enum SuitableForType {
-  ALL = 'ALL',
-  MEN = 'MEN',
-  WOMEN = 'WOMEN',
-  CHILDREN = 'CHILDREN'
+  ALL = "ALL",
+  MEN = "MEN",
+  WOMEN = "WOMEN",
+  CHILDREN = "CHILDREN",
 }
 
-export interface Category {
-  _id: string;
-  name: string;
-}
-
-export interface CategoryObject {
-  _id: string;
-  categoryName: string;
-  categoryDescription?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  __v?: number;
+export interface Review {
+  userId: string;
+  rating: number;
+  comment: string;
+  createdAt?: Date;
 }
 
 export interface Product {
-  id: string;
+  id?: string;
+  _id?: string;
+  productId?: string;
   productName: string;
   productDescription: string;
   price: number;
   stock: number;
-  category: (string | CategoryObject)[];
+  category: string[] | Category[];
   brand: string;
   productImages: string[];
   ingredients: string;
-  suitableFor: string;
-  reviews: any[];
-  salePercentage: number;
-  expiryDate: string;
-  createdAt: string;
-  updatedAt: string;
+  suitableFor: SuitableFor;
+  reviews?: Review[];
+  salePercentage?: number;
+  averageRating?: number;
+  expiryDate: string | Date;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }

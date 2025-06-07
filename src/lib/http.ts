@@ -49,7 +49,6 @@ export class EntityError extends HttpError {
   }
 }
 
-let clientLogoutRequest: null | Promise<any> = null;
 export const isClient = () => typeof window !== "undefined";
 const request = async <Response>(
   method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
@@ -111,61 +110,11 @@ const request = async <Response>(
           payload: EntityErrorPayload;
         }
       );
-    } else if (res.status === AUTHENTICATION_ERROR_STATUS) {
-      if (!["auth/login", "auth/register"].includes(normalizePath(url))) {
-        if (isClient()) {
-          if (!clientLogoutRequest) {
-            console.log("clientLogoutRequest", clientLogoutRequest);
-
-            clientLogoutRequest = fetch("/api/auth/logout", {
-              method: "POST",
-              body: JSON.stringify({ force: true }),
-              headers: {
-                ...baseHeaders,
-              } as any,
-            });
-            try {
-              await clientLogoutRequest;
-            } catch (error) {
-              // Nếu có lỗi xảy ra trong quá trình logout, chúng ta không cần làm gì cả
-              // Vì đã có thông báo lỗi được hiển thị ở phía server
-            } finally {
-              localStorage.removeItem("accessToken");
-              clientLogoutRequest = null;
-              location.href = "/login";
-            }
-          }
-        } else {
-          const accessToken = (options?.headers as any)?.Authorization?.split(
-            "Bearer "
-          )[1];
-          redirect(`/logout?accessToken=${accessToken}`);
-        }
-      } else {
-        throw new HttpError(data);
-      }
     } else {
-      // Nếu là login/register thì throw lỗi để phía client xử lý và hiển thị thông báo
       console.log("Error in login:", data);
-
       throw new HttpError(data);
     }
   }
-  // Đảm bảo logic dưới đây chỉ chạy ở phía client (browser)
-  // if (isClient()) {
-  //   if (
-  //     ["auth/login", "auth/register"].some(
-  //       (item) => item === normalizePath(url)
-  //     )
-  //   ) {
-  //     const { token, expiresAt } = (payload as LoginResType).data;
-  //     localStorage.setItem("sessionToken", token);
-  //     localStorage.setItem("sessionTokenExpiresAt", expiresAt);
-  //   } else if ("auth/logout" === normalizePath(url)) {
-  //     localStorage.removeItem("sessionToken");
-  //     localStorage.removeItem("sessionTokenExpiresAt");
-  //   }
-  // }
   return data;
 };
 

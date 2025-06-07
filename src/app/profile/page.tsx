@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import userService from "@/api/userService";
-import { log } from "console";
 
 export default function ProfilePage() {
   const { user, setUser } = useUser();
@@ -102,17 +101,17 @@ export default function ProfilePage() {
       console.log("Avatar upload response:", response);
 
       // Xử lý phản hồi từ API một cách linh hoạt hơn
-      let avatarUrl: string | undefined;
+      let photoUrl: string | undefined;
 
       // Kiểm tra các cấu trúc phản hồi có thể có
-      if (response.payload?.data?.avatarUrl) {
-        avatarUrl = response.payload.data.avatarUrl;
+      if (response.payload?.data?.photoUrl) {
+        photoUrl = response.payload.data.photoUrl;
       } else if (typeof response.payload === "string") {
-        avatarUrl = response.payload;
+        photoUrl = response.payload;
       }
 
-      if (avatarUrl) {
-        setUser((prev) => (prev ? { ...prev, avatar: avatarUrl } : null));
+      if (photoUrl) {
+        setUser((prev) => (prev ? { ...prev, avatar: photoUrl } : null));
         toast.success("Avatar updated successfully");
       } else {
         toast.error("Couldn't get avatar URL from response");

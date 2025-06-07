@@ -112,6 +112,8 @@ export const userService = {
   //   return data.data;
   // },
   uploadAvatar: async (formData: FormData) => {
+    console.log("Uploading avatar with formData:", formData);
+
     return await http.patch("/users/avatar", formData);
   },
 
@@ -132,7 +134,7 @@ export const userService = {
   },
 
   updateProfile: (body: Partial<User>) => {
-    console.log("test up", http.patch("/users/profile", body));
+    return http.patch("/users/profile", body);
   },
 };
 

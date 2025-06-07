@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ShoppingCart, Menu, X } from "lucide-react";
 import CartIcon from "./CartIcon";
+import { Role } from "@/constants/type";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -109,6 +110,13 @@ export default function Header() {
                     Skin Analysis History
                   </DropdownMenuItem>
                 </Link>
+                {user.role === Role.STAFF && (
+                  <Link href="/manage-products" passHref>
+                    <DropdownMenuItem className="cursor-pointer">
+                      Manage Products
+                    </DropdownMenuItem>
+                  </Link>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="cursor-pointer text-red-600"
@@ -205,6 +213,14 @@ export default function Header() {
                   >
                     My Orders
                   </Link>
+                  {user.role === Role.STAFF && (
+                    <Link
+                      href="/manage-products"
+                      className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
+                    >
+                      Manage Products
+                    </Link>
+                  )}
                 </>
               )}
             </nav>
