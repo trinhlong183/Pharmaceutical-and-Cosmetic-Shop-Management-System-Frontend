@@ -100,6 +100,7 @@ const ManageOrdersPage = () => {
     }
   };
 
+  // Modified getUserName function to handle nested user data
   const getUserName = (userId) => {
     if (!userId) return "N/A";
     
@@ -142,15 +143,25 @@ const ManageOrdersPage = () => {
   const handleStatusChange = async (orderId, newStatus) => {
     setStatusUpdating(true);
     try {
-      await orderService.updateOrderStatus(orderId, newStatus);
+      // Call the updateOrderStatus method from orderService
+      const updatedOrder = await orderService.updateOrderStatus(orderId, newStatus);
+      
       toast.success(`Order status updated to ${newStatus}`);
-      fetchOrders();
-      if (detailOrder && detailOrder.id === orderId) {
+      
+      // Update local state to reflect the change
+      setOrders(orders.map(order => 
+        (order.id === orderId || order._id === orderId) 
+          ? {...order, status: newStatus} 
+          : order
+      ));
+      
+      // Update the order details dialog if open
+      if (detailOrder && (detailOrder.id === orderId || detailOrder._id === orderId)) {
         setDetailOrder({ ...detailOrder, status: newStatus });
       }
     } catch (error) {
       toast.error("Failed to update order status");
-      console.error(error);
+      console.error("Error updating status:", error);
     } finally {
       setStatusUpdating(false);
     }
@@ -212,12 +223,10 @@ const ManageOrdersPage = () => {
               <TableBody>
                 {orders && orders.length > 0 ? (
                   orders.map((order) => {
-                    const userId = typeof order.userId === 'object' ? 
-                      (order.userId._id || order.userId.id) : order.userId;
-                      
+                    const orderId = order.id || order._id;
                     return (
-                      <TableRow key={order.id || order._id}>
-                        <TableCell>{order.id || order._id}</TableCell>
+                      <TableRow key={orderId}>
+                        <TableCell>{orderId}</TableCell>
                         <TableCell>{getUserName(order.userId)}</TableCell>
                         <TableCell>{formatDate(order.createdAt)}</TableCell>
                         <TableCell>{formatPrice(order.totalAmount)}</TableCell>
@@ -226,26 +235,24 @@ const ManageOrdersPage = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleViewDetail(order.id || order._id)}
+                            onClick={() => handleViewDetail(orderId)}
                           >
                             View Details
                           </Button>
                           <Select
                             disabled={statusUpdating}
                             defaultValue={order.status}
-                            onValueChange={(value) =>
-                              handleStatusChange(order.id || order._id, value)
-                            }
+                            onValueChange={(value) => handleStatusChange(orderId, value)}
                           >
                             <SelectTrigger className="w-[150px]">
                               <SelectValue placeholder="Update Status" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="PENDING">PENDING</SelectItem>
-                              <SelectItem value="PROCESSING">PROCESSING</SelectItem>
-                              <SelectItem value="SHIPPED">SHIPPED</SelectItem>
-                              <SelectItem value="DELIVERED">DELIVERED</SelectItem>
-                              <SelectItem value="CANCELLED">CANCELLED</SelectItem>
+                              <SelectItem value="pending">PENDING</SelectItem>
+                              <SelectItem value="processing">PROCESSING</SelectItem>
+                              <SelectItem value="shipped">SHIPPED</SelectItem>
+                              <SelectItem value="delivered">DELIVERED</SelectItem>
+                              <SelectItem value="cancelled">CANCELLED</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
@@ -284,6 +291,12 @@ const ManageOrdersPage = () => {
                   <p>Date: {formatDate(detailOrder.createdAt)}</p>
                   <p>Status: {getStatusBadge(detailOrder.status)}</p>
                   <p>Total: {formatPrice(detailOrder.totalAmount)}</p>
+                  {detailOrder.shippingAddress && (
+                    <p>Shipping Address: {detailOrder.shippingAddress}</p>
+                  )}
+                  {detailOrder.contactPhone && (
+                    <p>Contact Phone: {detailOrder.contactPhone}</p>
+                  )}
                 </div>
                 <div>
                   <h3 className="font-semibold">Customer Information</h3>
@@ -306,6 +319,30 @@ const ManageOrdersPage = () => {
                 </div>
               </div>
 
+              {/* Transaction Information */}
+              {detailOrder.transactionId && (
+                <div>
+                  <h3 className="font-semibold mb-2">Transaction Information</h3>
+                  <div className="bg-gray-50 p-3 rounded-md">
+                    <p>Transaction ID: {
+                      typeof detailOrder.transactionId === 'object' 
+                        ? detailOrder.transactionId._id || detailOrder.transactionId.id 
+                        : detailOrder.transactionId
+                    }</p>
+                    {typeof detailOrder.transactionId === 'object' && (
+                      <>
+                        <p>Order ID: {detailOrder.transactionId.orderId}</p>
+                        <p>Payment Method: {detailOrder.transactionId.paymentMethod || 'N/A'}</p>
+                        <p>Payment Status: {detailOrder.transactionId.status}</p>
+                        {detailOrder.transactionId.paymentDetails && detailOrder.transactionId.paymentDetails.bankCode && (
+                          <p>Bank: {detailOrder.transactionId.paymentDetails.bankCode}</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <h3 className="font-semibold mb-2">Order Items</h3>
                 <Table>
@@ -323,7 +360,7 @@ const ManageOrdersPage = () => {
                         <TableRow key={index}>
                           <TableCell>
                             {typeof item.productId === "object"
-                              ? item.productId._id
+                              ? item.productId._id || item.productId.id
                               : item.productId}
                           </TableCell>
                           <TableCell>{formatPrice(item.price)}</TableCell>
@@ -336,7 +373,7 @@ const ManageOrdersPage = () => {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center">
-                          No items in this order
+                          No items in this order or items not available
                         </TableCell>
                       </TableRow>
                     )}
@@ -355,18 +392,18 @@ const ManageOrdersPage = () => {
                 disabled={statusUpdating}
                 defaultValue={detailOrder.status}
                 onValueChange={(value) =>
-                  handleStatusChange(detailOrder.id, value)
+                  handleStatusChange(detailOrder.id || detailOrder._id, value)
                 }
               >
                 <SelectTrigger className="w-[150px]">
                   <SelectValue placeholder="Update Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PENDING">PENDING</SelectItem>
-                  <SelectItem value="PROCESSING">PROCESSING</SelectItem>
-                  <SelectItem value="SHIPPED">SHIPPED</SelectItem>
-                  <SelectItem value="DELIVERED">DELIVERED</SelectItem>
-                  <SelectItem value="CANCELLED">CANCELLED</SelectItem>
+                  <SelectItem value="pending">PENDING</SelectItem>
+                  <SelectItem value="processing">PROCESSING</SelectItem>
+                  <SelectItem value="shipped">SHIPPED</SelectItem>
+                  <SelectItem value="delivered">DELIVERED</SelectItem>
+                  <SelectItem value="cancelled">CANCELLED</SelectItem>
                 </SelectContent>
               </Select>
             )}
