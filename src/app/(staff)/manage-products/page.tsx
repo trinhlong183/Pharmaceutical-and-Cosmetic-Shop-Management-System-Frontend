@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { productService } from "@/api/productService";
 import { categoriesService } from "@/api/categoriesService";
-import StaffRoute from "@/components/auth/StaffRoute";
+import RoleRoute from "@/components/auth/RoleRoute";
+import { Role } from "@/constants/type";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -177,7 +178,7 @@ export default function ManageProductsPage() {
   };
 
   return (
-    <StaffRoute>
+    <RoleRoute allowedRoles={[Role.STAFF]}>
       <div className="container mx-auto py-8 px-4">
         <h1 className="text-3xl font-bold mb-6">Manage Products</h1>
 
@@ -477,6 +478,6 @@ export default function ManageProductsPage() {
           </DialogContent>
         </Dialog>
       </div>
-    </StaffRoute>
+    </RoleRoute>
   );
 }
