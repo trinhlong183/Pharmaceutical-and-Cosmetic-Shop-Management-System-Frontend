@@ -1,10 +1,12 @@
+import http from "@/lib/http";
+
 export interface User {
   _id: string;
   email: string;
   fullName: string;
   phone: string;
   address: string;
-  dob: string;
+  dob: string | null;
   photoUrl?: string;
   isVerified: boolean;
   isActive: boolean;
@@ -25,18 +27,20 @@ const API_URL = process.env.NEXT_PUBLIC_API_ENDPOINT;
 
 export const userService = {
   // Create new user (POST /users)
-  async createUser(userData: Omit<User, '_id' | 'createdAt' | 'updatedAt'>): Promise<User> {
+  async createUser(
+    userData: Omit<User, "_id" | "createdAt" | "updatedAt">
+  ): Promise<User> {
     const response = await fetch(`${API_URL}/users`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(userData),
-      credentials: 'include'
+      credentials: "include",
     });
 
     if (!response.ok) {
-      throw new Error('Failed to create user');
+      throw new Error("Failed to create user");
     }
 
     const data: ApiResponse<User> = await response.json();
@@ -46,11 +50,11 @@ export const userService = {
   // Get all users (GET /users)
   async getAllUsers(): Promise<User[]> {
     const response = await fetch(`${API_URL}/users`, {
-      credentials: 'include'
+      credentials: "include",
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch users');
+      throw new Error("Failed to fetch users");
     }
 
     const data: ApiResponse<User[]> = await response.json();
@@ -61,70 +65,77 @@ export const userService = {
   async getUserById(id: string): Promise<User> {
     try {
       const response = await fetch(`${API_URL}/users/${id}`, {
-        credentials: 'include',
+        credentials: "include",
         headers: {
-          'Content-Type': 'application/json',
-        }
+          "Content-Type": "application/json",
+        },
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to fetch user');
+        throw new Error(error.message || "Failed to fetch user");
       }
 
       const responseData = await response.json();
-      
+
       // If the API returns the user data directly without the ApiResponse wrapper
       if (responseData._id && responseData.fullName) {
         return responseData;
       }
-      
+
       // If the API returns data wrapped in ApiResponse format
       if (responseData.success && responseData.data) {
         return responseData.data;
       }
 
-      throw new Error('Invalid user data structure received');
+      throw new Error("Invalid user data structure received");
     } catch (error) {
-      console.error('Error fetching user:', error);
-      throw error instanceof Error ? error : new Error('Failed to fetch user data');
+      console.error("Error fetching user:", error);
+      throw error instanceof Error
+        ? error
+        : new Error("Failed to fetch user data");
     }
   },
 
   // Update user avatar (PATCH /users/avatar)
-  async updateAvatar(formData: FormData): Promise<User> {
-    const response = await fetch(`${API_URL}/users/avatar`, {
-      method: 'PATCH',
-      body: formData,
-      credentials: 'include'
-    });
+  // async updateAvatar(formData: FormData): Promise<User> {
+  //   const response = await fetch(`${API_URL}/users/avatar`, {
+  //     method: "PATCH",
+  //     body: formData,
+  //     credentials: "include",
+  //   });
 
-    if (!response.ok) {
-      throw new Error('Failed to update avatar');
-    }
+  //   if (!response.ok) {
+  //     throw new Error("Failed to update avatar");
+  //   }
+  //   const data: ApiResponse<User> = await response.json();
+  //   return data.data;
+  // },
+  uploadAvatar: async (formData: FormData) => {
+    console.log("Uploading avatar with formData:", formData);
 
-    const data: ApiResponse<User> = await response.json();
-    return data.data;
+    return await http.patch("/users/avatar", formData);
   },
 
   // Get current authenticated user
   async getCurrentUser(): Promise<User> {
     try {
       // Get userId from localStorage or your auth state management
-      const userId = localStorage.getItem('userId'); // or from your auth context/store
-      
+      const userId = localStorage.getItem("userId"); // or from your auth context/store
       if (!userId) {
-        throw new Error('User not authenticated');
+        throw new Error("User not authenticated");
       }
-
       // Use the existing getUserById method
       return await this.getUserById(userId);
-      
     } catch (error) {
-      console.error('Error getting current user:', error);
-      throw new Error('Failed to fetch current user');
+      console.error("Error getting current user:", error);
+      throw new Error("Failed to fetch current user");
     }
-  }
+  },
+
+  updateProfile: (body: Partial<User>) => {
+    return http.patch("/users/profile", body);
+  },
 };
 
 export default userService;

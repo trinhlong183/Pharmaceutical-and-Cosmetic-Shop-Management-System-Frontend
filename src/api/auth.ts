@@ -4,7 +4,6 @@ import {
   RegisterBodyType,
   LoginResType,
 } from "@/schemaValidations/auth.schema";
-import { My_Soul } from "next/font/google";
 
 const authApiRequest = {
   login: (body: LoginBodyType) =>

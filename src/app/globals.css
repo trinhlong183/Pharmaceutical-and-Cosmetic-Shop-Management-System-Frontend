@@ -120,3 +120,25 @@
     @apply bg-background text-foreground;
   }
 }
+
+.my-custom-toast .toaster {
+  /* Ví dụ: */
+  font-family: "Inter", sans-serif;
+}
+.my-custom-toast [data-sonner-toast] {
+  border-radius: 12px;
+  background: #fffbe6;
+  color: #222;
+  border: 1px solid #ffe58f;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.my-custom-toast [data-sonner-toast][data-type="error"] {
+  background: #fff1f0;
+  color: #cf1322;
+  border-color: #ffa39e;
+}
+.my-custom-toast [data-sonner-toast][data-type="success"] {
+  background: #f6ffed;
+  color: #389e0d;
+  border-color: #b7eb8f;
+}

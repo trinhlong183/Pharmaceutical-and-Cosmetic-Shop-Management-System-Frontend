@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,16 @@ export default function LoginForm() {
     },
   });
 
+  const { user, loading } = useUser();
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/"); // Redirect to home if already logged in
+    }
+  }, [user, loading, router]);
+  if (user) return null;
+
+  if (loading) return null; // Or a spinner
   async function onSubmit(values: LoginBodyType) {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -57,6 +68,7 @@ export default function LoginForm() {
       }
       router.push("/");
     } catch (error: any) {
+      console.log("Login error o login-form:", error);
       handleErrorApi({
         error,
         setError: form.setError,

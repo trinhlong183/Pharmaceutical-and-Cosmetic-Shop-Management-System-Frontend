@@ -6,6 +6,7 @@ import Header from "@/components/layout/Header";
 // import CartIcon from "@/components/CartIcon";
 import { Toaster } from "react-hot-toast";
 import { AppProviders } from "./providers";
+import { Toaster as Sonner } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,8 @@ export default function RootLayout({
         <AppProviders>
           <Header />
           {children}
+          <Toaster />
+          <Sonner />
           <Toaster position="top-right" />
           <Footer />
         </AppProviders>
