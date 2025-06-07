@@ -1,20 +1,13 @@
 import http from "@/lib/http";
 
 export interface User {
-  _id: string;
+  id?: string;
+  _id?: string;
   email: string;
-  fullName: string;
-  phone: string;
-  address: string;
-  dob: string | null;
-  photoUrl?: string;
-  isVerified: boolean;
-  isActive: boolean;
-  skinAnalysisHistory: any[]; // You might want to create a specific type for this
-  purchaseHistory: any[]; // You might want to create a specific type for this
-  role: string;
-  createdAt: string;
-  updatedAt: string;
+  name: string;
+  phone?: string;
+  address?: string;
+  role?: string;
 }
 
 interface ApiResponse<T> {
@@ -24,6 +17,14 @@ interface ApiResponse<T> {
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_ENDPOINT;
+
+// Helper function to get auth token
+const getAuthToken = (): string | null => {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("accessToken");
+  }
+  return null;
+};
 
 export const userService = {
   // Create new user (POST /users)
@@ -49,8 +50,12 @@ export const userService = {
 
   // Get all users (GET /users)
   async getAllUsers(): Promise<User[]> {
+    const token = getAuthToken();
+
     const response = await fetch(`${API_URL}/users`, {
-      credentials: "include",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     if (!response.ok) {
@@ -63,38 +68,20 @@ export const userService = {
 
   // Get user by ID (GET /users/{id})
   async getUserById(id: string): Promise<User> {
-    try {
-      const response = await fetch(`${API_URL}/users/${id}`, {
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+    const token = getAuthToken();
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to fetch user");
-      }
+    const response = await fetch(`${API_URL}/users/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      const responseData = await response.json();
-
-      // If the API returns the user data directly without the ApiResponse wrapper
-      if (responseData._id && responseData.fullName) {
-        return responseData;
-      }
-
-      // If the API returns data wrapped in ApiResponse format
-      if (responseData.success && responseData.data) {
-        return responseData.data;
-      }
-
-      throw new Error("Invalid user data structure received");
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      throw error instanceof Error
-        ? error
-        : new Error("Failed to fetch user data");
+    if (!response.ok) {
+      throw new Error("Failed to fetch user");
     }
+
+    const data: ApiResponse<User> = await response.json();
+    return data.data;
   },
 
   // Update user avatar (PATCH /users/avatar)

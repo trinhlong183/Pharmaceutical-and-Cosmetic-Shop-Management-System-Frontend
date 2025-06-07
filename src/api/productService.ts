@@ -42,3 +42,5 @@ export const productService = {
     return http.delete(`/products/${id}`);
   },
 };
+
+export default productService;
