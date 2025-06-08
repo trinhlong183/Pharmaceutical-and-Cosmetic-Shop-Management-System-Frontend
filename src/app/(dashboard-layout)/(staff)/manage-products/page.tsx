@@ -45,7 +45,7 @@ import { Badge } from "@/components/ui/badge";
 import { Product } from "@/types/product";
 import { Category } from "@/types/category";
 import { SuitableFor } from "@/schemaValidations/product.schema";
-import ProductForm from "@/app/(staff)/manage-products/ProductForm";
+import ProductForm from "@/app/(dashboard-layout)/(staff)/manage-products/ProductForm";
 import { PlusIcon, SearchIcon } from "lucide-react";
 import Image from "next/image";
 

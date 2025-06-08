@@ -30,7 +30,7 @@ export default function Header() {
           </h1>
         </Link>
 
-      {/* Desktop Navigation */}
+        {/* Desktop Navigation */}
         <nav className="hidden md:flex space-x-8">
           <Link
             href="/home"
@@ -110,10 +110,10 @@ export default function Header() {
                     Skin Analysis History
                   </DropdownMenuItem>
                 </Link>
-                {user.role === Role.STAFF && (
-                  <Link href="/manage-products" passHref>
+                {(user.role === Role.STAFF || user.role === Role.ADMIN) && (
+                  <Link href="/dashboard" passHref>
                     <DropdownMenuItem className="cursor-pointer">
-                      Manage Products
+                      Dashboard
                     </DropdownMenuItem>
                   </Link>
                 )}
