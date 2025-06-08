@@ -69,7 +69,7 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const { removeFromCart } = useCart(); // Add this line to properly destructure the hook
+  const { removeFromCart } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -89,41 +89,50 @@ export default function CartPage() {
         return;
       }
       
-      // Call the user service and directly use the response data
-      const userData = await userService.getUserById(userId);
+      console.log('Attempting to fetch user info for userId:', userId);
       
-      // Check if we have the required user data fields
-      if (userData && userData._id && userData.fullName) {
-        setUser({
-          _id: userData._id,
-          email: userData.email,
-          fullName: userData.fullName,
-          phone: userData.phone || '',
-          address: userData.address || '',
-          dob: userData.dob || '',
-          photoUrl: userData.photoUrl,
-          isVerified: userData.isVerified,
-          isActive: userData.isActive,
-          skinAnalysisHistory: userData.skinAnalysisHistory || [],
-          purchaseHistory: userData.purchaseHistory || [],
-          role: userData.role,
-          createdAt: userData.createdAt,
-          updatedAt: userData.updatedAt
-        });
-      } else {
-        console.error('Missing required user data fields:', userData);
-        setUser(null);
+      try {
+        // Call getUserById with the userId from the cart
+        const response = await userService.getUserById(userId);
+        console.log('User data from API:', response);
+        
+        // Based on the example API response you provided, the user data is directly in the response
+        // No need to look for response.data
+        if (response && response._id) {
+          // Map the response fields directly to our User object
+          setUser({
+            _id: response._id,
+            email: response.email || '',
+            fullName: response.fullName || '',
+            phone: response.phone || '',
+            address: response.address || '',
+            dob: response.dob || '',
+            photoUrl: response.photoUrl || '',
+            isVerified: response.isVerified || false,
+            isActive: response.isActive || false,
+            skinAnalysisHistory: response.skinAnalysisHistory || [],
+            purchaseHistory: response.purchaseHistory || [],
+            role: response.role || 'customer',
+            createdAt: response.createdAt || '',
+            updatedAt: response.updatedAt || ''
+          });
+          console.log('User data set successfully');
+        } else {
+          console.error('Invalid or empty response from getUserById');
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
       }
     } catch (error) {
-      console.error('Error fetching user info:', error);
-      setUser(null);
-      // Silent fail - don't show error toast since user info is not critical
+      console.error('Error in fetchUserInfo:', error);
     }
   };
+
   const fetchCart = async () => {
     try {
       const response = await cartService.getMyCart();
       console.log('Cart data:', response);
+      
       if (response.success && response.data) {
         // Validate cart items to ensure no null productId exists
         if (response.data.items && Array.isArray(response.data.items)) {
@@ -153,9 +162,16 @@ export default function CartPage() {
         }
         
         setCart(response.data);
-        // Fetch user info after getting cart data
-        if (response.data.userId) {
-          await fetchUserInfo(response.data.userId);
+        
+        // Extract userId directly from the cart data
+        // This is the key change - using the correct path to userId in the cart response
+        const cartUserId = response.data.userId;
+        
+        if (cartUserId) {
+          console.log('Found userId in cart:', cartUserId);
+          await fetchUserInfo(cartUserId);
+        } else {
+          console.warn('Cart does not contain userId');
         }
       } else {
         console.error('Invalid cart data structure:', response);

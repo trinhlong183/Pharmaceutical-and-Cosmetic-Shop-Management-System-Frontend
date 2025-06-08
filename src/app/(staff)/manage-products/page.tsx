@@ -178,7 +178,7 @@ export default function ManageProductsPage() {
   };
 
   return (
-    <RoleRoute allowedRoles={[Role.STAFF]}>
+    <RoleRoute allowedRoles={[Role.STAFF, Role.ADMIN]}>
       <div className="container mx-auto py-8 px-4">
         <h1 className="text-3xl font-bold mb-6">Manage Products</h1>
 
