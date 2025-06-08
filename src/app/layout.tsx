@@ -36,12 +36,12 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <AppProviders>
-          <Header />
+          {/* <Header /> */}
           {children}
           <Toaster />
           <Sonner />
           <Toaster position="top-right" />
-          <Footer />
+          {/* <Footer /> */}
         </AppProviders>
       </body>
     </html>

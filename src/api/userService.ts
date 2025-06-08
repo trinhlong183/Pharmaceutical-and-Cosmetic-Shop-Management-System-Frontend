@@ -4,17 +4,17 @@ export interface User {
   _id: string;
   email: string;
   fullName: string;
-  phone: string;
-  address: string;
-  dob: string | null;
+  phone?: string;
+  address?: string;
+  dob?: string;
   photoUrl?: string;
-  isVerified: boolean;
-  isActive: boolean;
-  skinAnalysisHistory: any[]; // You might want to create a specific type for this
-  purchaseHistory: any[]; // You might want to create a specific type for this
-  role: string;
-  createdAt: string;
-  updatedAt: string;
+  isVerified?: boolean;
+  isActive?: boolean;
+  skinAnalysisHistory?: any[];
+  purchaseHistory?: any[];
+  role?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface ApiResponse<T> {
@@ -25,12 +25,24 @@ interface ApiResponse<T> {
 
 const API_URL = process.env.NEXT_PUBLIC_API_ENDPOINT;
 
+// Helper function to get auth headers
+const getAuthHeader = () => {
+  let token = "";
+  if (typeof window !== "undefined") {
+    token = localStorage.getItem("accessToken") || "";
+  }
+  return {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+};
+
 export const userService = {
-  // Create new user (POST /users)
-  async createUser(
-    userData: Omit<User, "_id" | "createdAt" | "updatedAt">
-  ): Promise<User> {
-    const response = await fetch(`${API_URL}/users`, {
+  // Create new user (register)
+  async register(
+    userData: { email: string; password: string; fullName: string }
+  ): Promise<ApiResponse<User>> {
+    const response = await fetch(`${API_URL}/auth/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -40,101 +52,133 @@ export const userService = {
     });
 
     if (!response.ok) {
-      throw new Error("Failed to create user");
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to register user");
     }
 
-    const data: ApiResponse<User> = await response.json();
-    return data.data;
+    return await response.json();
   },
 
-  // Get all users (GET /users)
-  async getAllUsers(): Promise<User[]> {
-    const response = await fetch(`${API_URL}/users`, {
+  // Login user
+  async login(
+    credentials: { email: string; password: string }
+  ): Promise<ApiResponse<{ token: string; user: User }>> {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(credentials),
       credentials: "include",
     });
 
     if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Login failed");
+    }
+
+    return await response.json();
+  },
+
+  // Get all users (admin only)
+  async getAllUsers(): Promise<ApiResponse<User[]>> {
+    const response = await fetch(`${API_URL}/users`, {
+      headers: getAuthHeader(),
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Unauthorized");
+      }
       throw new Error("Failed to fetch users");
     }
 
-    const data: ApiResponse<User[]> = await response.json();
-    return data.data;
+    return await response.json();
   },
 
-  // Get user by ID (GET /users/{id})
+  // Get user by ID
   async getUserById(id: string): Promise<User> {
-    try {
-      const response = await fetch(`${API_URL}/users/${id}`, {
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+    const response = await fetch(`${API_URL}/users/${id}`, {
+      headers: getAuthHeader(),
+      credentials: "include",
+    });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to fetch user");
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Unauthorized");
       }
-
-      const responseData = await response.json();
-
-      // If the API returns the user data directly without the ApiResponse wrapper
-      if (responseData._id && responseData.fullName) {
-        return responseData;
-      }
-
-      // If the API returns data wrapped in ApiResponse format
-      if (responseData.success && responseData.data) {
-        return responseData.data;
-      }
-
-      throw new Error("Invalid user data structure received");
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      throw error instanceof Error
-        ? error
-        : new Error("Failed to fetch user data");
+      throw new Error("Failed to fetch user");
     }
-  },
 
-  // Update user avatar (PATCH /users/avatar)
-  // async updateAvatar(formData: FormData): Promise<User> {
-  //   const response = await fetch(`${API_URL}/users/avatar`, {
-  //     method: "PATCH",
-  //     body: formData,
-  //     credentials: "include",
-  //   });
-
-  //   if (!response.ok) {
-  //     throw new Error("Failed to update avatar");
-  //   }
-  //   const data: ApiResponse<User> = await response.json();
-  //   return data.data;
-  // },
-  uploadAvatar: async (formData: FormData) => {
-    console.log("Uploading avatar with formData:", formData);
-
-    return await http.patch("/users/avatar", formData);
-  },
-
-  // Get current authenticated user
-  async getCurrentUser(): Promise<User> {
-    try {
-      // Get userId from localStorage or your auth state management
-      const userId = localStorage.getItem("userId"); // or from your auth context/store
-      if (!userId) {
-        throw new Error("User not authenticated");
-      }
-      // Use the existing getUserById method
-      return await this.getUserById(userId);
-    } catch (error) {
-      console.error("Error getting current user:", error);
-      throw new Error("Failed to fetch current user");
+    // API returns user object directly, not wrapped in data property 
+    // based on your example response
+    const userData = await response.json();
+    
+    if (!userData || !userData._id) {
+      throw new Error("Invalid user data received");
     }
+    
+    return userData;
   },
 
-  updateProfile: (body: Partial<User>) => {
-    return http.patch("/users/profile", body);
+  // Update user profile
+  async updateProfile(profileData: Partial<User>): Promise<ApiResponse<User>> {
+    const response = await fetch(`${API_URL}/users/profile`, {
+      method: "PATCH",
+      headers: getAuthHeader(),
+      body: JSON.stringify(profileData),
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to update profile");
+    }
+
+    return await response.json();
+  },
+
+  // Upload avatar
+  async uploadAvatar(formData: FormData): Promise<ApiResponse<User>> {
+    // Remove Content-Type header for multipart form data
+    const headers = getAuthHeader();
+    delete headers["Content-Type"];
+
+    const response = await fetch(`${API_URL}/users/avatar`, {
+      method: "PATCH",
+      headers: {
+        Authorization: headers.Authorization,
+      },
+      body: formData,
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to upload avatar");
+    }
+
+    return await response.json();
+  },
+
+  // Logout user
+  async logout(): Promise<void> {
+    const response = await fetch(`${API_URL}/auth/logout`, {
+      method: "POST",
+      headers: getAuthHeader(),
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to logout");
+    }
+
+    // Clear local storage
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("userId");
+    }
   },
 };
 
