@@ -30,10 +30,10 @@ export default function Header() {
           </h1>
         </Link>
 
-        {/* Desktop Navigation */}
+      {/* Desktop Navigation */}
         <nav className="hidden md:flex space-x-8">
           <Link
-            href="/"
+            href="/home"
             className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
           >
             Home
