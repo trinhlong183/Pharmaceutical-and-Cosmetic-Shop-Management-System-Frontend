@@ -58,16 +58,6 @@ function RegisterPage() {
                 Login here
               </Link>
             </div>
-            <p className="text-center text-xs mt-2">
-              By registering, you agree to our{" "}
-              <Link href="/terms" className="text-blue-600 hover:underline">
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="/privacy" className="text-blue-600 hover:underline">
-                Privacy Policy
-              </Link>
-            </p>
           </CardFooter>
         </Card>
       </div>

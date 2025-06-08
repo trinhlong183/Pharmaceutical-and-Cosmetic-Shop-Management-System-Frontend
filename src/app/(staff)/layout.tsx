@@ -8,15 +8,24 @@ import {
   ShoppingCart,
   Users,
   Settings,
-  LogOut,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useUser } from "@/contexts/UserContext";
 
 interface StaffLayoutProps {
   children: ReactNode;
 }
 
 export default function StaffLayout({ children }: StaffLayoutProps) {
+  const { user, setUser } = useUser();
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -33,14 +42,14 @@ export default function StaffLayout({ children }: StaffLayoutProps) {
             <span>Dashboard</span>
           </Link>
           <Link
-            href="/products"
+            href="/manage-products"
             className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md"
           >
             <Package size={20} />
             <span>Products</span>
           </Link>
           <Link
-            href="/orders"
+            href="/manage-orders"
             className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md"
           >
             <ShoppingCart size={20} />
@@ -60,13 +69,6 @@ export default function StaffLayout({ children }: StaffLayoutProps) {
             <Settings size={20} />
             <span>Settings</span>
           </Link>
-          <Button
-            variant="ghost"
-            className="flex items-center gap-2 w-full justify-start"
-          >
-            <LogOut size={20} />
-            <span>Logout</span>
-          </Button>
         </nav>
       </div>
 
@@ -77,7 +79,55 @@ export default function StaffLayout({ children }: StaffLayoutProps) {
           <h2 className="text-lg font-medium">Staff Dashboard</h2>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">Welcome, Staff</span>
-            <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-100 transition-colors">
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={user?.avatar} />
+                    <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
+                      {user?.fullName ? user?.fullName[0].toUpperCase() : "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="font-semibold text-gray-800">
+                    {user?.fullName || user?.email}
+                  </div>
+                  <div className="text-xs text-gray-500">{user?.email}</div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <Link href="/" passHref>
+                  <DropdownMenuItem className="cursor-pointer">
+                    Home
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/profile" passHref>
+                  <DropdownMenuItem className="cursor-pointer">
+                    My Profile
+                  </DropdownMenuItem>
+                </Link>
+
+                <Link href="/skin-history" passHref>
+                  <DropdownMenuItem className="cursor-pointer">
+                    Skin Analysis History
+                  </DropdownMenuItem>
+                </Link>
+
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="cursor-pointer text-red-600"
+                  onClick={() => {
+                    localStorage.removeItem("accessToken");
+                    setUser(null);
+                    window.location.href = "/login";
+                  }}
+                >
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
