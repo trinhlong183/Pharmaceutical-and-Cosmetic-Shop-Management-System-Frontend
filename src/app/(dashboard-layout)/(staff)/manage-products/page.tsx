@@ -6,7 +6,7 @@ import { productService } from "@/api/productService";
 import { categoriesService } from "@/api/categoriesService";
 import RoleRoute from "@/components/auth/RoleRoute";
 import { Role } from "@/constants/type";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -44,7 +44,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Product } from "@/types/product";
 import { Category } from "@/types/category";
-import { SuitableFor } from "@/schemaValidations/product.schema";
 import ProductForm from "@/app/(dashboard-layout)/(staff)/manage-products/ProductForm";
 import { PlusIcon, SearchIcon } from "lucide-react";
 import Image from "next/image";
@@ -72,7 +71,9 @@ export default function ManageProductsPage() {
         ]);
 
         setProducts(productsData);
-        setCategories(categoriesData);
+        console.log(categoriesData);
+
+        setCategories(categoriesData || []);
       } catch (error) {
         console.error("Error fetching data:", error);
         toast.error("Failed to load products or categories");
@@ -426,7 +427,7 @@ export default function ManageProductsPage() {
             </DialogHeader>
             <ProductForm
               onSubmit={handleAddProduct}
-              categories={categories}
+              categories={categories || []}
               isLoading={loading}
             />
           </DialogContent>

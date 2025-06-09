@@ -44,10 +44,9 @@ function ManageCategories() {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const data = await categoriesService.getAllCategories();
-      console.log("Fetched categories:", data);
+      const response = await categoriesService.getAllCategories();
 
-      setCategories(data.categories || []);
+      setCategories(response || []);
     } catch (err: any) {
       setError(err.message || "Error fetching categories");
     }
@@ -120,7 +119,7 @@ function ManageCategories() {
 
   return (
     <RoleRoute allowedRoles={[Role.ADMIN]}>
-      <div className="max-w-3xl mx-auto py-8 px-4 min-h-lvh">
+      <div className="max-w-6xl mx-auto py-8 px-4">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold">Manage Categories</h1>
         </div>
@@ -176,7 +175,7 @@ function ManageCategories() {
             <p>No categories found. Add your first category above.</p>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             {categories.map((cat) =>
               editingId === cat._id ? (
                 <Card key={cat._id} className="border-2 border-primary">

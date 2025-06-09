@@ -14,14 +14,23 @@ interface ApiResponse<T> {
 }
 
 export const productService = {
-  async getAllProducts(): Promise<Product[]> {
-    const response = await fetch(`${API_URL}/products`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch products");
-    }
-    const data: ApiResponse<{ products: Product[] }> = await response.json();
-    return data.data.products;
+  getAllProducts: (): Promise<Product[]> => {
+    return http
+      .get<{
+        success: boolean;
+        data: { products: Product[] };
+        message: string;
+      }>("/products")
+      .then((response) => response.payload.data.products);
   },
+  // async getAllProducts(): Promise<Product[]> {
+  //   const response = await fetch(`${API_URL}/products`);
+  //   if (!response.ok) {
+  //     throw new Error("Failed to fetch products");
+  //   }
+  //   const data: ApiResponse<{ products: Product[] }> = await response.json();
+  //   return data.data.products;
+  // },
 
   async getProductById(id: string): Promise<Product> {
     const response = await fetch(`${API_URL}/products/${id}`);
