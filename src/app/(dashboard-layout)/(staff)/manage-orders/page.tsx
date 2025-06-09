@@ -169,11 +169,9 @@ const ManageOrdersPage = () => {
 
   const getStatusBadge = (status) => {
     const statusColors = {
-      PENDING: "bg-yellow-500",
-      PROCESSING: "bg-blue-500",
-      SHIPPED: "bg-purple-500",
-      DELIVERED: "bg-green-500",
-      CANCELLED: "bg-red-500",
+      pending: "bg-yellow-500",
+      approved: "bg-green-500",
+      rejected: "bg-red-500",
     };
 
     return (
@@ -181,6 +179,20 @@ const ManageOrdersPage = () => {
         {status}
       </Badge>
     );
+  };
+  
+  // Function to get available status options based on current status
+  const getAvailableStatuses = (currentStatus) => {
+    switch(currentStatus) {
+      case 'pending':
+        return ['pending', 'approved', 'rejected'];
+      case 'approved':
+        return ['approved', 'rejected']; // Can't go back to pending
+      case 'rejected':
+        return ['rejected']; // Can't change status after rejection
+      default:
+        return ['pending', 'approved', 'rejected'];
+    }
   };
 
   const formatDate = (dateString) => {
@@ -248,11 +260,9 @@ const ManageOrdersPage = () => {
                               <SelectValue placeholder="Update Status" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="pending">PENDING</SelectItem>
-                              <SelectItem value="processing">PROCESSING</SelectItem>
-                              <SelectItem value="shipped">SHIPPED</SelectItem>
-                              <SelectItem value="delivered">DELIVERED</SelectItem>
-                              <SelectItem value="cancelled">CANCELLED</SelectItem>
+                              {getAvailableStatuses(order.status).map(status => (
+                                <SelectItem key={status} value={status}>{status}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </TableCell>
@@ -399,11 +409,9 @@ const ManageOrdersPage = () => {
                   <SelectValue placeholder="Update Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pending">PENDING</SelectItem>
-                  <SelectItem value="processing">PROCESSING</SelectItem>
-                  <SelectItem value="shipped">SHIPPED</SelectItem>
-                  <SelectItem value="delivered">DELIVERED</SelectItem>
-                  <SelectItem value="cancelled">CANCELLED</SelectItem>
+                  {getAvailableStatuses(detailOrder.status).map(status => (
+                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             )}

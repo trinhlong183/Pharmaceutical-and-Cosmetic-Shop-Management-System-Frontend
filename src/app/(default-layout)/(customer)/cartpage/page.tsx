@@ -441,7 +441,7 @@ export default function CartPage() {
             <p className="text-gray-500 mb-6">
               Bạn chưa thêm bất kỳ sản phẩm nào vào giỏ hàng
             </p>
-            <Link href="/products" passHref>
+            <Link href="/home" passHref>
               <Button className="w-full">
                 <ShoppingCart className="mr-2 h-4 w-4" />
                 Tiếp tục mua sắm
