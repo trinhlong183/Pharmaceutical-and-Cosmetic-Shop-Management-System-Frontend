@@ -41,8 +41,8 @@ const BaseProductSchema = z.object({
 export const CreateProductBody = z
   .object({
     productName: z.string().min(1, "Product name is required"),
-    price: z.number().positive("Price must be positive"),
-    stock: z.number().int().nonnegative("Stock cannot be negative"),
+    price: z.number().positive("Price is required"),
+    stock: z.number().positive("Stock is required"),
     brand: z.string().min(1, "Brand is required"),
     ingredients: z.string().min(1, "Ingredients are required"),
     suitableFor: z.nativeEnum(SuitableFor),
@@ -85,12 +85,19 @@ export const ProductListResponse = z.object({
 export type ProductListResponseType = z.infer<typeof ProductListResponse>;
 
 // UPDATE - Product update schema
-export const UpdateProductBody = BaseProductSchema.partial()
-  .omit({
-    productId: true,
-    createdAt: true,
-    updatedAt: true,
-    reviews: true,
+export const UpdateProductBody = z
+  .object({
+    productName: z.string().min(1, "Product name is required").optional(),
+    price: z.number().nonnegative("Price must be non-negative").optional(),
+    stock: z.number().int().nonnegative("Stock cannot be negative").optional(),
+    brand: z.string().min(1, "Brand is required").optional(),
+    ingredients: z.string().min(1, "Ingredients are required").optional(),
+    suitableFor: z.nativeEnum(SuitableFor).optional(),
+    expiryDate: z.string().or(z.date()).optional(),
+    category: z.array(z.string()).min(1, "At least one category is required").optional(),
+    productDescription: z.string().optional(),
+    productImages: z.array(z.string()).optional(),
+    salePercentage: z.number().min(0).max(100).optional(),
   })
   .strict();
 

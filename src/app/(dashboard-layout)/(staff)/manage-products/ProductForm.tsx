@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import Image from "next/image";
 
 interface ProductFormProps {
   product?: Product | null;
@@ -81,7 +82,7 @@ const ProductForm = ({
           ? new Date(product.expiryDate)
           : product.expiryDate
         : new Date(),
-      salePercentage: product?.salePercentage ?? undefined,
+      salePercentage: product?.salePercentage || 0,
       category: (product?.category as string[]) || [],
     },
   });
@@ -190,12 +191,12 @@ const ProductForm = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    Price (VND)<span className="text-red-500">*</span>
+                    Price ($)<span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      placeholder="0"
+                      min="0"
                       {...field}
                       onChange={(e) => field.onChange(Number(e.target.value))}
                       disabled={isLoading}
@@ -219,6 +220,7 @@ const ProductForm = ({
                     <Input
                       type="number"
                       placeholder="0"
+                      min="0"
                       {...field}
                       onChange={(e) => field.onChange(Number(e.target.value))}
                       disabled={isLoading}
@@ -403,7 +405,9 @@ const ProductForm = ({
               {imageUrls.map((url, index) => (
                 <div key={index} className="relative group">
                   <div className="relative h-32 w-full overflow-hidden rounded-md border">
-                    <img
+                    <Image
+                      width={400}
+                      height={300}
                       src={url}
                       alt={`Product image ${index + 1}`}
                       className="h-full w-full object-cover"

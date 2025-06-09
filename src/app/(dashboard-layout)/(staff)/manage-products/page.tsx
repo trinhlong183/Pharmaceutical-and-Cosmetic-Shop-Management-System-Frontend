@@ -118,11 +118,12 @@ export default function ManageProductsPage() {
   // Handle edit product
   const handleEditProduct = async (productData: any) => {
     try {
-      if (!selectedProduct?.id && !selectedProduct?._id) {
+      // Sửa dòng này để lấy id hoặc _id
+      const productId = selectedProduct?.id || selectedProduct?._id;
+      if (!productId) {
         throw new Error("No product selected for editing");
       }
 
-      const productId = selectedProduct.id || selectedProduct._id;
       setLoading(true);
       await productService.updateProduct(productId, productData);
 
@@ -272,7 +273,7 @@ export default function ManageProductsPage() {
                       <TableRow key={product.id || product._id}>
                         <TableCell>
                           {product.productImages && product.productImages[0] ? (
-                            <div className="relative w-12 h-12 rounded-md overflow-hidden">
+                            <div className="relative w-14 h-14 rounded-md overflow-hidden">
                               <Image
                                 src={product.productImages[0]}
                                 alt={product.productName}
@@ -281,7 +282,7 @@ export default function ManageProductsPage() {
                               />
                             </div>
                           ) : (
-                            <div className="w-12 h-12 bg-gray-100 flex items-center justify-center rounded-md text-gray-400">
+                            <div className="w-14 h-14 bg-gray-100 flex items-center justify-center rounded-md text-gray-400 text-xs">
                               No Image
                             </div>
                           )}
@@ -299,9 +300,8 @@ export default function ManageProductsPage() {
                                   // Find category name if it's an ID
                                   const categoryName =
                                     typeof cat === "string"
-                                      ? categories.find(
-                                          (c) => c.id === cat || c._id === cat
-                                        )?.categoryName || cat
+                                      ? categories.find((c) => c._id === cat)
+                                          ?.categoryName || cat
                                       : cat.categoryName;
 
                                   return (
