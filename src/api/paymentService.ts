@@ -142,16 +142,45 @@ export const paymentService = {
     return response.json();
   },
 
-  async verifyPayment(orderId: string): Promise<PaymentVerifyResponse> {
-    const response = await fetch(`${API_URL}/payments/verify?orderId=${orderId}`, {
-      headers: getAuthHeader(),
-      credentials: 'include'
-    });
+  async verifyPayment(params: Record<string, string>): Promise<PaymentVerifyResponse> {
+    try {
+      console.log("verifyPayment called with params:", params);
+      
+      // Convert params object to query string
+      const queryString = new URLSearchParams();
+      Object.keys(params).forEach(key => {
+        queryString.append(key, params[key]);
+      });
+      
+      const url = `${API_URL}/payments/verify?${queryString.toString()}`;
+      console.log("Sending verification request to:", url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getAuthHeader(),
+        credentials: 'include'
+      });
 
-    if (!response.ok) {
-      throw new Error('Payment verification failed');
+      const data = await response.json();
+      console.log("Verification API response:", data);
+
+      if (!response.ok) {
+        console.error("Verification API error:", data);
+        throw new Error(data.message || 'Payment verification failed');
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Error in verifyPayment:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        data: {
+          orderId: '',
+          paymentStatus: 'failed',
+          amount: 0
+        }
+      };
     }
-
-    return response.json();
   }
 };
