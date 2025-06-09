@@ -6,7 +6,7 @@ import { productService } from "@/api/productService";
 import { categoriesService } from "@/api/categoriesService";
 import RoleRoute from "@/components/auth/RoleRoute";
 import { Role } from "@/constants/type";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -44,7 +44,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Product } from "@/types/product";
 import { Category } from "@/types/category";
-import { SuitableFor } from "@/schemaValidations/product.schema";
 import ProductForm from "@/app/(dashboard-layout)/(staff)/manage-products/ProductForm";
 import { PlusIcon, SearchIcon } from "lucide-react";
 import Image from "next/image";
@@ -72,7 +71,9 @@ export default function ManageProductsPage() {
         ]);
 
         setProducts(productsData);
-        setCategories(categoriesData);
+        console.log(categoriesData);
+
+        setCategories(categoriesData || []);
       } catch (error) {
         console.error("Error fetching data:", error);
         toast.error("Failed to load products or categories");
@@ -94,7 +95,6 @@ export default function ManageProductsPage() {
     );
   });
 
-  // Handle add product
   const handleAddProduct = async (productData: any) => {
     try {
       setLoading(true);
@@ -114,14 +114,13 @@ export default function ManageProductsPage() {
     }
   };
 
-  // Handle edit product
   const handleEditProduct = async (productData: any) => {
     try {
-      if (!selectedProduct?.id && !selectedProduct?._id) {
+      const productId = selectedProduct?.id || selectedProduct?._id;
+      if (!productId) {
         throw new Error("No product selected for editing");
       }
 
-      const productId = selectedProduct.id || selectedProduct._id;
       setLoading(true);
       await productService.updateProduct(productId, productData);
 
@@ -140,7 +139,7 @@ export default function ManageProductsPage() {
     }
   };
 
-  // Handle delete product
+
   const handleDeleteProduct = async () => {
     try {
       if (!deleteProductId) {
@@ -150,7 +149,7 @@ export default function ManageProductsPage() {
       setLoading(true);
       await productService.deleteProduct(deleteProductId);
 
-      // Update local state to reflect deletion
+    
       setProducts(
         products.filter(
           (product) => (product.id || product._id) !== deleteProductId
@@ -226,7 +225,7 @@ export default function ManageProductsPage() {
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    // Loading state
+                
                     Array(5)
                       .fill(0)
                       .map((_, index) => (
@@ -271,7 +270,7 @@ export default function ManageProductsPage() {
                       <TableRow key={product.id || product._id}>
                         <TableCell>
                           {product.productImages && product.productImages[0] ? (
-                            <div className="relative w-12 h-12 rounded-md overflow-hidden">
+                            <div className="relative w-14 h-14 rounded-md overflow-hidden">
                               <Image
                                 src={product.productImages[0]}
                                 alt={product.productName}
@@ -280,7 +279,7 @@ export default function ManageProductsPage() {
                               />
                             </div>
                           ) : (
-                            <div className="w-12 h-12 bg-gray-100 flex items-center justify-center rounded-md text-gray-400">
+                            <div className="w-14 h-14 bg-gray-100 flex items-center justify-center rounded-md text-gray-400 text-xs">
                               No Image
                             </div>
                           )}
@@ -298,12 +297,11 @@ export default function ManageProductsPage() {
                                   // Find category name if it's an ID
                                   const categoryName =
                                     typeof cat === "string"
-                                      ? categories.find(
-                                          (c) => c.id === cat || c._id === cat
-                                        )?.categoryName || cat
+                                      ? categories.find((c) => c._id === cat)
+                                          ?.categoryName || cat
                                       : cat.categoryName;
 
-                                  return (
+                                  return (                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                     <Badge
                                       key={index}
                                       variant="outline"
@@ -414,7 +412,6 @@ export default function ManageProductsPage() {
           </CardContent>
         </Card>
 
-        {/* Add Product Dialog */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
@@ -426,13 +423,12 @@ export default function ManageProductsPage() {
             </DialogHeader>
             <ProductForm
               onSubmit={handleAddProduct}
-              categories={categories}
+              categories={categories || []}
               isLoading={loading}
             />
           </DialogContent>
         </Dialog>
 
-        {/* Edit Product Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>

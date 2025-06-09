@@ -8,7 +8,7 @@ import { categoriesService } from "@/api/categoriesService";
 import { set } from "zod";
 
 interface Product {
-  productId: string;
+  id: string;
   productName: string;
   price: number;
   productImages: [string];
@@ -52,6 +52,8 @@ export default function ProductsPage() {
       try {
         setLoading(true);
         const data = await productService.getAllProducts();
+        console.log("Fetched products:", data);
+
         setProducts(data);
         setFilteredProducts(data);
       } catch (error) {
@@ -72,8 +74,10 @@ export default function ProductsPage() {
     if (search) {
       result = result.filter(
         (product) =>
-          product.name.toLowerCase().includes(search.toLowerCase()) ||
-          product.description?.toLowerCase().includes(search.toLowerCase())
+          product.productName?.toLowerCase().includes(search.toLowerCase()) ||
+          product.productDescription
+            ?.toLowerCase()
+            .includes(search.toLowerCase())
       );
     }
 
@@ -87,7 +91,13 @@ export default function ProductsPage() {
     // Filter by categories
     if (selectedCategories.length > 0) {
       result = result.filter((product) =>
-        selectedCategories.includes(product.category)
+        Array.isArray(product.category)
+          ? product.category.some((cat: any) =>
+              typeof cat === "string"
+                ? selectedCategories.includes(cat)
+                : selectedCategories.includes(cat.categoryName)
+            )
+          : false
       );
     }
 
@@ -216,8 +226,8 @@ export default function ProductsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredProducts.map((product) => (
                 <ProductCard
-                  key={product.productId}
-                  productId={product.productId}
+                  key={product.id}
+                  productId={product.id}
                   productName={product.productName}
                   price={product.price}
                   productImages={product.productImages}

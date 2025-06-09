@@ -36,18 +36,20 @@ export default function CustomerHome() {
       {/* Products Section */}
       <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-8">Our Products</h2>
+          <h2 className="text-3xl font-bold text-center mb-10 tracking-tight text-gray-800">
+            Top Products
+          </h2>
 
           {loading ? (
             // Loading state
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
               {[...Array(8)].map((_, index) => (
                 <div
                   key={index}
-                  className="bg-white rounded-lg shadow-md overflow-hidden animate-pulse"
+                  className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse"
                 >
-                  <div className="h-64 bg-gray-200"></div>
-                  <div className="p-4 space-y-3">
+                  <div className="h-56 bg-gray-200"></div>
+                  <div className="p-5 space-y-3">
                     <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                     <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                   </div>
@@ -56,54 +58,55 @@ export default function CustomerHome() {
             </div>
           ) : products.length > 0 ? (
             // Products grid
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
               {products.map((product) => (
                 <Link
                   href={`/products/${product.id}`}
                   key={product.id}
-                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+                  className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow overflow-hidden group border border-gray-100"
                 >
-                  <div className="relative h-64">
+                  <div className="relative aspect-square bg-gray-100">
                     {product.productImages &&
                     product.productImages.length > 0 ? (
                       <Image
                         src={product.productImages[0]}
                         alt={product.productName}
                         fill
-                        className="object-cover"
+                        className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-t-xl"
+                        sizes="(max-width: 768px) 100vw, 33vw"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                        <span className="text-gray-400">
+                        <span className="text-gray-400 text-sm">
                           No image available
                         </span>
                       </div>
                     )}
                     {product.salePercentage > 0 && (
-                      <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded">
+                      <span className="absolute top-3 right-3 bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded shadow">
                         -{product.salePercentage}%
-                      </div>
+                      </span>
                     )}
                     {product.stock < 10 && (
-                      <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded">
+                      <span className="absolute top-3 left-3 bg-yellow-400 text-white text-xs font-semibold px-2 py-1 rounded shadow">
                         Low Stock
-                      </div>
+                      </span>
                     )}
                   </div>
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-lg font-semibold text-gray-800">
+                  <div className="p-5 flex flex-col gap-2">
+                    <div className="flex justify-between items-center mb-1">
+                      <h3 className="text-base font-semibold text-gray-800 truncate">
                         {product.productName}
                       </h3>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-xs text-gray-500 font-medium ml-2 truncate">
                         {product.brand}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-end">
                       <div>
                         {product.salePercentage > 0 ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-red-500 font-bold">
+                            <span className="text-red-500 font-bold text-lg">
                               $
                               {(
                                 product.price *
@@ -115,12 +118,12 @@ export default function CustomerHome() {
                             </span>
                           </div>
                         ) : (
-                          <span className="text-gray-900 font-bold">
+                          <span className="text-gray-900 font-bold text-lg">
                             ${product.price.toFixed(2)}
                           </span>
                         )}
-                      </div>{" "}
-                      <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                      </div>
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-medium ml-2 truncate">
                         {product.category && product.category.length > 0
                           ? typeof product.category[0] === "string"
                             ? product.category[0]
