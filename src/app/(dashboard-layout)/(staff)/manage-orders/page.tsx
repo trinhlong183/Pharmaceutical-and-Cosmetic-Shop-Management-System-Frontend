@@ -180,6 +180,20 @@ const ManageOrdersPage = () => {
       </Badge>
     );
   };
+  
+  // Function to get available status options based on current status
+  const getAvailableStatuses = (currentStatus) => {
+    switch(currentStatus) {
+      case 'pending':
+        return ['pending', 'approved', 'rejected'];
+      case 'approved':
+        return ['approved', 'rejected']; // Can't go back to pending
+      case 'rejected':
+        return ['rejected']; // Can't change status after rejection
+      default:
+        return ['pending', 'approved', 'rejected'];
+    }
+  };
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString();
@@ -246,9 +260,9 @@ const ManageOrdersPage = () => {
                               <SelectValue placeholder="Update Status" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="pending">pending</SelectItem>
-                              <SelectItem value="approved">approved</SelectItem>
-                              <SelectItem value="rejected">rejected</SelectItem>
+                              {getAvailableStatuses(order.status).map(status => (
+                                <SelectItem key={status} value={status}>{status}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </TableCell>
