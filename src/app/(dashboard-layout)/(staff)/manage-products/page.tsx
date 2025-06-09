@@ -95,7 +95,6 @@ export default function ManageProductsPage() {
     );
   });
 
-  // Handle add product
   const handleAddProduct = async (productData: any) => {
     try {
       setLoading(true);
@@ -115,10 +114,8 @@ export default function ManageProductsPage() {
     }
   };
 
-  // Handle edit product
   const handleEditProduct = async (productData: any) => {
     try {
-      // Sửa dòng này để lấy id hoặc _id
       const productId = selectedProduct?.id || selectedProduct?._id;
       if (!productId) {
         throw new Error("No product selected for editing");
@@ -142,7 +139,7 @@ export default function ManageProductsPage() {
     }
   };
 
-  // Handle delete product
+
   const handleDeleteProduct = async () => {
     try {
       if (!deleteProductId) {
@@ -152,7 +149,7 @@ export default function ManageProductsPage() {
       setLoading(true);
       await productService.deleteProduct(deleteProductId);
 
-      // Update local state to reflect deletion
+    
       setProducts(
         products.filter(
           (product) => (product.id || product._id) !== deleteProductId
@@ -228,7 +225,7 @@ export default function ManageProductsPage() {
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    // Loading state
+                
                     Array(5)
                       .fill(0)
                       .map((_, index) => (
@@ -304,7 +301,7 @@ export default function ManageProductsPage() {
                                           ?.categoryName || cat
                                       : cat.categoryName;
 
-                                  return (
+                                  return (                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
                                     <Badge
                                       key={index}
                                       variant="outline"
@@ -415,7 +412,6 @@ export default function ManageProductsPage() {
           </CardContent>
         </Card>
 
-        {/* Add Product Dialog */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
@@ -433,7 +429,6 @@ export default function ManageProductsPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Edit Product Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>

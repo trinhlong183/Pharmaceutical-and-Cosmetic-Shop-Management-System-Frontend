@@ -42,6 +42,7 @@ import {
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import Image from "next/image";
+import { log } from "console";
 
 interface ProductFormProps {
   product?: Product | null;
@@ -87,13 +88,30 @@ const ProductForm = ({
     },
   });
 
-  // Sync selectedCategories with form
+  // Khi mở form edit, đảm bảo selectedCategories là mảng string id
+  useEffect(() => {
+    if (product) {
+      // Nếu product.category là mảng object, map sang id
+      const catArr = Array.isArray(product.category)
+        ? product.category.map((cat: any) =>
+            typeof cat === "string" ? cat : cat._id || cat.id
+          )
+        : [];
+      setSelectedCategories(catArr);
+      setImageUrls(product.productImages || []);
+    }
+  }, [product]);
+
+  // Sync selectedCategories với form (luôn là mảng string id)
   useEffect(() => {
     form.setValue("category", selectedCategories);
   }, [selectedCategories]);
 
+
+
   // Handle form submission
   const handleSubmitForm = (values: any) => {
+    console.log("Submitting form data:", values);
     const expiryDate =
       values.expiryDate instanceof Date
         ? values.expiryDate.toISOString()
