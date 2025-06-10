@@ -17,8 +17,10 @@ interface ApiResponse<T> {
 export const productService = {
   getAllProducts: (param: ProductQueryParamsType = {}) => {
     return http
-      .get<{ data: { products: Product[] } }>("/products", { params: param })
-      .then((response) => response.payload.data.products);
+      .get<{ data: { products: Product[]; total: number } }>("/products", {
+        params: param,
+      })
+      .then((response) => response.payload.data);
   },
 
   async getProductById(id: string): Promise<Product> {

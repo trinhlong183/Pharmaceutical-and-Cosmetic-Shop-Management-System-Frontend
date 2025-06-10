@@ -5,7 +5,14 @@ import { productService } from "@/api/productService"; // Giả sử bạn có s
 import { FiFilter, FiSearch } from "react-icons/fi";
 import ProductCard from "@/components/product/ProductCard";
 import { categoriesService } from "@/api/categoriesService";
-import { set } from "zod";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationNext,
+} from "@/components/ui/pagination";
+import { Slider } from "@/components/ui/slider";
 
 interface Product {
   id: string;
@@ -24,24 +31,23 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
 
   const [brands, setBrands] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<
+    { _id: string; categoryName: string }[]
+  >([]);
 
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const limit = 20;
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+  const [total, setTotal] = useState(0);
 
   const fetchBrandsAndCategories = async () => {
     try {
-      // const [brandsData, categoriesData] = await Promise.all([
-      //   productService.getAllBrands(),
-      //   categoriesService.getAllCategories(),
-      // ]);
-      // setBrands(brandsData);
-      // setCategories(categoriesData);
-
       const categoriesData = await categoriesService.getAllCategories();
-      setCategories(categoriesData.map((item) => item.categoryName));
+      setCategories(categoriesData); // giữ nguyên object để lấy _id
     } catch (error) {
       console.error("Failed to fetch brands or categories:", error);
     }
@@ -51,12 +57,25 @@ export default function ProductsPage() {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const data = await productService.getAllProducts();
-        console.log("Fetched products:", data);
-
-        setProducts(data);
-        setFilteredProducts(data);
+        const params: any = {
+          page,
+          limit,
+          minPrice: priceRange[0],
+          maxPrice: priceRange[1],
+        };
+        if (search) params.search = search;
+        if (selectedBrands.length > 0) params.brand = selectedBrands[0];
+        if (selectedCategories.length > 0) params.category = selectedCategories; // truyền mảng id
+        const response = await productService.getAllProducts(params);
+        // response là { products, total }
+        setFilteredProducts(response.products || []);
+        console.log("Fetched products:", response.products);
+        setProducts(response.products || []);
+        setTotal(response.total || 0);
       } catch (error) {
+        setFilteredProducts([]);
+        setProducts([]);
+        setTotal(0);
         console.error("Failed to fetch products:", error);
       } finally {
         setLoading(false);
@@ -66,43 +85,36 @@ export default function ProductsPage() {
     fetchProducts();
   }, []);
 
+  // Khi thay đổi filter/search/page/priceRange thì gọi lại API
   useEffect(() => {
-    // Apply filters
-    let result = products;
-
-    // Filter by search
-    if (search) {
-      result = result.filter(
-        (product) =>
-          product.productName?.toLowerCase().includes(search.toLowerCase()) ||
-          product.productDescription
-            ?.toLowerCase()
-            .includes(search.toLowerCase())
-      );
-    }
-
-    // Filter by brands
-    if (selectedBrands.length > 0) {
-      result = result.filter((product) =>
-        selectedBrands.includes(product.brand)
-      );
-    }
-
-    // Filter by categories
-    if (selectedCategories.length > 0) {
-      result = result.filter((product) =>
-        Array.isArray(product.category)
-          ? product.category.some((cat: any) =>
-              typeof cat === "string"
-                ? selectedCategories.includes(cat)
-                : selectedCategories.includes(cat.categoryName)
-            )
-          : false
-      );
-    }
-
-    setFilteredProducts(result);
-  }, [search, selectedBrands, selectedCategories, products]);
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const params: any = {
+          page,
+          limit,
+          minPrice: priceRange[0],
+          maxPrice: priceRange[1],
+        };
+        if (search) params.search = search;
+        if (selectedBrands.length > 0) params.brand = selectedBrands[0];
+        if (selectedCategories.length > 0) params.category = selectedCategories; // truyền mảng id
+        const response = await productService.getAllProducts(params);
+        setFilteredProducts(response.products || []);
+        console.log("Fetched products param:", response.products);
+        setProducts(response.products || []);
+        setTotal(response.total || 0);
+      } catch (error) {
+        setFilteredProducts([]);
+        setProducts([]);
+        setTotal(0);
+        console.error("Failed to fetch products:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, [search, selectedBrands, selectedCategories, page, priceRange]);
 
   const handleBrandChange = (brand: string) => {
     setSelectedBrands((prev) =>
@@ -110,11 +122,11 @@ export default function ProductsPage() {
     );
   };
 
-  const handleCategoryChange = (category: string) => {
+  const handleCategoryChange = (categoryId: string) => {
     setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [...prev, category]
+      prev.includes(categoryId)
+        ? prev.filter((c) => c !== categoryId)
+        : [...prev, categoryId]
     );
   };
 
@@ -123,6 +135,19 @@ export default function ProductsPage() {
     setSelectedCategories([]);
     setSearch("");
   };
+
+  const handlePriceChange = (values: [number, number]) => {
+    setPriceRange(values);
+    setPage(1); // Reset về trang đầu khi filter
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Pagination handler
+  const totalPages = Math.ceil(total / limit);
 
   return (
     <div className="container mx-auto px-4 py-8 min-h-lvh">
@@ -183,18 +208,34 @@ export default function ProductsPage() {
               <div className="space-y-2">
                 {categories.map((category) => (
                   <label
-                    key={category}
+                    key={category._id}
                     className="flex items-center cursor-pointer"
                   >
                     <input
                       type="checkbox"
-                      checked={selectedCategories.includes(category)}
-                      onChange={() => handleCategoryChange(category)}
+                      checked={selectedCategories.includes(category._id)}
+                      onChange={() => handleCategoryChange(category._id)}
                       className="mr-2"
                     />
-                    <span>{category}</span>
+                    <span>{category.categoryName}</span>
                   </label>
                 ))}
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="font-semibold text-lg mb-3">Price Range</h3>
+              <Slider
+                min={0}
+                max={1000}
+                step={10}
+                value={priceRange}
+                onValueChange={handlePriceChange}
+                className="w-full"
+              />
+              <div className="flex justify-between text-sm mt-2">
+                <span>${priceRange[0].toLocaleString()}</span>
+                <span>${priceRange[1].toLocaleString()}</span>
               </div>
             </div>
 
@@ -238,6 +279,31 @@ export default function ProductsPage() {
               ))}
             </div>
           )}
+
+          {/* Pagination */}
+          <div className="flex justify-center mt-8">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => handlePageChange(page > 1 ? page - 1 : 1)}
+                    aria-disabled={page === 1}
+                  />
+                </PaginationItem>
+                <PaginationItem>
+                  <span className="px-3 py-1 rounded bg-gray-100">{page}</span>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() =>
+                      handlePageChange(page < totalPages ? page + 1 : page)
+                    }
+                    aria-disabled={page >= totalPages}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         </div>
       </div>
     </div>
