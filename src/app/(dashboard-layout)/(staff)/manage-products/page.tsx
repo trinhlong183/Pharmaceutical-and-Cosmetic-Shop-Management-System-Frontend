@@ -72,9 +72,8 @@ export default function ManageProductsPage() {
           categoriesService.getAllCategories(),
         ]);
 
-        setProducts(productsData);
-        console.log(categoriesData);
-
+        const productList = productsData.products || [];
+        setProducts(productList);
         setCategories(categoriesData || []);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -103,7 +102,8 @@ export default function ManageProductsPage() {
       await productService.createProduct(productData);
 
       // Refresh products list
-      const updatedProducts = await productService.getAllProducts();
+      const updatedProductsData = await productService.getAllProducts();
+      const updatedProducts = updatedProductsData.products || [];
       setProducts(updatedProducts);
 
       toast.success("Product added successfully");
@@ -127,7 +127,8 @@ export default function ManageProductsPage() {
       await productService.updateProduct(productId, productData);
 
       // Refresh products list
-      const updatedProducts = await productService.getAllProducts();
+      const updatedProductsData = await productService.getAllProducts();
+      const updatedProducts = updatedProductsData.products || [];
       setProducts(updatedProducts);
 
       toast.success("Product updated successfully");
