@@ -107,8 +107,6 @@ const ProductForm = ({
     form.setValue("category", selectedCategories);
   }, [selectedCategories]);
 
-
-
   // Handle form submission
   const handleSubmitForm = (values: any) => {
     console.log("Submitting form data:", values);
@@ -429,6 +427,7 @@ const ProductForm = ({
                       src={url}
                       alt={`Product image ${index + 1}`}
                       className="h-full w-full object-cover"
+                      unoptimized
                       onError={(e) => {
                         // Handle image loading errors
                         (e.target as HTMLImageElement).src =

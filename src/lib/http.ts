@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 
 type CustomOptions = Omit<RequestInit, "method"> & {
   baseUrl?: string | undefined;
+  params?: Record<string, any>;
 };
 
 const ENTITY_ERROR_STATUS = 422;
@@ -118,16 +119,39 @@ const request = async <Response>(
   return data;
 };
 
+// Helper: build query string from params
+function buildQueryString(params: Record<string, any>) {
+  const esc = encodeURIComponent;
+  return (
+    "?" +
+    Object.entries(params)
+      .filter(([_, v]) => v !== undefined && v !== null)
+      .map(([k, v]) =>
+        Array.isArray(v)
+          ? v.map((item) => `${esc(k)}=${esc(item)}`).join("&")
+          : `${esc(k)}=${esc(v)}`
+      )
+      .join("&")
+  );
+}
+
 const http = {
   get<Response>(
     url: string,
     options?: Omit<CustomOptions, "body"> | undefined
   ) {
-    return request<Response>("GET", url, options);
+    let fullUrl = url;
+    if (options?.params && Object.keys(options.params).length > 0) {
+      const query = buildQueryString(options.params);
+      // Nếu url đã có dấu ? thì nối thêm, nếu chưa thì thêm ?
+      fullUrl += url.includes("?") ? "&" + query.slice(1) : query;
+    }
+    // Loại bỏ params khỏi options khi truyền xuống request
+    const { params, ...restOptions } = options || {};
+    return request<Response>("GET", fullUrl, restOptions);
   },
   post<Response>(
     url: string,
-
     body: any,
     options?: Omit<CustomOptions, "body"> | undefined
   ) {

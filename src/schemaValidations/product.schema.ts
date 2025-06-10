@@ -94,7 +94,10 @@ export const UpdateProductBody = z
     ingredients: z.string().min(1, "Ingredients are required").optional(),
     suitableFor: z.nativeEnum(SuitableFor).optional(),
     expiryDate: z.string().or(z.date()).optional(),
-    category: z.array(z.string()).min(1, "At least one category is required").optional(),
+    category: z
+      .array(z.string())
+      .min(1, "At least one category is required")
+      .optional(),
     productDescription: z.string().optional(),
     productImages: z.array(z.string()).optional(),
     salePercentage: z.number().min(0).max(100).optional(),
@@ -127,13 +130,15 @@ export type AddReviewBodyType = z.infer<typeof AddReviewBody>;
 export const ProductQueryParams = z
   .object({
     search: z.string().optional(),
-    category: z.array(z.string()).or(z.string()).optional(),
+    category: z.array(z.string()).optional(), // chỉ cho phép mảng string
     brand: z.string().optional(),
     minPrice: z.number().optional(),
     maxPrice: z.number().optional(),
     suitableFor: z.nativeEnum(SuitableFor).optional(),
-    sortBy: z.enum(["price", "name", "createdAt"]).optional(),
-    sortOrder: z.enum(["asc", "desc"]).optional(),
+    sortBy: z
+      .enum(["price", "salePercentage", "expiryDate", "createdAt"])
+      .optional(),
+    order: z.enum(["asc", "desc"]).optional(),
     page: z.number().optional(),
     limit: z.number().optional(),
   })
