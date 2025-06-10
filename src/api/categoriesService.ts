@@ -10,14 +10,16 @@ interface ApiResponse<T> {
 }
 
 export const categoriesService = {
-  async getAllCategories(): Promise<Category[]> {
-    const response = await fetch(`${API_URL}/categories`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch categories");
-    }
-    const data: ApiResponse<Category[]> = await response.json();
-    return data.data;
+  getAllCategories: () => {
+    return http
+      .get<{
+        success: boolean;
+        data: { categories: Category[] };
+        message: string;
+      }>("categories")
+      .then((response) => response.payload.data.categories);
   },
+
 
   async getCategoryById(id: string): Promise<Category> {
     const response = await fetch(`${API_URL}/categories/${id}`);

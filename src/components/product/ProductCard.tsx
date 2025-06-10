@@ -1,14 +1,15 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { Category } from "@/types/category";
 
 interface ProductCardProps {
   productId: string;
   productName: string;
   price: number;
-  productImages: [string];
+  productImages: string[];
   brand: string;
-  category: string;
+  category: Category[];
   productDescription?: string;
 }
 
@@ -32,8 +33,21 @@ const ProductCard: React.FC<ProductCardProps> = ({
           className="object-cover hover:scale-105 transition-transform duration-300"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
-        <div className="absolute top-2 right-2 bg-primary text-white rounded-full px-2 py-1 text-xs">
-          {category}
+        <div className="absolute top-2 right-2 flex flex-wrap gap-1">
+          {category && category.length > 0 ? (
+            category.map((cat) => (
+              <span
+                key={cat._id}
+                className="bg-primary text-white rounded-full px-2 py-1 text-xs"
+              >
+                {cat.categoryName}
+              </span>
+            ))
+          ) : (
+            <span className="bg-gray-200 text-gray-600 rounded-full px-2 py-1 text-xs">
+              No Category
+            </span>
+          )}
         </div>
       </div>
 

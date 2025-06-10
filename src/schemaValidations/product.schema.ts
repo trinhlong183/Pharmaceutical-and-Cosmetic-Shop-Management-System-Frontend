@@ -10,7 +10,6 @@ export enum SuitableFor {
   SENSITIVE_SKIN = "Sensitive skin",
   NORMAL_SKIN = "Normal skin",
 }
-
 // Review sub-schema
 const ReviewSchema = z.object({
   userId: z.string(),
@@ -23,13 +22,13 @@ const ReviewSchema = z.object({
 const BaseProductSchema = z.object({
   productId: z.string().optional(), // Usually auto-generated
   productName: z.string().min(1, "Product name is required"),
-  productDescription: z.string().min(1, "Product description is required"),
+  productDescription: z.string().optional(), // Make optional for creation
   price: z.number().positive("Price must be positive"),
   stock: z.number().int().nonnegative("Stock cannot be negative"),
-  category: z.array(z.string()),
+  category: z.array(z.string()).min(1, "At least one category is required"),
   brand: z.string().min(1, "Brand is required"),
-  productImages: z.array(z.string()),
-  ingredients: z.string(),
+  productImages: z.array(z.string()).optional(), // Make optional for creation
+  ingredients: z.string().min(1, "Ingredients are required"),
   suitableFor: z.nativeEnum(SuitableFor),
   reviews: z.array(ReviewSchema).optional().default([]),
   salePercentage: z.number().min(0).max(100).default(0),
@@ -39,12 +38,34 @@ const BaseProductSchema = z.object({
 });
 
 // CREATE - Product creation schema
-export const CreateProductBody = BaseProductSchema.omit({
-  productId: true,
-  createdAt: true,
-  updatedAt: true,
-  reviews: true,
-}).strict();
+export const CreateProductBody = z
+  .object({
+    productName: z.string().min(1, "Product name is required"),
+    price: z.number().positive("Price is required"),
+    stock: z.number().positive("Stock is required"),
+    brand: z.string().min(1, "Brand is required"),
+    ingredients: z.string().min(1, "Ingredients are required"),
+    suitableFor: z.nativeEnum(SuitableFor),
+    expiryDate: z.string().or(z.date()),
+    category: z.array(z.string()).min(1, "At least one category is required"),
+    // Các trường còn lại là optional
+    productDescription: z.string().optional(),
+    productImages: z.array(z.string()).optional(),
+    salePercentage: z.number().min(0).max(100).optional(),
+    reviews: z
+      .array(
+        z.object({
+          userId: z.string(),
+          rating: z.number().min(1).max(5),
+          comment: z.string(),
+          createdAt: z.date().optional(),
+        })
+      )
+      .optional(),
+    createdAt: z.string().or(z.date()).optional(),
+    updatedAt: z.string().or(z.date()).optional(),
+  })
+  .strict();
 
 export type CreateProductBodyType = z.infer<typeof CreateProductBody>;
 
@@ -64,12 +85,19 @@ export const ProductListResponse = z.object({
 export type ProductListResponseType = z.infer<typeof ProductListResponse>;
 
 // UPDATE - Product update schema
-export const UpdateProductBody = BaseProductSchema.partial()
-  .omit({
-    productId: true,
-    createdAt: true,
-    updatedAt: true,
-    reviews: true,
+export const UpdateProductBody = z
+  .object({
+    productName: z.string().min(1, "Product name is required").optional(),
+    price: z.number().nonnegative("Price must be non-negative").optional(),
+    stock: z.number().int().nonnegative("Stock cannot be negative").optional(),
+    brand: z.string().min(1, "Brand is required").optional(),
+    ingredients: z.string().min(1, "Ingredients are required").optional(),
+    suitableFor: z.nativeEnum(SuitableFor).optional(),
+    expiryDate: z.string().or(z.date()).optional(),
+    category: z.array(z.string()).min(1, "At least one category is required").optional(),
+    productDescription: z.string().optional(),
+    productImages: z.array(z.string()).optional(),
+    salePercentage: z.number().min(0).max(100).optional(),
   })
   .strict();
 
