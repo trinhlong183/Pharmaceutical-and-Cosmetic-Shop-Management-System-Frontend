@@ -47,6 +47,7 @@ import { Category } from "@/types/category";
 import ProductForm from "@/app/(dashboard-layout)/(staff)/manage-products/ProductForm";
 import { PlusIcon, SearchIcon } from "lucide-react";
 import Image from "next/image";
+import { useUser } from "@/contexts/UserContext";
 
 export default function ManageProductsPage() {
   const router = useRouter();
@@ -59,6 +60,7 @@ export default function ManageProductsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
+  const { user } = useUser();
 
   // Fetch products and categories on component mount
   useEffect(() => {
@@ -139,7 +141,6 @@ export default function ManageProductsPage() {
     }
   };
 
-
   const handleDeleteProduct = async () => {
     try {
       if (!deleteProductId) {
@@ -149,7 +150,6 @@ export default function ManageProductsPage() {
       setLoading(true);
       await productService.deleteProduct(deleteProductId);
 
-    
       setProducts(
         products.filter(
           (product) => (product.id || product._id) !== deleteProductId
@@ -225,7 +225,6 @@ export default function ManageProductsPage() {
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                
                     Array(5)
                       .fill(0)
                       .map((_, index) => (
@@ -276,6 +275,7 @@ export default function ManageProductsPage() {
                                 alt={product.productName}
                                 fill
                                 className="object-cover"
+                                unoptimized
                               />
                             </div>
                           ) : (
@@ -301,7 +301,7 @@ export default function ManageProductsPage() {
                                           ?.categoryName || cat
                                       : cat.categoryName;
 
-                                  return (                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+                                  return (
                                     <Badge
                                       key={index}
                                       variant="outline"
@@ -380,17 +380,19 @@ export default function ManageProductsPage() {
                               >
                                 Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setDeleteProductId(
-                                    product.id || product._id!
-                                  );
-                                  setIsDeleteDialogOpen(true);
-                                }}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                Delete
-                              </DropdownMenuItem>
+                              {user?.role === "admin" && (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setDeleteProductId(
+                                      product.id || product._id!
+                                    );
+                                    setIsDeleteDialogOpen(true);
+                                  }}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  Delete
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 onClick={() =>
                                   router.push(

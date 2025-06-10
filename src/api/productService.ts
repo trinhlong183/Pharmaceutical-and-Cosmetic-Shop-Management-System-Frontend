@@ -1,6 +1,7 @@
 import http from "@/lib/http";
 import {
   CreateProductBodyType,
+  ProductQueryParamsType,
   UpdateProductBodyType,
 } from "./../schemaValidations/product.schema";
 import { Product } from "@/types/product";
@@ -14,13 +15,10 @@ interface ApiResponse<T> {
 }
 
 export const productService = {
-  async getAllProducts(): Promise<Product[]> {
-    const response = await fetch(`${API_URL}/products`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch products");
-    }
-    const data: ApiResponse<{ products: Product[] }> = await response.json();
-    return data.data.products;
+  getAllProducts: (param: ProductQueryParamsType = {}) => {
+    return http
+      .get<{ data: { products: Product[] } }>("/products", { params: param })
+      .then((response) => response.payload.data.products);
   },
 
   async getProductById(id: string): Promise<Product> {

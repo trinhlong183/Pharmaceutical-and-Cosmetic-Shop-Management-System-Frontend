@@ -72,6 +72,7 @@ export default function CustomerHome() {
                         src={product.productImages[0]}
                         alt={product.productName}
                         fill
+                        unoptimized
                         className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-t-xl"
                         sizes="(max-width: 768px) 100vw, 33vw"
                       />
