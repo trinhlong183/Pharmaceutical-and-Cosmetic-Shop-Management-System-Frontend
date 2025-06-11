@@ -1,17 +1,21 @@
-'use client';
+"use client";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, use } from "react";
 import { Product } from "@/types/product";
-import { toast } from 'react-hot-toast';
+import { toast } from "react-hot-toast";
 import { productService } from "@/api/productService";
 import { categoriesService } from "@/api/categoriesService";
-import { useRouter } from 'next/navigation';
-import AddToCart from '@/components/product/AddToCart';
+import { useRouter } from "next/navigation";
+import AddToCart from "@/components/product/AddToCart";
 import { Badge } from "@/components/ui/badge";
 import { Category } from "@/types/category";
 
-export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ProductDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const router = useRouter();
   const resolvedParams = use(params);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -22,40 +26,44 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     const fetchProductAndCategories = async () => {
       try {
-        const productData = await productService.getProductById(resolvedParams.id);
-        
+        const productData = await productService.getProductById(
+          resolvedParams.id
+        );
+
         if (!productData) {
-          throw new Error('Product not found');
+          throw new Error("Product not found");
         }
-        
+
         setProduct(productData);
-        
+
         // If product has categories, fetch their details
         if (productData.category && productData.category.length > 0) {
           try {
             // Create a map to store category data
             const categoriesMap: Record<string, Category> = {};
-            
+
             // Fetch each category
             for (const categoryId of productData.category) {
-              if (typeof categoryId === 'string') {
-                const categoryData = await categoriesService.getCategoryById(categoryId);
+              if (typeof categoryId === "string") {
+                const categoryData = await categoriesService.getCategoryById(
+                  categoryId
+                );
                 if (categoryData) {
                   categoriesMap[categoryId] = categoryData;
                 }
               }
             }
-            
+
             setCategories(categoriesMap);
           } catch (error) {
-            console.error('Error fetching categories:', error);
+            console.error("Error fetching categories:", error);
             // Continue showing the product even if categories can't be loaded
           }
         }
       } catch (error) {
-        console.error('Error fetching product:', error);
-        toast.error('Failed to load product details');
-        router.push('/products');
+        console.error("Error fetching product:", error);
+        toast.error("Failed to load product details");
+        router.push("/products");
       } finally {
         setLoading(false);
       }
@@ -76,8 +84,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800">Product Not Found</h1>
-          <Link href="/products" className="text-blue-600 hover:underline mt-4 inline-block">
+          <h1 className="text-2xl font-bold text-gray-800">
+            Product Not Found
+          </h1>
+          <Link
+            href="/products"
+            className="text-blue-600 hover:underline mt-4 inline-block"
+          >
             Browse All Products
           </Link>
         </div>
@@ -87,17 +100,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
   // Format price to VND
   const formatVND = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      minimumFractionDigits: 0
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      minimumFractionDigits: 0,
     }).format(price);
   };
 
   // Calculate sale price if there's a discount
-  const calculateSalePrice = (originalPrice: number, salePercentage: number | null) => {
+  const calculateSalePrice = (
+    originalPrice: number,
+    salePercentage: number | null
+  ) => {
     if (!salePercentage) return originalPrice;
-    return originalPrice * (100 - salePercentage) / 100;
+    return (originalPrice * (100 - salePercentage)) / 100;
   };
 
   return (
@@ -105,11 +121,17 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       <div className="container mx-auto px-4">
         {/* Breadcrumb */}
         <div className="flex items-center space-x-2 mb-8">
-          <Link href="/" className="text-gray-600 hover:text-blue-600">Trang chủ</Link>
+          <Link href="/" className="text-gray-600 hover:text-blue-600">
+            Trang chủ
+          </Link>
           <span className="text-gray-400">/</span>
-          <Link href="/products" className="text-gray-600 hover:text-blue-600">Sản phẩm</Link>
+          <Link href="/products" className="text-gray-600 hover:text-blue-600">
+            Sản phẩm
+          </Link>
           <span className="text-gray-400">/</span>
-          <span className="text-gray-800 font-medium">{product.productName}</span>
+          <span className="text-gray-800 font-medium">
+            {product.productName}
+          </span>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -124,6 +146,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     alt={product.productName}
                     fill
                     className="object-contain"
+                    unoptimized
                     priority
                   />
                 ) : (
@@ -137,7 +160,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   </Badge>
                 )}
               </div>
-              
+
               {/* Thumbnail Images */}
               <div className="grid grid-cols-4 gap-2">
                 {product.productImages && product.productImages.length > 0 ? (
@@ -146,13 +169,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       key={`image-${index}`}
                       onClick={() => setSelectedImageIndex(index)}
                       className={`relative h-24 rounded-lg overflow-hidden border-2 transition-all
-                        ${selectedImageIndex === index ? 'border-blue-500' : 'border-transparent'}`}
+                        ${
+                          selectedImageIndex === index
+                            ? "border-blue-500"
+                            : "border-transparent"
+                        }`}
                     >
                       <Image
                         src={image}
                         alt={`${product.productName} ${index + 1}`}
                         fill
                         className="object-cover"
+                        unoptimized
                       />
                     </button>
                   ))
@@ -170,31 +198,39 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
               <div className="mb-6">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
                   {/* Show categories if available */}
-                  {product.category && product.category.map((categoryId, index) => (
-                    <Badge 
-                      key={`category-${index}`}
-                      variant="secondary"
-                      className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200"
-                    >
-                      {categories[categoryId as string]?.categoryName || 'Danh mục'}
-                    </Badge>
-                  ))}
-                  
+                  {product.category &&
+                    product.category.map((categoryId, index) => (
+                      <Badge
+                        key={`category-${index}`}
+                        variant="secondary"
+                        className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200"
+                      >
+                        {categories[categoryId as string]?.categoryName ||
+                          "Danh mục"}
+                      </Badge>
+                    ))}
+
                   {/* Stock status */}
-                  <Badge 
-                    variant="outline" 
+                  <Badge
+                    variant="outline"
                     className={`${
-                      product.stock > 0 
-                        ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200' 
-                        : 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200'
+                      product.stock > 0
+                        ? "bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
+                        : "bg-red-100 text-red-800 border-red-200 hover:bg-red-200"
                     }`}
                   >
-                    {product.stock > 0 ? `Còn hàng (${product.stock})` : 'Hết hàng'}
+                    {product.stock > 0
+                      ? `Còn hàng (${product.stock})`
+                      : "Hết hàng"}
                   </Badge>
                 </div>
-                
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.productName}</h1>
-                <p className="text-gray-600 text-lg">Thương hiệu: {product.brand}</p>
+
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  {product.productName}
+                </h1>
+                <p className="text-gray-600 text-lg">
+                  Thương hiệu: {product.brand}
+                </p>
               </div>
 
               {/* Price Section */}
@@ -203,14 +239,22 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="text-3xl font-bold text-red-500">
-                        {formatVND(calculateSalePrice(product.price, product.salePercentage))}
+                        {formatVND(
+                          calculateSalePrice(
+                            product.price,
+                            product.salePercentage
+                          )
+                        )}
                       </span>
                       <span className="text-xl text-gray-400 line-through">
                         {formatVND(product.price)}
                       </span>
                     </div>
                     <p className="text-sm text-gray-600">
-                      Tiết kiệm: {formatVND(product.price * (product.salePercentage / 100))}
+                      Tiết kiệm:{" "}
+                      {formatVND(
+                        product.price * (product.salePercentage / 100)
+                      )}
                     </p>
                   </div>
                 ) : (
@@ -230,16 +274,20 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <h3 className="font-medium text-gray-700">Thành phần</h3>
-                    <p className="text-gray-600 text-sm mt-1">{product.ingredients}</p>
+                    <p className="text-gray-600 text-sm mt-1">
+                      {product.ingredients}
+                    </p>
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-700">Phù hợp với</h3>
-                    <p className="text-gray-600 text-sm mt-1">{product.suitableFor}</p>
+                    <p className="text-gray-600 text-sm mt-1">
+                      {product.suitableFor}
+                    </p>
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-700">Hạn sử dụng</h3>
                     <p className="text-gray-600 text-sm mt-1">
-                      {new Date(product.expiryDate).toLocaleDateString('vi-VN')}
+                      {new Date(product.expiryDate).toLocaleDateString("vi-VN")}
                     </p>
                   </div>
                   <div>
@@ -247,14 +295,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     <div className="flex items-center text-sm mt-1">
                       <div className="flex items-center">
                         {[1, 2, 3, 4, 5].map((star) => (
-                          <svg 
+                          <svg
                             key={star}
                             className={`w-4 h-4 ${
-                              star <= (product.averageRating || 0) 
-                                ? 'text-yellow-400' 
-                                : 'text-gray-300'
+                              star <= (product.averageRating || 0)
+                                ? "text-yellow-400"
+                                : "text-gray-300"
                             }`}
-                            fill="currentColor" 
+                            fill="currentColor"
                             viewBox="0 0 20 20"
                           >
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -262,7 +310,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                         ))}
                       </div>
                       <span className="ml-2 text-gray-600">
-                        {product.averageRating ? `${product.averageRating.toFixed(1)}/5` : 'Chưa có đánh giá'}
+                        {product.averageRating
+                          ? `${product.averageRating.toFixed(1)}/5`
+                          : "Chưa có đánh giá"}
                       </span>
                     </div>
                   </div>
