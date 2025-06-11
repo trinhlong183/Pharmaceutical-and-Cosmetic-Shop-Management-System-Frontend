@@ -437,14 +437,14 @@ export default function CartPage() {
             <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-6">
               <ShoppingBag className="h-10 w-10 text-gray-400" />
             </div>
-            <CardTitle className="text-2xl mb-3">Giỏ hàng trống</CardTitle>
+            <CardTitle className="text-2xl mb-3">Your cart is empty</CardTitle>
             <p className="text-gray-500 mb-6">
-              Bạn chưa thêm bất kỳ sản phẩm nào vào giỏ hàng
+              You haven't added any products to your cart
             </p>
-            <Link href="/home" passHref>
+            <Link href="/products" passHref>
               <Button className="w-full">
                 <ShoppingCart className="mr-2 h-4 w-4" />
-                Tiếp tục mua sắm
+                Continue shopping
               </Button>
             </Link>
           </CardContent>
@@ -457,10 +457,10 @@ export default function CartPage() {
     <div className="bg-gray-50 min-h-screen py-8">
       <div className="container mx-auto p-4 max-w-7xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Giỏ hàng</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Shopping Cart</h1>
           <div className="flex items-center gap-2 mt-2">
             <Badge variant="secondary">
-              {cart.items.length} sản phẩm
+              {cart.items.length} products
             </Badge>
           </div>
         </div>
@@ -471,7 +471,7 @@ export default function CartPage() {
             <Card className="border shadow-sm mb-6">
               <CardHeader className="pb-3 border-b">
                 <div className="flex justify-between items-center">
-                  <CardTitle>Sản phẩm đã chọn</CardTitle>
+                  <CardTitle>Selected Products</CardTitle>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -479,7 +479,7 @@ export default function CartPage() {
                     onClick={handleClearCart}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Xóa giỏ hàng
+                    Clear Cart
                   </Button>
                 </div>
               </CardHeader>
@@ -550,7 +550,7 @@ export default function CartPage() {
                                   {formatVND(item.price * item.quantity)}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  Còn lại: {item.productId.stock || 0} sản phẩm
+                                  In stock: {item.productId.stock || 0} items
                                 </p>
                               </div>
                             </div>
@@ -558,7 +558,7 @@ export default function CartPage() {
                         </div>
                       ) : (
                         <div className="text-center text-muted-foreground p-4">
-                          Sản phẩm không hợp lệ
+                          Invalid product
                         </div>
                       )}
                     </div>
@@ -575,9 +575,9 @@ export default function CartPage() {
                     <Truck className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-medium">Giao hàng miễn phí</h3>
+                    <h3 className="font-medium">Free shipping</h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Đơn hàng sẽ được giao trong vòng 2-3 ngày làm việc kể từ khi thanh toán thành công.
+                      Orders will be delivered within 2-3 business days after successful payment.
                     </p>
                   </div>
                 </div>
@@ -590,20 +590,20 @@ export default function CartPage() {
             {/* Order Summary Card */}
             <Card className="border shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Tóm tắt đơn hàng</CardTitle>
+                <CardTitle className="text-lg">Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="pb-4 space-y-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tạm tính</span>
+                  <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatVND(cart.totalAmount)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Phí vận chuyển</span>
-                  <span className="text-green-600">Miễn phí</span>
+                  <span className="text-muted-foreground">Shipping fee</span>
+                  <span className="text-green-600">Free</span>
                 </div>
                 <hr className="my-2" />
                 <div className="flex justify-between pt-2">
-                  <span className="font-medium">Tổng tiền</span>
+                  <span className="font-medium">Total</span>
                   <span className="font-bold text-xl">{formatVND(cart.totalAmount)}</span>
                 </div>
               </CardContent>
@@ -617,12 +617,12 @@ export default function CartPage() {
                   {checkoutLoading ? (
                     <>
                       <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Đang xử lý...
+                      Processing...
                     </>
                   ) : (
                     <>
                       <CreditCard className="h-4 w-4 mr-2" />
-                      {user?.address ? 'Tiến hành thanh toán' : 'Cần cập nhật địa chỉ'}
+                      {user?.address ? 'Proceed to Payment' : 'Address update required'}
                     </>
                   )}
                 </Button>
@@ -632,7 +632,7 @@ export default function CartPage() {
                   className="w-full"
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Tiếp tục mua sắm
+                  Continue shopping
                 </Button>
               </CardFooter>
             </Card>
@@ -642,7 +642,7 @@ export default function CartPage() {
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-center">
                   <CardTitle className="text-lg">
-                    Thông tin giao hàng
+                    Delivery Information
                   </CardTitle>
                   {user && (
                     <Button 
@@ -650,7 +650,7 @@ export default function CartPage() {
                       size="sm"
                       onClick={() => router.push('/profile')}
                     >
-                      Chỉnh sửa
+                      Edit
                     </Button>
                   )}
                 </div>
@@ -659,32 +659,32 @@ export default function CartPage() {
                 {user ? (
                   <div className="space-y-3 text-sm">
                     <div>
-                      <p className="text-muted-foreground">Họ tên</p>
+                      <p className="text-muted-foreground">Full Name</p>
                       <p className="font-medium">{user.fullName}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Số điện thoại</p>
-                      <p className="font-medium">{user.phone || 'Chưa cung cấp'}</p>
+                      <p className="text-muted-foreground">Phone Number</p>
+                      <p className="font-medium">{user.phone || 'Not provided'}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Địa chỉ giao hàng</p>
-                      <p className="font-medium">{user.address || 'Chưa cung cấp'}</p>
+                      <p className="text-muted-foreground">Delivery Address</p>
+                      <p className="font-medium">{user.address || 'Not provided'}</p>
                       {!user.address && (
                         <Button
                           variant="link"
                           className="p-0 h-auto text-blue-600"
                           onClick={() => router.push('/profile')}
                         >
-                          + Thêm địa chỉ giao hàng
+                          + Add delivery address
                         </Button>
                       )}
                     </div>
                   </div>
                 ) : (
                   <div className="text-center py-4">
-                    <p className="text-muted-foreground mb-4">Vui lòng đăng nhập để tiếp tục thanh toán</p>
+                    <p className="text-muted-foreground mb-4">Please log in to continue checkout</p>
                     <Button className="w-full" onClick={() => router.push('/login')}>
-                      Đăng nhập / Đăng ký
+                      Login / Register
                     </Button>
                   </div>
                 )}

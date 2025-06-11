@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { productService } from "@/api/productService"; // Giả sử bạn có service này
+import { productService } from "@/api/productService"; // Assume you have this service
 import { FiFilter, FiSearch } from "react-icons/fi";
 import ProductCard from "@/components/product/ProductCard";
 import { categoriesService } from "@/api/categoriesService";

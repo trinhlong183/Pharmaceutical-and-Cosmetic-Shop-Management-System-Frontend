@@ -114,12 +114,12 @@ export default function CustomerHome() {
                               ).toFixed(2)}
                             </span>
                             <span className="text-gray-400 line-through text-sm">
-                              ${product.price.toFixed(2)}
+                              {product.price.toFixed(2)}vnd
                             </span>
                           </div>
                         ) : (
                           <span className="text-gray-900 font-bold text-lg">
-                            ${product.price.toFixed(2)}
+                            {product.price.toFixed(2)}vnd
                           </span>
                         )}
                       </div>
