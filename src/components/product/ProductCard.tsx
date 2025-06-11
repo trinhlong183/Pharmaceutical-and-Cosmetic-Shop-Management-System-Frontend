@@ -64,7 +64,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </p>
         )}
         <div className="mt-auto pt-2 flex items-center justify-between">
-          <span className="font-bold text-xl">${price.toFixed(2)}</span>
+          <span className="font-bold text-xl">${price}</span>
           <Link
             href={`/products/${productId}`}
             className="text-primary hover:underline"
