@@ -28,10 +28,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
         <Image
           src={productImages[0] || "/placeholder-product.jpg"}
           alt={productName || "Product Image"}
-          width={500}
-          height={500}
+          // width={500}
+          // height={500}
+          fill
+          unoptimized
           className="object-cover hover:scale-105 transition-transform duration-300"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          // sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
         <div className="absolute top-2 right-2 flex flex-wrap gap-1">
           {category && category.length > 0 ? (
