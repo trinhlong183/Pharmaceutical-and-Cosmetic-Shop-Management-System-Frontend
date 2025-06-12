@@ -3,6 +3,8 @@ import React from "react";
 import { useUser } from "@/contexts/UserContext";
 import DashboardStaff from "../(staff)/dashboard-staff";
 import DashboardAdmin from "../(admin)/dashboard-admin";
+import { Role } from "@/constants/type";
+import RoleRoute from "@/components/auth/RoleRoute";
 
 function Dashboard() {
   const { user } = useUser();
@@ -10,10 +12,18 @@ function Dashboard() {
   if (!user) return null;
 
   if (user.role === "admin") {
-    return <DashboardAdmin />;
+    return (
+      <RoleRoute allowedRoles={[Role.ADMIN]}>
+        <DashboardAdmin />
+      </RoleRoute>
+    );
   }
 
-  return <DashboardStaff />;
+  return (
+    <RoleRoute allowedRoles={[Role.STAFF]}>
+      <DashboardStaff />
+    </RoleRoute>
+  );
 }
 
 export default Dashboard;
