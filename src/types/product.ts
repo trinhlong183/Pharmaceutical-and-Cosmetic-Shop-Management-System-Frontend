@@ -23,7 +23,7 @@ export interface Product {
   productDescription: string;
   price: number;
   stock: number;
-  category: string[] | Category[];
+  category: Category[];
   brand: string;
   productImages: string[];
   ingredients: string;

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { productService } from "@/api/productService"; // Assume you have this service
+
 import { FiFilter, FiSearch } from "react-icons/fi";
 import ProductCard from "@/components/product/ProductCard";
 import { categoriesService } from "@/api/categoriesService";
@@ -13,132 +14,194 @@ import {
   PaginationNext,
 } from "@/components/ui/pagination";
 import { Slider } from "@/components/ui/slider";
+import { Category } from "@/types/category";
+import { Product } from "@/types/product";
 
-interface Product {
-  id: string;
-  productName: string;
-  price: number;
-  productImages: [string];
-  brand: string;
-  category: string;
-  productDescription?: string;
-}
+const DEFAULT_PRICE_RANGE: [number, number] = [0, 1000];
+const PAGE_SIZE = 20;
+
+const SORT_OPTIONS = [
+  { value: "price", label: "Price" },
+  { value: "salePercentage", label: "Sale %" },
+  { value: "expiryDate", label: "Expiry Date" },
+  { value: "createdAt", label: "Newest" },
+];
+const ORDER_OPTIONS = [
+  {
+    value: "asc",
+    label: "Ascending",
+    icon: (
+      <svg
+        className="inline w-4 h-4 mr-1"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+      </svg>
+    ),
+  },
+  {
+    value: "desc",
+    label: "Descending",
+    icon: (
+      <svg
+        className="inline w-4 h-4 mr-1"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      </svg>
+    ),
+  },
+];
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [displayedProducts, setDisplayedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-
+  const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
-  const [categories, setCategories] = useState<
-    { _id: string; categoryName: string }[]
-  >([]);
 
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const limit = 20;
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [total, setTotal] = useState(0);
 
-  const fetchBrandsAndCategories = async () => {
-    try {
-      const categoriesData = await categoriesService.getAllCategories();
-      setCategories(categoriesData); // giữ nguyên object để lấy _id
-    } catch (error) {
-      console.error("Failed to fetch brands or categories:", error);
-    }
-  };
+  // Filter state
+  const [pendingFilter, setPendingFilter] = useState({
+    search: "",
+    selectedBrands: [] as string[],
+    selectedCategories: [] as string[],
+    priceRange: DEFAULT_PRICE_RANGE as [number, number],
+    sortBy: "price",
+    order: "desc",
+  });
+  const [filter, setFilter] = useState({
+    search: "",
+    selectedBrands: [] as string[],
+    selectedCategories: [] as string[],
+    priceRange: DEFAULT_PRICE_RANGE as [number, number],
+    sortBy: "price",
+    order: "asc",
+  });
 
+  // Fetch categories on mount
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        const params: any = {
-          page,
-          limit,
-          minPrice: priceRange[0],
-          maxPrice: priceRange[1],
-        };
-        if (search) params.search = search;
-        if (selectedBrands.length > 0) params.brand = selectedBrands[0];
-        if (selectedCategories.length > 0) params.category = selectedCategories; // truyền mảng id
-        const response = await productService.getAllProducts(params);
-        // response là { products, total }
-        setFilteredProducts(response.products || []);
-        console.log("Fetched products:", response.products);
-        setProducts(response.products || []);
-        setTotal(response.total || 0);
-      } catch (error) {
-        setFilteredProducts([]);
-        setProducts([]);
-        setTotal(0);
-        console.error("Failed to fetch products:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBrandsAndCategories();
-    fetchProducts();
+    categoriesService
+      .getAllCategories()
+      .then((data) => setCategories(data))
+      .catch(() => setCategories([]));
   }, []);
 
-  // Khi thay đổi filter/search/page/priceRange thì gọi lại API
+  // Fetch products when filter or page changes
   useEffect(() => {
     const fetchProducts = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
         const params: any = {
           page,
-          limit,
-          minPrice: priceRange[0],
-          maxPrice: priceRange[1],
+          limit: PAGE_SIZE,
+          minPrice: filter.priceRange[0],
+          maxPrice: filter.priceRange[1],
+          sortBy: filter.sortBy,
+          order: filter.order,
         };
-        if (search) params.search = search;
-        if (selectedBrands.length > 0) params.brand = selectedBrands[0];
-        if (selectedCategories.length > 0) params.category = selectedCategories; // truyền mảng id
-        const response = await productService.getAllProducts(params);
-        setFilteredProducts(response.products || []);
-        console.log("Fetched products param:", response.products);
-        setProducts(response.products || []);
-        setTotal(response.total || 0);
-      } catch (error) {
-        setFilteredProducts([]);
+        if (filter.search) params.search = filter.search;
+        if (filter.selectedBrands.length > 0)
+          params.brand = filter.selectedBrands[0];
+        if (filter.selectedCategories.length > 0)
+          params.category = filter.selectedCategories;
+        const res = await productService.getAllProducts(params);
+        setProducts(res.products || []);
+        setDisplayedProducts(res.products || []);
+        setTotal(res.total || 0);
+      } catch {
         setProducts([]);
+        setDisplayedProducts([]);
         setTotal(0);
-        console.error("Failed to fetch products:", error);
       } finally {
         setLoading(false);
       }
     };
     fetchProducts();
-  }, [search, selectedBrands, selectedCategories, page, priceRange]);
+  }, [filter, page]);
 
-  const handleBrandChange = (brand: string) => {
-    setSelectedBrands((prev) =>
-      prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]
+  // Handlers for pending filter UI
+  const handlePendingChange = (key: keyof typeof pendingFilter, value: any) => {
+    setPendingFilter((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleBrandToggle = (brand: string) => {
+    handlePendingChange(
+      "selectedBrands",
+      pendingFilter.selectedBrands.includes(brand)
+        ? pendingFilter.selectedBrands.filter((b) => b !== brand)
+        : [...pendingFilter.selectedBrands, brand]
     );
   };
 
-  const handleCategoryChange = (categoryId: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(categoryId)
-        ? prev.filter((c) => c !== categoryId)
-        : [...prev, categoryId]
+  const handleCategoryToggle = (categoryId: string) => {
+    handlePendingChange(
+      "selectedCategories",
+      pendingFilter.selectedCategories.includes(categoryId)
+        ? pendingFilter.selectedCategories.filter((c) => c !== categoryId)
+        : [...pendingFilter.selectedCategories, categoryId]
     );
   };
 
-  const resetFilters = () => {
-    setSelectedBrands([]);
-    setSelectedCategories([]);
-    setSearch("");
+  const handlePriceRangeChange = (range: [number, number]) => {
+    handlePendingChange("priceRange", range);
+    setPage(1);
   };
 
-  const handlePriceChange = (values: [number, number]) => {
-    setPriceRange(values);
-    setPage(1); // Reset về trang đầu khi filter
+  const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handlePendingChange("search", e.target.value);
+  };
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setPendingFilter((prev) => ({ ...prev, sortBy: e.target.value }));
+  };
+  const handleOrderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setPendingFilter((prev) => ({ ...prev, order: e.target.value }));
+  };
+
+  const applySearch = () => {
+    setFilter((prev) => ({ ...prev, search: pendingFilter.search }));
+    setPage(1);
+  };
+
+  const applyFilters = () => {
+    setFilter((prev) => ({
+      ...prev,
+      selectedBrands: pendingFilter.selectedBrands,
+      selectedCategories: pendingFilter.selectedCategories,
+      priceRange: pendingFilter.priceRange,
+      sortBy: pendingFilter.sortBy,
+      order: pendingFilter.order,
+    }));
+    setPage(1);
+  };
+
+  const resetAllFilters = () => {
+    setPendingFilter({
+      search: "",
+      selectedBrands: [],
+      selectedCategories: [],
+      priceRange: DEFAULT_PRICE_RANGE,
+      sortBy: "price",
+      order: "asc",
+    });
+    setFilter({
+      search: "",
+      selectedBrands: [],
+      selectedCategories: [],
+      priceRange: DEFAULT_PRICE_RANGE,
+      sortBy: "price",
+      order: "asc",
+    });
+    setPage(1);
   };
 
   const handlePageChange = (newPage: number) => {
@@ -146,13 +209,11 @@ export default function ProductsPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Pagination handler
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="container mx-auto px-4 py-8 min-h-lvh">
       <h1 className="text-3xl font-bold mb-8 text-center">Our Products</h1>
-
       {/* Search bar */}
       <div className="max-w-md mx-auto mb-8">
         <div className="relative flex items-center">
@@ -160,26 +221,36 @@ export default function ProductsPage() {
           <input
             type="text"
             placeholder="Search products..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={pendingFilter.search}
+            onChange={handleSearchInput}
             className="w-full pl-10 pr-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
           />
+          <button
+            onClick={applySearch}
+            className="ml-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+          >
+            Search
+          </button>
         </div>
       </div>
-
       <div className="flex flex-col md:flex-row gap-6">
         {/* Mobile filter button */}
         <button
           className="md:hidden flex items-center justify-center gap-2 bg-primary text-white px-4 py-2 rounded-lg mb-4"
-          onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+          onClick={() =>
+            handlePendingChange(
+              "mobileFiltersOpen",
+              !pendingFilter["mobileFiltersOpen"]
+            )
+          }
         >
-          <FiFilter /> {mobileFiltersOpen ? "Hide Filters" : "Show Filters"}
+          <FiFilter />{" "}
+          {pendingFilter["mobileFiltersOpen"] ? "Hide Filters" : "Show Filters"}
         </button>
-
         {/* Filters */}
         <div
           className={`w-full md:w-64 ${
-            mobileFiltersOpen ? "block" : "hidden"
+            pendingFilter["mobileFiltersOpen"] ? "block" : "hidden"
           } md:block`}
         >
           <div className="bg-white p-4 rounded-lg shadow mb-6">
@@ -193,8 +264,8 @@ export default function ProductsPage() {
                   >
                     <input
                       type="checkbox"
-                      checked={selectedBrands.includes(brand)}
-                      onChange={() => handleBrandChange(brand)}
+                      checked={pendingFilter.selectedBrands.includes(brand)}
+                      onChange={() => handleBrandToggle(brand)}
                       className="mr-2"
                     />
                     <span>{brand}</span>
@@ -202,7 +273,6 @@ export default function ProductsPage() {
                 ))}
               </div>
             </div>
-
             <div className="mb-6">
               <h3 className="font-semibold text-lg mb-3">Categories</h3>
               <div className="space-y-2">
@@ -213,8 +283,10 @@ export default function ProductsPage() {
                   >
                     <input
                       type="checkbox"
-                      checked={selectedCategories.includes(category._id)}
-                      onChange={() => handleCategoryChange(category._id)}
+                      checked={pendingFilter.selectedCategories.includes(
+                        category._id
+                      )}
+                      onChange={() => handleCategoryToggle(category._id)}
                       className="mr-2"
                     />
                     <span>{category.categoryName}</span>
@@ -222,39 +294,83 @@ export default function ProductsPage() {
                 ))}
               </div>
             </div>
-
             <div className="mb-6">
               <h3 className="font-semibold text-lg mb-3">Price Range</h3>
               <Slider
                 min={0}
                 max={1000}
                 step={10}
-                value={priceRange}
-                onValueChange={handlePriceChange}
+                value={pendingFilter.priceRange}
+                onValueChange={handlePriceRangeChange}
                 className="w-full"
               />
               <div className="flex justify-between text-sm mt-2">
-                <span>${priceRange[0].toLocaleString()}</span>
-                <span>${priceRange[1].toLocaleString()}</span>
+                <span>${pendingFilter.priceRange[0].toLocaleString()}</span>
+                <span>${pendingFilter.priceRange[1].toLocaleString()}</span>
               </div>
             </div>
-
-            <button
-              onClick={resetFilters}
-              className="w-full mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              Reset Filters
-            </button>
+            <div className="mb-6">
+              <h3 className="font-semibold text-lg mb-3">Sort By</h3>
+              <div className="flex gap-2 items-center">
+                <select
+                  value={pendingFilter.sortBy}
+                  onChange={handleSortChange}
+                  className="border rounded px-2 py-1"
+                >
+                  {SORT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex gap-1">
+                  {ORDER_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() =>
+                        handleOrderChange({
+                          target: { value: opt.value },
+                        } as any)
+                      }
+                      className={`border rounded px-2 py-1 flex items-center transition-colors
+                        ${
+                          pendingFilter.order === opt.value
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                        }
+                      `}
+                      aria-label={opt.label}
+                    >
+                      {opt.icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={applyFilters}
+                className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+              >
+                Apply Filters
+              </button>
+              <button
+                onClick={resetAllFilters}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Reset Filters
+              </button>
+            </div>
           </div>
         </div>
-
         {/* Products grid */}
         <div className="flex-1">
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
             </div>
-          ) : filteredProducts.length === 0 ? (
+          ) : displayedProducts.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-8 text-center">
               <h3 className="text-xl font-semibold text-gray-700 mb-2">
                 No products found
@@ -265,10 +381,10 @@ export default function ProductsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredProducts.map((product) => (
+              {displayedProducts.map((product) => (
                 <ProductCard
                   key={product.id}
-                  productId={product.id}
+                  productId={product.id || ""}
                   productName={product.productName}
                   price={product.price}
                   productImages={product.productImages}
@@ -279,15 +395,18 @@ export default function ProductsPage() {
               ))}
             </div>
           )}
-
-          {/* Pagination */}
+         
+        </div>
+        
+      </div>
+       {/* Pagination */}
           <div className="flex justify-center mt-8">
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
                     onClick={() => handlePageChange(page > 1 ? page - 1 : 1)}
-                    aria-disabled={page === 1}
+                    aria-disabled={page <= 1}
                   />
                 </PaginationItem>
                 <PaginationItem>
@@ -304,8 +423,6 @@ export default function ProductsPage() {
               </PaginationContent>
             </Pagination>
           </div>
-        </div>
-      </div>
     </div>
   );
 }
