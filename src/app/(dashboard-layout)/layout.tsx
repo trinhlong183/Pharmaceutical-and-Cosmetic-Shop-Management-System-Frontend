@@ -67,6 +67,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     });
     // Có thể thêm các mục khác cho admin ở đây
   }
+  if (user?.role === "staff") {
+    menuItems.splice(1, 0, {
+      label: "Inventory",
+      path: "/manage-inventory",
+      icon: <FolderKanban size={20} />,
+    });
+    // Có thể thêm các mục khác cho admin ở đây
+  }
 
   return (
     <div className="flex h-screen bg-gray-100">

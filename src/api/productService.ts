@@ -31,6 +31,11 @@ export const productService = {
     const data: ApiResponse<Product> = await response.json();
     return data.data;
   },
+  // getProductById: (id: string): Promise<Product> => {
+  //   return http
+  //     .get<{ data: Product }>(`/products/${id}`)
+  //     .then((response) => response.payload.data);
+  // },
 
   createProduct: (body: CreateProductBodyType) => {
     return http.post("/products", body);
