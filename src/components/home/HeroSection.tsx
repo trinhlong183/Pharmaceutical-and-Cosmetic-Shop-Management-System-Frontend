@@ -7,7 +7,7 @@ import Link from "next/link";
 const heroImages = [
   {
     src: "https://juliettearmand.com.vn/wp-content/uploads/2023/04/PQ7255.jpg",
-    alt: "Sữa chống nắng bí đao",
+    alt: "Winter Melon Sunscreen",
   },
   {
     src: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80",
@@ -44,20 +44,20 @@ export default function HeroSection() {
       <div className="w-full md:w-1/2 bg-yellow-300 flex items-center justify-center">
         <div className="p-8 md:p-12 lg:p-16">
           <div className="max-w-md">
-            <h2 className="text-xl uppercase tracking-wider mb-4">CHỐNG NẮNG PHỔ RỘNG</h2>
+            <h2 className="text-xl uppercase tracking-wider mb-4">BROAD SPECTRUM SUNSCREEN</h2>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
-              Sữa chống nắng bí đao
+              Winter Melon Sunscreen Milk
             </h1>
             <p className="mb-8 text-lg">
-              Bảo vệ da trước tia UVA, UVB và ánh sáng nắng lượng cao nhìn thấy được. 
-              Với kết cấu không trọng lượng, thấm nhanh vào da mà không để lại vết trắng 
-              và mang đến cảm giác thoải mái khi sử dụng.
+              Protects skin against UVA, UVB rays and high-energy visible light.
+              With a lightweight texture that absorbs quickly without leaving white residue,
+              providing a comfortable feel during use.
             </p>
             <Link 
               href="/products" 
               className="inline-block px-8 py-4 bg-black text-white font-medium text-lg rounded-md hover:bg-gray-800 transition-colors"
             >
-              XEM NGAY
+              SHOP NOW
               <span className="ml-2">→</span>
             </Link>
           </div>
