@@ -121,13 +121,9 @@ export default function ProductDetailPage({
       <div className="container mx-auto px-4">
         {/* Breadcrumb */}
         <div className="flex items-center space-x-2 mb-8">
-          <Link href="/" className="text-gray-600 hover:text-blue-600">
-            Trang chủ
-          </Link>
+          <Link href="/" className="text-gray-600 hover:text-blue-600">Home</Link>
           <span className="text-gray-400">/</span>
-          <Link href="/products" className="text-gray-600 hover:text-blue-600">
-            Sản phẩm
-          </Link>
+          <Link href="/products" className="text-gray-600 hover:text-blue-600">Products</Link>
           <span className="text-gray-400">/</span>
           <span className="text-gray-800 font-medium">
             {product.productName}
@@ -198,18 +194,16 @@ export default function ProductDetailPage({
               <div className="mb-6">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
                   {/* Show categories if available */}
-                  {product.category &&
-                    product.category.map((categoryId, index) => (
-                      <Badge
-                        key={`category-${index}`}
-                        variant="secondary"
-                        className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200"
-                      >
-                        {categories[categoryId as string]?.categoryName ||
-                          "Danh mục"}
-                      </Badge>
-                    ))}
-
+                  {product.category && product.category.map((categoryId, index) => (
+                    <Badge 
+                      key={`category-${index}`}
+                      variant="secondary"
+                      className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200"
+                    >
+                      {categories[categoryId as string]?.categoryName || 'Category'}
+                    </Badge>
+                  ))}
+                  
                   {/* Stock status */}
                   <Badge
                     variant="outline"
@@ -219,18 +213,12 @@ export default function ProductDetailPage({
                         : "bg-red-100 text-red-800 border-red-200 hover:bg-red-200"
                     }`}
                   >
-                    {product.stock > 0
-                      ? `Còn hàng (${product.stock})`
-                      : "Hết hàng"}
+                    {product.stock > 0 ? `In Stock (${product.stock})` : 'Out of Stock'}
                   </Badge>
                 </div>
-
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  {product.productName}
-                </h1>
-                <p className="text-gray-600 text-lg">
-                  Thương hiệu: {product.brand}
-                </p>
+                
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.productName}</h1>
+                <p className="text-gray-600 text-lg">Brand: {product.brand}</p>
               </div>
 
               {/* Price Section */}
@@ -251,10 +239,7 @@ export default function ProductDetailPage({
                       </span>
                     </div>
                     <p className="text-sm text-gray-600">
-                      Tiết kiệm:{" "}
-                      {formatVND(
-                        product.price * (product.salePercentage / 100)
-                      )}
+                      Save: {formatVND(product.price * (product.salePercentage / 100))}
                     </p>
                   </div>
                 ) : (
@@ -267,31 +252,27 @@ export default function ProductDetailPage({
               {/* Product Details */}
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-lg font-semibold mb-2">Mô tả sản phẩm</h2>
+                  <h2 className="text-lg font-semibold mb-2">Product Description</h2>
                   <p className="text-gray-600">{product.productDescription}</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <h3 className="font-medium text-gray-700">Thành phần</h3>
+                    <h3 className="font-medium text-gray-700">Ingredients</h3>
+                    <p className="text-gray-600 text-sm mt-1">{product.ingredients}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-700">Suitable For</h3>
+                    <p className="text-gray-600 text-sm mt-1">{product.suitableFor}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-700">Expiry Date</h3>
                     <p className="text-gray-600 text-sm mt-1">
-                      {product.ingredients}
+                      {new Date(product.expiryDate).toLocaleDateString('en-US')}
                     </p>
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-700">Phù hợp với</h3>
-                    <p className="text-gray-600 text-sm mt-1">
-                      {product.suitableFor}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-700">Hạn sử dụng</h3>
-                    <p className="text-gray-600 text-sm mt-1">
-                      {new Date(product.expiryDate).toLocaleDateString("vi-VN")}
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-700">Đánh giá</h3>
+                    <h3 className="font-medium text-gray-700">Reviews</h3>
                     <div className="flex items-center text-sm mt-1">
                       <div className="flex items-center">
                         {[1, 2, 3, 4, 5].map((star) => (
@@ -310,9 +291,7 @@ export default function ProductDetailPage({
                         ))}
                       </div>
                       <span className="ml-2 text-gray-600">
-                        {product.averageRating
-                          ? `${product.averageRating.toFixed(1)}/5`
-                          : "Chưa có đánh giá"}
+                        {product.averageRating ? `${product.averageRating.toFixed(1)}/5` : 'No reviews yet'}
                       </span>
                     </div>
                   </div>
