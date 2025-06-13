@@ -28,6 +28,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import InventoryLogCard from "@/components/InventoryLogCard";
 import { handleErrorApi } from "@/lib/utils";
+import RoleRoute from "@/components/auth/RoleRoute";
+import { Role } from "@/constants/type";
+import { toast } from "sonner";
 
 function ManageInventoryPage() {
   const [logs, setLogs] = useState<InventoryLogType[]>([]);
@@ -128,6 +131,7 @@ function ManageInventoryPage() {
         action: "import",
       });
       fetchLogs();
+      toast.success("Inventory log created successfully");
     } catch (e) {
       handleErrorApi({
         error: e,
@@ -137,184 +141,186 @@ function ManageInventoryPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8">
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Create Inventory Log</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label>Batch</Label>
-              <Input
-                name="batch"
-                placeholder="Batch"
-                value={form.batch}
-                onChange={handleFormChange}
-                required
-              />
-            </div>
-
-            <div>
-              <Label>Action</Label>
-              <Select value={form.action} onValueChange={handleActionChange}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="import">Import</SelectItem>
-                  <SelectItem value="export">Export</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Products</Label>
-              <div className="space-y-2">
-                {form.products.map((p, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
-                    <Input
-                      name="productId"
-                      placeholder="Product ID"
-                      value={p.productId}
-                      onChange={(e) => handleFormChange(e, idx)}
-                      required
-                    />
-                    <Input
-                      name="quantity"
-                      type="number"
-                      placeholder="Quantity"
-                      value={p.quantity}
-                      onChange={(e) => handleFormChange(e, idx)}
-                      required
-                      min={0}
-                    />
-                    {form.products.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removeProduct(idx)}
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addProduct}
-                >
-                  Add Product
-                </Button>
+    <RoleRoute allowedRoles={[Role.STAFF]}>
+      <div className="max-w-4xl mx-auto py-8">
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Create Inventory Log</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label>Batch</Label>
+                <Input
+                  name="batch"
+                  placeholder="Batch"
+                  value={form.batch}
+                  onChange={handleFormChange}
+                  required
+                />
               </div>
-            </div>
-            <Button type="submit" disabled={creating}>
-              Create Inventory Log
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Filter Inventory Logs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="flex flex-wrap gap-4 items-end">
-            <div>
-              <Label>Product ID</Label>
-              <Input
-                placeholder="Product ID"
-                name="productId"
-                value={filters.productId || ""}
-                onChange={handleFilterChange}
-              />
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select
-                value={filters.status || "all"}
-                onValueChange={handleStatusChange}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="denied">Denied</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button type="button" onClick={fetchLogs}>
-              Search
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Inventory Logs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div>Loading...</div>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Batch</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created At</TableHead>
-                    <TableHead>Detail</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {logs.map((log, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{log.batch}</TableCell>
-                      <TableCell>{log.action}</TableCell>
 
-                      <TableCell>{log.status}</TableCell>
-                      <TableCell>
-                        {log.createdAt
-                          ? typeof log.createdAt === "string"
-                            ? new Date(log.createdAt).toLocaleString()
-                            : log.createdAt.toLocaleString()
-                          : ""}
-                      </TableCell>
-                      <TableCell>
+              <div>
+                <Label>Action</Label>
+                <Select value={form.action} onValueChange={handleActionChange}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="import">Import</SelectItem>
+                    <SelectItem value="export">Export</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Products</Label>
+                <div className="space-y-2">
+                  {form.products.map((p, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <Input
+                        name="productId"
+                        placeholder="Product ID"
+                        value={p.productId}
+                        onChange={(e) => handleFormChange(e, idx)}
+                        required
+                      />
+                      <Input
+                        name="quantity"
+                        type="number"
+                        placeholder="Quantity"
+                        value={p.quantity}
+                        onChange={(e) => handleFormChange(e, idx)}
+                        required
+                        min={0}
+                      />
+                      {form.products.length > 1 && (
                         <Button
+                          type="button"
+                          variant="destructive"
                           size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedLog(log)}
+                          onClick={() => removeProduct(idx)}
                         >
-                          View
+                          Remove
                         </Button>
-                      </TableCell>
-                    </TableRow>
+                      )}
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
-              {selectedLog && (
-                <div className="mt-6">
-                  <InventoryLogCard log={selectedLog as any} />
-                  <div className="mt-2">
-                    <Button size="sm" onClick={() => setSelectedLog(null)}>
-                      Close
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addProduct}
+                  >
+                    Add Product
+                  </Button>
                 </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+              </div>
+              <Button type="submit" disabled={creating}>
+                Create Inventory Log
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Filter Inventory Logs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form className="flex flex-wrap gap-4 items-end">
+              <div>
+                <Label>Product ID</Label>
+                <Input
+                  placeholder="Product ID"
+                  name="productId"
+                  value={filters.productId || ""}
+                  onChange={handleFilterChange}
+                />
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select
+                  value={filters.status || "all"}
+                  onValueChange={handleStatusChange}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="denied">Denied</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="button" onClick={fetchLogs}>
+                Search
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Inventory Logs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div>Loading...</div>
+            ) : (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Batch</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created At</TableHead>
+                      <TableHead>Detail</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {logs.map((log, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{log.batch}</TableCell>
+                        <TableCell>{log.action}</TableCell>
+
+                        <TableCell>{log.status}</TableCell>
+                        <TableCell>
+                          {log.createdAt
+                            ? typeof log.createdAt === "string"
+                              ? new Date(log.createdAt).toLocaleString()
+                              : log.createdAt.toLocaleString()
+                            : ""}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedLog(log)}
+                          >
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {selectedLog && (
+                  <div className="mt-6">
+                    <InventoryLogCard log={selectedLog as any} />
+                    <div className="mt-2">
+                      <Button size="sm" onClick={() => setSelectedLog(null)}>
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </RoleRoute>
   );
 }
 

@@ -16,6 +16,13 @@ export const inventoryService = {
         return response.payload.data.logs;
       });
   },
+  getInventoryLogById: (id: string) => {
+    return http
+      .get<{ data: InventoryLogType }>(`/inventory-logs/${id}`)
+      .then((response) => {
+        return response.payload.data;
+      });
+  },
   createInventoryLogs: (body: CreateInventoryLogBodyType) => {
     return http.post("/inventory-logs", body);
   },
