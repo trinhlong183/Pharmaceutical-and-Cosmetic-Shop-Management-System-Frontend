@@ -18,10 +18,10 @@ const InventoryLogSchema = z.object({
     })
   ),
   action: z.nativeEnum(action),
-  quantity: z
-    .number()
-    .int()
-    .nonnegative("Quantity must be a non-negative integer"),
+  // quantity: z
+  //   .number()
+  //   .int()
+  //   .nonnegative("Quantity must be a non-negative integer"),
   reason: z.string().optional(),
   status: z.enum(["pending", "approved", "denied"]).optional(),
   userId: z.string().optional(),
@@ -56,3 +56,5 @@ export const InventoryQueryParams = z
   .strict();
 
 export type InventoryQueryParamsType = z.infer<typeof InventoryQueryParams>;
+
+

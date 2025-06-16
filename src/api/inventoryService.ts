@@ -4,7 +4,11 @@ import {
   InventoryLogType,
   InventoryQueryParamsType,
 } from "@/schemaValidations/inventory.schma";
-import { get } from "http";
+
+type reviewInventoryLogsBody = {
+  approved: boolean;
+  reason?: string;
+};
 
 export const inventoryService = {
   getAllInventoryLogs: (param: InventoryQueryParamsType) => {
@@ -26,7 +30,7 @@ export const inventoryService = {
   createInventoryLogs: (body: CreateInventoryLogBodyType) => {
     return http.post("/inventory-logs", body);
   },
-  reviewInventoryLogs: (id: string, body: any) => {
-    return http.patch(`/inventory-logs/${id}/review`, body);
+  reviewInventoryLogs: (inventoryId: string, body: reviewInventoryLogsBody) => {
+    return http.post(`/inventory-logs/${inventoryId}/review`, body);
   },
 };
