@@ -23,30 +23,27 @@ const ProductCard: React.FC<ProductCardProps> = ({
   productDescription = "",
 }) => {
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col h-full">
+    <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full group border border-indigo-50">
       <div className="relative h-48 w-full overflow-hidden">
         <Image
           src={productImages[0] || "/placeholder-product.jpg"}
           alt={productName || "Product Image"}
-          // width={500}
-          // height={500}
           fill
           unoptimized
-          className="object-cover hover:scale-105 transition-transform duration-300"
-          // sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out"
         />
         <div className="absolute top-2 right-2 flex flex-wrap gap-1">
           {category && category.length > 0 ? (
             category.map((cat) => (
               <span
                 key={cat._id}
-                className="bg-primary text-white rounded-full px-2 py-1 text-xs"
+                className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-full px-2.5 py-1 text-xs font-medium shadow-sm"
               >
                 {cat.categoryName}
               </span>
             ))
           ) : (
-            <span className="bg-gray-200 text-gray-600 rounded-full px-2 py-1 text-xs">
+            <span className="bg-gray-200 text-gray-700 rounded-full px-2.5 py-1 text-xs font-medium">
               No Category
             </span>
           )}
@@ -54,8 +51,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       <div className="p-4 flex flex-col flex-grow">
-        <span className="text-sm text-gray-500 mb-1">{brand}</span>
-        <h3 className="font-semibold text-lg mb-1 line-clamp-1">
+        <span className="text-sm font-medium text-indigo-600 mb-1">{brand}</span>
+        <h3 className="font-semibold text-lg mb-1 line-clamp-1 text-gray-800 group-hover:text-indigo-700 transition-colors">
           {productName}
         </h3>
         {productDescription && (
@@ -63,14 +60,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
             {productDescription}
           </p>
         )}
-        <div className="mt-auto pt-2 flex items-center justify-between">
-          <span className="font-bold text-xl">${price}</span>
-          <Link
-            href={`/products/${productId}`}
-            className="text-primary hover:underline"
-          >
+        <div className="mt-auto pt-3 flex items-center justify-between border-t border-gray-100">
+          <span className="font-bold text-xl text-gray-800">
+            ${price.toFixed(2)}
+          </span>
+          <Link href={`/products/${productId}`}>
             <span className="sr-only">View details for {productName}</span>
-            <button className="bg-primary text-white px-3 py-1 rounded hover:bg-primary-dark transition-colors">
+            <button className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:from-indigo-700 hover:to-blue-700 transition-all duration-300 text-sm font-medium shadow-sm">
               View Details
             </button>
           </Link>
