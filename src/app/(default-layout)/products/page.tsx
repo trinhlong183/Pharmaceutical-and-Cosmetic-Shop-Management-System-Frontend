@@ -212,217 +212,256 @@ export default function ProductsPage() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <div className="container mx-auto px-4 py-8 min-h-lvh">
-      <h1 className="text-3xl font-bold mb-8 text-center">Our Products</h1>
-      {/* Search bar */}
-      <div className="max-w-md mx-auto mb-8">
-        <div className="relative flex items-center">
-          <FiSearch className="absolute left-3 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search products..."
-            value={pendingFilter.search}
-            onChange={handleSearchInput}
-            className="w-full pl-10 pr-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-          <button
-            onClick={applySearch}
-            className="ml-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-          >
-            Search
-          </button>
+    <div className="min-h-lvh bg-gradient-to-br from-indigo-50 to-slate-100 py-8 px-4">
+      <div className="container mx-auto">
+        <h1 className="text-4xl font-bold mb-10 text-center bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">
+          Our Products
+        </h1>
+
+        {/* Search bar */}
+        <div className="max-w-md mx-auto mb-10">
+          <div className="relative flex items-center">
+            <FiSearch className="absolute left-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={pendingFilter.search}
+              onChange={handleSearchInput}
+              className="w-full pl-12 pr-4 py-3 border border-indigo-200 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm"
+            />
+            <button
+              onClick={applySearch}
+              className="ml-3 px-6 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-full hover:from-indigo-700 hover:to-blue-700 transition-colors shadow-md"
+            >
+              Search
+            </button>
+          </div>
         </div>
-      </div>
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* Mobile filter button */}
-        <button
-          className="md:hidden flex items-center justify-center gap-2 bg-primary text-white px-4 py-2 rounded-lg mb-4"
-          onClick={() =>
-            handlePendingChange(
-              "mobileFiltersOpen",
-              !pendingFilter["mobileFiltersOpen"]
-            )
-          }
-        >
-          <FiFilter />{" "}
-          {pendingFilter["mobileFiltersOpen"] ? "Hide Filters" : "Show Filters"}
-        </button>
-        {/* Filters */}
-        <div
-          className={`w-full md:w-64 ${
-            pendingFilter["mobileFiltersOpen"] ? "block" : "hidden"
-          } md:block`}
-        >
-          <div className="bg-white p-4 rounded-lg shadow mb-6">
-            <div className="mb-6">
-              <h3 className="font-semibold text-lg mb-3">Brands</h3>
-              <div className="space-y-2">
-                {brands.map((brand) => (
-                  <label
-                    key={brand}
-                    className="flex items-center cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={pendingFilter.selectedBrands.includes(brand)}
-                      onChange={() => handleBrandToggle(brand)}
-                      className="mr-2"
-                    />
-                    <span>{brand}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="mb-6">
-              <h3 className="font-semibold text-lg mb-3">Categories</h3>
-              <div className="space-y-2">
-                {categories.map((category) => (
-                  <label
-                    key={category._id}
-                    className="flex items-center cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={pendingFilter.selectedCategories.includes(
-                        category._id
-                      )}
-                      onChange={() => handleCategoryToggle(category._id)}
-                      className="mr-2"
-                    />
-                    <span>{category.categoryName}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="mb-6">
-              <h3 className="font-semibold text-lg mb-3">Price Range</h3>
-              <Slider
-                min={0}
-                max={1000}
-                step={10}
-                value={pendingFilter.priceRange}
-                onValueChange={handlePriceRangeChange}
-                className="w-full"
-              />
-              <div className="flex justify-between text-sm mt-2">
-                <span>${pendingFilter.priceRange[0].toLocaleString()}</span>
-                <span>${pendingFilter.priceRange[1].toLocaleString()}</span>
-              </div>
-            </div>
-            <div className="mb-6">
-              <h3 className="font-semibold text-lg mb-3">Sort By</h3>
-              <div className="flex gap-2 items-center">
-                <select
-                  value={pendingFilter.sortBy}
-                  onChange={handleSortChange}
-                  className="border rounded px-2 py-1"
-                >
-                  {SORT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="flex gap-1">
-                  {ORDER_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() =>
-                        handleOrderChange({
-                          target: { value: opt.value },
-                        } as any)
-                      }
-                      className={`border rounded px-2 py-1 flex items-center transition-colors
-                        ${
-                          pendingFilter.order === opt.value
-                            ? "bg-primary text-white border-primary"
-                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                        }
-                      `}
-                      aria-label={opt.label}
+
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Mobile filter button */}
+          <button
+            className="md:hidden flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-5 py-3 rounded-lg mb-4 shadow-md"
+            onClick={() =>
+              handlePendingChange(
+                "mobileFiltersOpen",
+                !pendingFilter["mobileFiltersOpen"]
+              )
+            }
+          >
+            <FiFilter />
+            {pendingFilter["mobileFiltersOpen"]
+              ? "Hide Filters"
+              : "Show Filters"}
+          </button>
+
+          {/* Filters */}
+          <div
+            className={`w-full md:w-72 ${
+              pendingFilter["mobileFiltersOpen"] ? "block" : "hidden"
+            } md:block`}
+          >
+            <div className="bg-white p-6 rounded-xl shadow-md border border-indigo-100 mb-6">
+              <div className="mb-8">
+                <h3 className="font-semibold text-xl mb-4 text-gray-800">
+                  Brands
+                </h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                  {brands.map((brand) => (
+                    <label
+                      key={brand}
+                      className={`flex items-center cursor-pointer p-2 rounded-md hover:bg-indigo-50 transition-colors ${
+                        pendingFilter.selectedBrands.includes(brand)
+                          ? "bg-indigo-100 text-indigo-800"
+                          : "text-gray-700"
+                      }`}
                     >
-                      {opt.icon}
-                    </button>
+                      <input
+                        type="checkbox"
+                        checked={pendingFilter.selectedBrands.includes(brand)}
+                        onChange={() => handleBrandToggle(brand)}
+                        className="mr-3 h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                      />
+                      <span>{brand}</span>
+                    </label>
                   ))}
                 </div>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={applyFilters}
-                className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-              >
-                Apply Filters
-              </button>
-              <button
-                onClick={resetAllFilters}
-                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Reset Filters
-              </button>
-            </div>
-          </div>
-        </div>
-        {/* Products grid */}
-        <div className="flex-1">
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-            </div>
-          ) : displayedProducts.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                No products found
-              </h3>
-              <p className="text-gray-500">
-                Try changing your filters or search term
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {displayedProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  productId={product.id || ""}
-                  productName={product.productName}
-                  price={product.price}
-                  productImages={product.productImages}
-                  brand={product.brand}
-                  category={product.category}
-                  productDescription={product.productDescription}
+
+              <div className="mb-8">
+                <h3 className="font-semibold text-xl mb-4 text-gray-800">
+                  Categories
+                </h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                  {categories.map((category) => (
+                    <label
+                      key={category._id}
+                      className={`flex items-center cursor-pointer p-2 rounded-md hover:bg-indigo-50 transition-colors ${
+                        pendingFilter.selectedCategories.includes(category._id)
+                          ? "bg-indigo-100 text-indigo-800"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={pendingFilter.selectedCategories.includes(
+                          category._id
+                        )}
+                        onChange={() => handleCategoryToggle(category._id)}
+                        className="mr-3 h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                      />
+                      <span>{category.categoryName}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-8">
+                <h3 className="font-semibold text-xl mb-4 text-gray-800">
+                  Price Range
+                </h3>
+                <Slider
+                  min={0}
+                  max={1000}
+                  step={10}
+                  value={pendingFilter.priceRange}
+                  onValueChange={handlePriceRangeChange}
+                  className="w-full"
                 />
-              ))}
+                <div className="flex justify-between text-sm mt-3 text-gray-600">
+                  <span>${pendingFilter.priceRange[0].toLocaleString()}</span>
+                  <span>${pendingFilter.priceRange[1].toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="mb-8">
+                <h3 className="font-semibold text-xl mb-4 text-gray-800">
+                  Sort By
+                </h3>
+                <div className="flex flex-col gap-3">
+                  <select
+                    value={pendingFilter.sortBy}
+                    onChange={handleSortChange}
+                    className="border border-gray-300 rounded-md px-3 py-2 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 w-full shadow-sm"
+                  >
+                    {SORT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    {ORDER_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() =>
+                          handleOrderChange({
+                            target: { value: opt.value },
+                          } as any)
+                        }
+                        className={`flex-1 border rounded-md px-3 py-2 flex items-center justify-center transition-colors
+                          ${
+                            pendingFilter.order === opt.value
+                              ? "bg-indigo-600 text-white border-indigo-600"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-indigo-50"
+                          }
+                        `}
+                        aria-label={opt.label}
+                      >
+                        {opt.icon}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={applyFilters}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-lg hover:from-indigo-700 hover:to-blue-700 transition-colors shadow-md font-medium"
+                >
+                  Apply Filters
+                </button>
+                <button
+                  onClick={resetAllFilters}
+                  className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                >
+                  Reset Filters
+                </button>
+              </div>
             </div>
-          )}
-         
-        </div>
-        
-      </div>
-       {/* Pagination */}
-          <div className="flex justify-center mt-8">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => handlePageChange(page > 1 ? page - 1 : 1)}
-                    aria-disabled={page <= 1}
-                  />
-                </PaginationItem>
-                <PaginationItem>
-                  <span className="px-3 py-1 rounded bg-gray-100">{page}</span>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() =>
-                      handlePageChange(page < totalPages ? page + 1 : page)
-                    }
-                    aria-disabled={page >= totalPages}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
           </div>
+
+          {/* Products grid */}
+          <div className="flex-1">
+            {loading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+              </div>
+            ) : displayedProducts.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-md p-10 text-center border border-indigo-100">
+                <h3 className="text-2xl font-semibold text-gray-800 mb-3">
+                  No products found
+                </h3>
+                <p className="text-gray-600">
+                  Try adjusting your filters or search term
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {displayedProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    productId={product.id || ""}
+                    productName={product.productName}
+                    price={product.price}
+                    productImages={product.productImages}
+                    brand={product.brand}
+                    category={product.category}
+                    productDescription={product.productDescription}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex justify-center mt-12">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => handlePageChange(page > 1 ? page - 1 : 1)}
+                  aria-disabled={page <= 1}
+                  className={
+                    page <= 1
+                      ? "text-gray-400 cursor-not-allowed"
+                      : "text-indigo-600 hover:bg-indigo-50"
+                  }
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <span className="px-4 py-2 rounded-md bg-indigo-100 text-indigo-800 font-medium">{`${page} / ${totalPages}`}</span>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() =>
+                    handlePageChange(page < totalPages ? page + 1 : page)
+                  }
+                  aria-disabled={page >= totalPages}
+                  className={
+                    page >= totalPages
+                      ? "text-gray-400 cursor-not-allowed"
+                      : "text-indigo-600 hover:bg-indigo-50"
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      </div>
     </div>
   );
 }
