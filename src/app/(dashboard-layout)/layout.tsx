@@ -9,6 +9,7 @@ import {
   Users,
   Settings,
   FolderKanban,
+  Layers2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -42,6 +43,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       icon: <Package size={20} />,
     },
     {
+      label: "Inventory",
+      path: user?.role === "admin" ? "/inventory-request" : "/manage-inventory",
+      icon: <FolderKanban size={20} />,
+    },
+    {
       label: "Orders",
       path: "/manage-orders",
       icon: <ShoppingCart size={20} />,
@@ -63,9 +69,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     menuItems.splice(1, 0, {
       label: "Categories",
       path: "/manage-categories",
-      icon: <FolderKanban size={20} />,
+      icon: <Layers2 size={20} />,
     });
-    // Có thể thêm các mục khác cho admin ở đây
   }
 
   return (
