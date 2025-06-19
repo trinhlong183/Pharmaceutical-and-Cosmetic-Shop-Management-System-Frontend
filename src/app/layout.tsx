@@ -37,7 +37,6 @@ export default function RootLayout({
       >
         <AppProviders>
           {children}
-          <Toaster />
           <Sonner />
           <Toaster position="top-right" />
         </AppProviders>

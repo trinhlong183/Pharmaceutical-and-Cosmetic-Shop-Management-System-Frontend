@@ -500,6 +500,7 @@ export default function CartPage() {
                               fill
                               className="object-cover"
                               sizes="80px"
+                              unoptimized
                             />
                           </div>
                           
