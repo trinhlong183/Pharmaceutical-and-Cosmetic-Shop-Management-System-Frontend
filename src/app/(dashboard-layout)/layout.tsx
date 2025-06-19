@@ -71,6 +71,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       path: "/manage-categories",
       icon: <Layers2 size={20} />,
     });
+    menuItems.splice(1, 0, {
+      label: "Transactions",
+      path: "/transaction-admin",
+      icon: <ShoppingCart size={20} />,
+    });
   }
 
   return (
