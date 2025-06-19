@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { productService } from "@/api/productService"; // Assume you have this service
+import { productService } from "@/api/productService";
 
 import { FiFilter, FiSearch } from "react-icons/fi";
 import ProductCard from "@/components/product/ProductCard";
@@ -237,193 +237,197 @@ export default function ProductsPage() {
             </button>
           </div>
         </div>
+        <div className="w-11/12 mx-auto ">
+          <div className="flex flex-col md:flex-row gap-8">
+            {/* Mobile filter button */}
+            <button
+              className="md:hidden flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-5 py-3 rounded-lg mb-4 shadow-md"
+              onClick={() =>
+                handlePendingChange(
+                  "mobileFiltersOpen",
+                  !pendingFilter["mobileFiltersOpen"]
+                )
+              }
+            >
+              <FiFilter />
+              {pendingFilter["mobileFiltersOpen"]
+                ? "Hide Filters"
+                : "Show Filters"}
+            </button>
 
-        <div className="flex flex-col md:flex-row gap-8">
-          {/* Mobile filter button */}
-          <button
-            className="md:hidden flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-5 py-3 rounded-lg mb-4 shadow-md"
-            onClick={() =>
-              handlePendingChange(
-                "mobileFiltersOpen",
-                !pendingFilter["mobileFiltersOpen"]
-              )
-            }
-          >
-            <FiFilter />
-            {pendingFilter["mobileFiltersOpen"]
-              ? "Hide Filters"
-              : "Show Filters"}
-          </button>
-
-          {/* Filters */}
-          <div
-            className={`w-full md:w-72 ${
-              pendingFilter["mobileFiltersOpen"] ? "block" : "hidden"
-            } md:block`}
-          >
-            <div className="bg-white p-6 rounded-xl shadow-md border border-indigo-100 mb-6">
-              <div className="mb-8">
-                <h3 className="font-semibold text-xl mb-4 text-gray-800">
-                  Brands
-                </h3>
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
-                  {brands.map((brand) => (
-                    <label
-                      key={brand}
-                      className={`flex items-center cursor-pointer p-2 rounded-md hover:bg-indigo-50 transition-colors ${
-                        pendingFilter.selectedBrands.includes(brand)
-                          ? "bg-indigo-100 text-indigo-800"
-                          : "text-gray-700"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={pendingFilter.selectedBrands.includes(brand)}
-                        onChange={() => handleBrandToggle(brand)}
-                        className="mr-3 h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                      />
-                      <span>{brand}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mb-8">
-                <h3 className="font-semibold text-xl mb-4 text-gray-800">
-                  Categories
-                </h3>
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                  {categories.map((category) => (
-                    <label
-                      key={category._id}
-                      className={`flex items-center cursor-pointer p-2 rounded-md hover:bg-indigo-50 transition-colors ${
-                        pendingFilter.selectedCategories.includes(category._id)
-                          ? "bg-indigo-100 text-indigo-800"
-                          : "text-gray-700"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={pendingFilter.selectedCategories.includes(
-                          category._id
-                        )}
-                        onChange={() => handleCategoryToggle(category._id)}
-                        className="mr-3 h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                      />
-                      <span>{category.categoryName}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mb-8">
-                <h3 className="font-semibold text-xl mb-4 text-gray-800">
-                  Price Range
-                </h3>
-                <Slider
-                  min={0}
-                  max={1000}
-                  step={10}
-                  value={pendingFilter.priceRange}
-                  onValueChange={handlePriceRangeChange}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-sm mt-3 text-gray-600">
-                  <span>${pendingFilter.priceRange[0].toLocaleString()}</span>
-                  <span>${pendingFilter.priceRange[1].toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="mb-8">
-                <h3 className="font-semibold text-xl mb-4 text-gray-800">
-                  Sort By
-                </h3>
-                <div className="flex flex-col gap-3">
-                  <select
-                    value={pendingFilter.sortBy}
-                    onChange={handleSortChange}
-                    className="border border-gray-300 rounded-md px-3 py-2 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 w-full shadow-sm"
-                  >
-                    {SORT_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
+            {/* Filters */}
+            <div
+              className={`w-full md:w-72 ${
+                pendingFilter["mobileFiltersOpen"] ? "block" : "hidden"
+              } md:block`}
+            >
+              <div className="bg-white p-6 rounded-xl shadow-md border border-indigo-100 mb-6">
+                <div className="mb-8">
+                  <h3 className="font-semibold text-xl mb-4 text-gray-800">
+                    Brands
+                  </h3>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                    {brands.map((brand) => (
+                      <label
+                        key={brand}
+                        className={`flex items-center cursor-pointer p-2 rounded-md hover:bg-indigo-50 transition-colors ${
+                          pendingFilter.selectedBrands.includes(brand)
+                            ? "bg-indigo-100 text-indigo-800"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={pendingFilter.selectedBrands.includes(brand)}
+                          onChange={() => handleBrandToggle(brand)}
+                          className="mr-3 h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                        />
+                        <span>{brand}</span>
+                      </label>
                     ))}
-                  </select>
-                  <div className="flex gap-2">
-                    {ORDER_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() =>
-                          handleOrderChange({
-                            target: { value: opt.value },
-                          } as any)
-                        }
-                        className={`flex-1 border rounded-md px-3 py-2 flex items-center justify-center transition-colors
+                  </div>
+                </div>
+
+                <div className="mb-8">
+                  <h3 className="font-semibold text-xl mb-4 text-gray-800">
+                    Categories
+                  </h3>
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                    {categories.map((category) => (
+                      <label
+                        key={category._id}
+                        className={`flex items-center cursor-pointer p-2 rounded-md hover:bg-indigo-50 transition-colors ${
+                          pendingFilter.selectedCategories.includes(
+                            category._id
+                          )
+                            ? "bg-indigo-100 text-indigo-800"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={pendingFilter.selectedCategories.includes(
+                            category._id
+                          )}
+                          onChange={() => handleCategoryToggle(category._id)}
+                          className="mr-3 h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                        />
+                        <span>{category.categoryName}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-8">
+                  <h3 className="font-semibold text-xl mb-4 text-gray-800">
+                    Price Range
+                  </h3>
+                  <Slider
+                    min={0}
+                    max={1000}
+                    step={10}
+                    value={pendingFilter.priceRange}
+                    onValueChange={handlePriceRangeChange}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-sm mt-3 text-gray-600">
+                    <span>${pendingFilter.priceRange[0].toLocaleString()}</span>
+                    <span>${pendingFilter.priceRange[1].toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="mb-8">
+                  <h3 className="font-semibold text-xl mb-4 text-gray-800">
+                    Sort By
+                  </h3>
+                  <div className="flex flex-col gap-3">
+                    <select
+                      value={pendingFilter.sortBy}
+                      onChange={handleSortChange}
+                      className="border border-gray-300 rounded-md px-3 py-2 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 w-full shadow-sm"
+                    >
+                      {SORT_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      {ORDER_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() =>
+                            handleOrderChange({
+                              target: { value: opt.value },
+                            } as any)
+                          }
+                          className={`flex-1 border rounded-md px-3 py-2 flex items-center justify-center transition-colors
                           ${
                             pendingFilter.order === opt.value
                               ? "bg-indigo-600 text-white border-indigo-600"
                               : "bg-white text-gray-700 border-gray-300 hover:bg-indigo-50"
                           }
                         `}
-                        aria-label={opt.label}
-                      >
-                        {opt.icon}
-                      </button>
-                    ))}
+                          aria-label={opt.label}
+                        >
+                          {opt.icon}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-3 pt-4 border-t border-gray-200">
-                <button
-                  onClick={applyFilters}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-lg hover:from-indigo-700 hover:to-blue-700 transition-colors shadow-md font-medium"
-                >
-                  Apply Filters
-                </button>
-                <button
-                  onClick={resetAllFilters}
-                  className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-                >
-                  Reset Filters
-                </button>
+                <div className="flex flex-col gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={applyFilters}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-lg hover:from-indigo-700 hover:to-blue-700 transition-colors shadow-md font-medium"
+                  >
+                    Apply Filters
+                  </button>
+                  <button
+                    onClick={resetAllFilters}
+                    className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Products grid */}
-          <div className="flex-1">
-            {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-              </div>
-            ) : displayedProducts.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-md p-10 text-center border border-indigo-100">
-                <h3 className="text-2xl font-semibold text-gray-800 mb-3">
-                  No products found
-                </h3>
-                <p className="text-gray-600">
-                  Try adjusting your filters or search term
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {displayedProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    productId={product.id || ""}
-                    productName={product.productName}
-                    price={product.price}
-                    productImages={product.productImages}
-                    brand={product.brand}
-                    category={product.category}
-                    productDescription={product.productDescription}
-                  />
-                ))}
-              </div>
-            )}
+            {/* Products grid */}
+            <div className="flex-1">
+              {loading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+                </div>
+              ) : displayedProducts.length === 0 ? (
+                <div className="bg-white rounded-xl shadow-md p-10 text-center border border-indigo-100">
+                  <h3 className="text-2xl font-semibold text-gray-800 mb-3">
+                    No products found
+                  </h3>
+                  <p className="text-gray-600">
+                    Try adjusting your filters or search term
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {displayedProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      productId={product.id || ""}
+                      productName={product.productName}
+                      price={product.price}
+                      productImages={product.productImages}
+                      brand={product.brand}
+                      category={product.category}
+                      productDescription={product.productDescription}
+                      salePercentage={product.salePercentage}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

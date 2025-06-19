@@ -2,6 +2,8 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Category } from "@/types/category";
+import { FiShoppingCart } from "react-icons/fi";
+import { useCart } from "@/hooks/useCart";
 
 interface ProductCardProps {
   productId: string;
@@ -11,6 +13,8 @@ interface ProductCardProps {
   brand: string;
   category: Category[];
   productDescription?: string;
+  salePercentage?: number;
+  stock?: number;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
@@ -21,55 +25,128 @@ const ProductCard: React.FC<ProductCardProps> = ({
   brand,
   category,
   productDescription = "",
+  salePercentage = 0,
+  stock,
 }) => {
+  const { addToCart } = useCart();
+
+  const finalPrice =
+    salePercentage && salePercentage > 0
+      ? price * (1 - salePercentage / 100)
+      : price;
+
   return (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full group border border-indigo-50">
-      <div className="relative h-48 w-full overflow-hidden">
-        <Image
-          src={productImages[0] || "/placeholder-product.jpg"}
-          alt={productName || "Product Image"}
-          fill
-          unoptimized
-          className="object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out"
-        />
-        <div className="absolute top-2 right-2 flex flex-wrap gap-1">
-          {category && category.length > 0 ? (
-            category.map((cat) => (
-              <span
-                key={cat._id}
-                className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-full px-2.5 py-1 text-xs font-medium shadow-sm"
-              >
-                {cat.categoryName}
-              </span>
-            ))
+    <div className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full border border-indigo-50 group">
+      {/* Image & Badges */}
+      <div className="relative aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
+        <Link href={`/products/${productId}`} className="block w-full h-full">
+          {productImages && productImages.length > 0 ? (
+            <Image
+              src={productImages[0]}
+              alt={productName}
+              fill
+              unoptimized
+              className="object-cover transition-all duration-700 group-hover:scale-105"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 20vw"
+            />
           ) : (
-            <span className="bg-gray-200 text-gray-700 rounded-full px-2.5 py-1 text-xs font-medium">
-              No Category
-            </span>
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+              <svg
+                className="h-12 w-12 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M8 12h.01M16 12h.01M12 16h.01"
+                />
+              </svg>
+            </div>
           )}
-        </div>
+        </Link>
+        {/* Badges */}
+        {salePercentage > 0 && (
+          <div className="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow z-10">
+            -{salePercentage}% OFF
+          </div>
+        )}
+        {typeof stock === "number" && stock < 10 && (
+          <div className="absolute top-3 left-3 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow z-10">
+            Low Stock
+          </div>
+        )}
       </div>
 
-      <div className="p-4 flex flex-col flex-grow">
-        <span className="text-sm font-medium text-indigo-600 mb-1">{brand}</span>
-        <h3 className="font-semibold text-lg mb-1 line-clamp-1 text-gray-800 group-hover:text-indigo-700 transition-colors">
-          {productName}
-        </h3>
+      {/* Card Content */}
+      <div className="flex flex-col flex-1 p-4">
+        {/* Brand & Category */}
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-medium">
+            {brand}
+          </span>
+          <span className="text-xs bg-blue-100 text-blue-600 px-3 py-1 rounded-full font-medium ml-2">
+            {category && category.length > 0
+              ? typeof category[0] === "string"
+                ? category[0]
+                : category[0]?.categoryName || "Uncategorized"
+              : "Uncategorized"}
+          </span>
+        </div>
+        {/* Product Name */}
+        <Link href={`/products/${productId}`}>
+          <h3 className="font-bold text-lg text-gray-900 truncate mb-1 group-hover:text-indigo-700 transition-colors">
+            {productName}
+          </h3>
+        </Link>
+        {/* Description */}
         {productDescription && (
-          <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+          <p className="text-sm text-gray-500 mb-2 line-clamp-2">
             {productDescription}
           </p>
         )}
-        <div className="mt-auto pt-3 flex items-center justify-between border-t border-gray-100">
-          <span className="font-bold text-xl text-gray-800">
-            ${price.toFixed(2)}
-          </span>
-          <Link href={`/products/${productId}`}>
-            <span className="sr-only">View details for {productName}</span>
-            <button className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:from-indigo-700 hover:to-blue-700 transition-all duration-300 text-sm font-medium shadow-sm">
-              View Details
+        {/* Price & Actions */}
+        <div className="flex items-end justify-between mt-auto pt-3 border-t border-gray-100 gap-2">
+          <div>
+            {salePercentage > 0 ? (
+              <div className="flex flex-col">
+                <span className="text-xl font-bold bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent">
+                  ${finalPrice.toFixed(2)}
+                </span>
+                <span className="text-xs text-gray-400 line-through">
+                  ${price.toFixed(2)}
+                </span>
+              </div>
+            ) : (
+              <span className="text-xl font-bold text-gray-900">
+                ${price.toFixed(2)}
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Link href={`/products/${productId}`} className="flex-1">
+              <button className="w-18 bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-1 rounded-md hover:from-indigo-700 hover:to-blue-700 transition-all duration-300 text-xs font-medium shadow-sm">
+                View Details
+              </button>
+            </Link>
+            <button
+              type="button"
+              className="flex items-center text-black p-1 rounded-md hover:bg-gray-100 transition-all duration-300 text-sm font-medium shadow-sm"
+              title="Add to cart"
+              onClick={() => addToCart(productId)}
+            >
+              <FiShoppingCart className="mr-1" />
             </button>
-          </Link>
+          </div>
         </div>
       </div>
     </div>
