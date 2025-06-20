@@ -42,15 +42,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       path: "/manage-products",
       icon: <Package size={20} />,
     },
+        {
+      label: "Orders",
+      path: "/manage-orders",
+      icon: <ShoppingCart size={20} />,
+    },
     {
       label: "Inventory",
       path: user?.role === "admin" ? "/inventory-request" : "/manage-inventory",
       icon: <FolderKanban size={20} />,
-    },
-    {
-      label: "Orders",
-      path: "/manage-orders",
-      icon: <ShoppingCart size={20} />,
     },
     {
       label: "Customers",
@@ -66,12 +66,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   // Nếu là admin thì thêm menu quản lý danh mục
   if (user?.role === "admin") {
-    menuItems.splice(1, 0, {
+    menuItems.splice(3, 0, {
       label: "Categories",
       path: "/manage-categories",
       icon: <Layers2 size={20} />,
     });
-    menuItems.splice(1, 0, {
+    menuItems.splice(4, 0, {
       label: "Transactions",
       path: "/transaction-admin",
       icon: <ShoppingCart size={20} />,

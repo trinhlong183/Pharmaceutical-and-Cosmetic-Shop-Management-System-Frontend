@@ -132,7 +132,7 @@ export default function CustomerHome() {
       {/* Benefits Section - Enhanced */}
       <section className="py-16 bg-gradient-to-br from-gray-50 via-white to-blue-50 relative overflow-hidden">
         <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-        <div className="container mx-auto px-4 relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-4">
               Why Shop With Us?
@@ -190,7 +190,7 @@ export default function CustomerHome() {
 
       {/* Trending Categories Section - New */}
       <section className="py-16 bg-white relative">
-        <div className="container mx-auto px-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-4 pb-2">
               Trending Categories
@@ -232,7 +232,7 @@ export default function CustomerHome() {
       {/* Latest Products Section - Enhanced */}
       <section className="py-20 bg-gradient-to-br from-gray-50 via-white to-purple-50 relative overflow-hidden">
         <div className="absolute inset-0 bg-grid-pattern opacity-5 "></div>
-        <div className="container mx-auto px-4 relative w-11/12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="flex justify-between items-center mb-12">
             <div>
               <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2">
@@ -378,7 +378,7 @@ export default function CustomerHome() {
       {/* Statistics Section - New */}
       <section className="py-16 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white relative overflow-hidden">
         <div className="absolute inset-0 bg-pattern opacity-10"></div>
-        <div className="container mx-auto px-4 relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
               <div key={index} className="text-center group">
@@ -397,7 +397,7 @@ export default function CustomerHome() {
 
       {/* Testimonials Section - Enhanced */}
       <section className="py-20 bg-gradient-to-br from-gray-50 via-white to-blue-50">
-        <div className="container mx-auto px-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-4">
               What Our Customers Say
@@ -450,7 +450,7 @@ export default function CustomerHome() {
 
       {/* Featured Brands - Enhanced */}
       <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-4">
               Trusted Brands
