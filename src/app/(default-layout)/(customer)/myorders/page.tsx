@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { orderService, Order } from '@/api/orderService';
 import { 
@@ -243,7 +244,8 @@ export default function MyOrdersPage() {
       <div className="space-y-6">
         {orders.map((order) => (
           <Card key={order.id} className="overflow-hidden border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-md">
-            <div className="px-6 py-5 bg-gradient-to-r from-gray-50 to-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* <div className="px-6 py-5 bg-gradient-to-r from-gray-50 to-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4"> */}
+            <div className="px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="hidden md:flex h-12 w-12 rounded-full bg-blue-50 items-center justify-center">
                   {getStatusIcon(order.status)}
@@ -298,11 +300,23 @@ export default function MyOrdersPage() {
                       {order.items.map((item, idx) => (
                         <div key={idx} className="py-4 first:pt-0 last:pb-0">
                           <div className="flex items-center gap-4">
-                            <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
-                              <Package className="h-6 w-6 text-gray-400" />
+                            <div className="h-16 w-16 bg-gray-100 rounded-lg shrink-0 overflow-hidden relative">
+                              {item.productImage ? (
+                                <Image 
+                                  src={item.productImage} 
+                                  alt={item.productName || "Product"} 
+                                  fill 
+                                  className="object-cover"
+                                  unoptimized
+                                />
+                              ) : (
+                                <Package className="h-6 w-6 text-gray-400 m-auto" />
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">Product ID: {item.productId}</div>
+                              <div className="font-medium truncate">
+                                Product: {item.productDetails?.productName || item.productName}
+                              </div>
                               <div className="text-sm text-gray-500 mt-1">
                                 Quantity: {item.quantity}
                               </div>
