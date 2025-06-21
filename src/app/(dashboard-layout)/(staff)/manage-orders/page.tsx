@@ -37,7 +37,10 @@ import { Badge } from "@/components/ui/badge";
 import { orderService } from "@/api/orderService";
 import { userService } from "@/api/userService";
 import { toast } from "react-hot-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search, Filter, RefreshCw, Eye, Package2, Truck, CheckCircle2, XCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 
 // Define interfaces for our data structures
 interface User {
@@ -63,7 +66,7 @@ interface Transaction {
 }
 
 interface OrderItem {
-  productId: string | { id?: string; _id?: string; [key: string]: any };
+  productId: string | { id?: string; _id?: string; name?: string; [key: string]: any };
   price: number;
   quantity: number;
   [key: string]: any;
@@ -90,6 +93,7 @@ interface Order {
 
 const ManageOrdersPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<Record<string, User>>({});
   const [loading, setLoading] = useState(true);
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
@@ -98,11 +102,20 @@ const ManageOrdersPage = () => {
   const [openRejectDialog, setOpenRejectDialog] = useState(false);
   const [openRefundDialog, setOpenRefundDialog] = useState(false);
   const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("all");
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  useEffect(() => {
+    if (orders.length > 0) {
+      filterOrders(activeTab, searchTerm);
+    }
+  }, [orders, activeTab, searchTerm]);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -110,6 +123,7 @@ const ManageOrdersPage = () => {
       const orders = await orderService.getAllOrders();
       console.log("Orders received:", orders);
       setOrders(orders || []);
+      setFilteredOrders(orders || []);
       
       // Fetch user information for each order
       await fetchUserInfo(orders);
@@ -117,10 +131,40 @@ const ManageOrdersPage = () => {
       toast.error("Failed to fetch orders");
       console.error(error);
       setOrders([]);
+      setFilteredOrders([]);
     } finally {
       setLoading(false);
     }
   };
+
+  const refreshOrders = async () => {
+    setRefreshing(true);
+    await fetchOrders();
+    setRefreshing(false);
+  };
+
+  const filterOrders = (status: string, search: string) => {
+    let filtered = [...orders];
+    
+    // Filter by status tab
+    if (status !== "all") {
+      filtered = filtered.filter(order => order.status === status);
+    }
+    
+    // Filter by search term
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();      filtered = filtered.filter(order => {
+        const orderId = order.id || order._id || "";
+        const customerName = getUserName(order.userId)?.toLowerCase() || "";
+        
+        return orderId.toLowerCase().includes(searchLower) || 
+               customerName.includes(searchLower);
+      });
+    }
+    
+    setFilteredOrders(filtered);
+  };
+
   const fetchUserInfo = async (orders: Order[]) => {
     try {
       const userIds = new Set<string>();
@@ -155,7 +199,8 @@ const ManageOrdersPage = () => {
       console.error("Error fetching user info:", error);
     }
   };
-  // Modified getUserName function to handle nested user data
+
+  // Get user name from userId
   const getUserName = (userId: string | User | undefined) => {
     if (!userId) return "N/A";
     
@@ -198,10 +243,12 @@ const ManageOrdersPage = () => {
       toast.error("Failed to get order details");
       console.error(error);
     }
-  };  const handleStatusChange = async (orderId: string | undefined, newStatus: string) => {
+  };  
+
+  const handleStatusChange = async (orderId: string | undefined, newStatus: string) => {
     if (!orderId) return;
     
-    // Nếu trạng thái mới là "rejected", hiển thị dialog yêu cầu lý do
+    // If new status is "rejected", show dialog requesting reason
     if (newStatus === "rejected") {
       setProcessingOrderId(orderId);
       setOpenRejectDialog(true);
@@ -235,20 +282,24 @@ const ManageOrdersPage = () => {
       setStatusUpdating(false);
     }
   };
+
   const getStatusBadge = (status: string) => {
-    const statusColors = {
-      pending: "bg-yellow-500",
-      approved: "bg-green-500",
-      rejected: "bg-red-500",
-      refunded: "bg-emerald-500",
-      shipping: "bg-blue-500",
-      delivered: "bg-purple-500",
-      canceled: "bg-gray-500",
+    const statusConfig: Record<string, { bg: string, icon: React.ReactNode }> = {
+      pending: { bg: "bg-yellow-100 text-yellow-800", icon: <Package2 className="h-3 w-3 mr-1" /> },
+      approved: { bg: "bg-blue-100 text-blue-800", icon: <CheckCircle2 className="h-3 w-3 mr-1" /> },
+      rejected: { bg: "bg-red-100 text-red-800", icon: <XCircle className="h-3 w-3 mr-1" /> },
+      refunded: { bg: "bg-emerald-100 text-emerald-800", icon: <RefreshCw className="h-3 w-3 mr-1" /> },
+      shipping: { bg: "bg-indigo-100 text-indigo-800", icon: <Truck className="h-3 w-3 mr-1" /> },
+      delivered: { bg: "bg-green-100 text-green-800", icon: <CheckCircle2 className="h-3 w-3 mr-1" /> },
+      canceled: { bg: "bg-gray-100 text-gray-800", icon: <XCircle className="h-3 w-3 mr-1" /> },
     };
 
+    const config = statusConfig[status] || { bg: "bg-gray-100 text-gray-800", icon: null };
+
     return (
-      <Badge className={`${statusColors[status] || "bg-gray-500"} text-white`}>
-        {status}
+      <Badge variant="outline" className={`${config.bg} flex items-center`}>
+        {config.icon}
+        <span className="capitalize">{status}</span>
       </Badge>
     );
   };
@@ -274,6 +325,7 @@ const ManageOrdersPage = () => {
         return ['pending', 'approved', 'rejected', 'shipping', 'canceled'];
     }
   };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
   };
@@ -284,7 +336,8 @@ const ManageOrdersPage = () => {
       currency: "VND",
     }).format(price);
   };
-  // Function definitions for handleRejectOrder and handleRefundOrder using orderService
+
+  // Function to handle order rejection
   const handleRejectOrder = async (orderId: string, data: { rejectionReason: string; note?: string }) => {
     if (!orderId) return;
     
@@ -311,6 +364,7 @@ const ManageOrdersPage = () => {
     }
   };
 
+  // Function to handle order refund
   const handleRefundOrder = async (orderId: string, data: { refundReason?: string; note?: string }) => {
     if (!orderId) return;
     
@@ -337,235 +391,416 @@ const ManageOrdersPage = () => {
     }
   };
 
+  // Function to get product name (can be expanded if you store products)
+  const getProductName = (productId: string | { id?: string; _id?: string; name?: string }) => {
+    if (!productId) return "Unknown Product";
+    
+    if (typeof productId === 'object' && productId.name) {
+      return productId.name;
+    }
+    
+    return typeof productId === 'object' 
+      ? (productId._id || productId.id || "Unknown Product") 
+      : productId;
+  };
+
   return (
-    <div className="container mx-auto py-10">      <Card>
-        <CardHeader>
-          <CardTitle>Manage Orders</CardTitle>
-          <CardDescription>
-            View and manage all customer orders from this dashboard
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : (
-            <div className="relative w-full overflow-auto">
-              <table className="w-full caption-bottom text-sm">
-                <thead className="[&_tr]:border-b">
-                  <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Order ID</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Customer</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Order Date</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Total Amount</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="[&_tr:last-child]:border-0">
-                  {orders && orders.length > 0 ? (
-                    orders.map((order) => {
-                      const orderId = order.id || order._id || "";
-                      return (
-                        <tr key={orderId} className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                          <td className="p-4 align-middle">{orderId}</td>
-                          <td className="p-4 align-middle">{getUserName(order.userId)}</td>
-                          <td className="p-4 align-middle">{formatDate(order.createdAt)}</td>
-                          <td className="p-4 align-middle">{formatPrice(order.totalAmount)}</td>
-                          <td className="p-4 align-middle">{getStatusBadge(order.status)}</td>
-                          <td className="p-4 align-middle space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => orderId && handleViewDetail(orderId)}
-                            >
-                              View Details
-                            </Button>
-                              {/* Nút Reject đã được loại bỏ và thay thế bằng dialog khi chọn status rejected */}
-                            
-                            {order.status === 'rejected' && (
-                              <Button
-                                size="sm"
-                                variant="default"
-                                onClick={() => {
-                                  setOpenRefundDialog(true);
-                                  setProcessingOrderId(orderId);
-                                }}
-                                disabled={processingOrderId === orderId}
-                              >
-                                Refund
-                              </Button>
-                            )}
-                            
-                            <Select
-                              disabled={statusUpdating}
-                              defaultValue={order.status}
-                              onValueChange={(value) => handleStatusChange(orderId, value)}
-                            >
-                              <SelectTrigger className="w-[150px]">
-                                <SelectValue placeholder="Update Status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {getAvailableStatuses(order.status).map((status) => (
-                                  <SelectItem key={status} value={status}>{status}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr className="border-b transition-colors hover:bg-muted/50">
-                      <td colSpan={6} className="p-4 align-middle text-center">
-                        No orders found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Order Management</h1>
+          <p className="text-muted-foreground">
+            Monitor and manage customer orders from this dashboard
+          </p>
+        </div>
+        <Button 
+          onClick={refreshOrders} 
+          variant="outline"
+          disabled={refreshing}
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+
+      <div className="flex items-center space-x-4 mb-4">
+        <Search className="h-4 w-4 text-muted-foreground" />
+        <Input 
+          placeholder="Search by order ID or customer name..." 
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-sm"
+        />
+      </div>
+      
+      <Tabs defaultValue="all" onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-7">
+          <TabsTrigger value="all">All Orders</TabsTrigger>
+          <TabsTrigger value="pending">Pending</TabsTrigger>
+          <TabsTrigger value="approved">Approved</TabsTrigger>
+          <TabsTrigger value="shipping">Shipping</TabsTrigger>
+          <TabsTrigger value="delivered">Delivered</TabsTrigger>
+          <TabsTrigger value="rejected">Rejected</TabsTrigger>
+          <TabsTrigger value="canceled">Canceled</TabsTrigger>
+        </TabsList>
+        
+        <div className="mt-4">
+          <Card>
+            <CardContent className="pt-6">
+              {loading ? (
+                <div className="flex justify-center items-center h-64">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="relative w-full overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[100px]">Order ID</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredOrders && filteredOrders.length > 0 ? (
+                        filteredOrders.map((order) => {
+                          const orderId = order.id || order._id || "";
+                          return (
+                            <TableRow key={orderId}>
+                              <TableCell className="font-medium">{orderId.slice(0, 8)}...</TableCell>
+                              <TableCell>{getUserName(order.userId)}</TableCell>
+                              <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                              <TableCell className="text-right font-medium">{formatPrice(order.totalAmount)}</TableCell>
+                              <TableCell>{getStatusBadge(order.status)}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => orderId && handleViewDetail(orderId)}
+                                    className="flex items-center gap-1"
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                    Details
+                                  </Button>
+                                  
+                                  {order.status === 'rejected' && (
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={() => {
+                                        setOpenRefundDialog(true);
+                                        setProcessingOrderId(orderId);
+                                      }}
+                                      disabled={processingOrderId === orderId}
+                                    >
+                                      Refund
+                                    </Button>
+                                  )}
+                                  
+                                  <Select
+                                    disabled={statusUpdating}
+                                    defaultValue={order.status}
+                                    onValueChange={(value) => handleStatusChange(orderId, value)}
+                                  >
+                                    <SelectTrigger className="w-[130px]">
+                                      <SelectValue placeholder="Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {getAvailableStatuses(order.status).map((status) => (
+                                        <SelectItem key={status} value={status}>
+                                          <div className="flex items-center">
+                                            <span className="capitalize">{status}</span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-24 text-center">
+                            No orders found matching your criteria
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </Tabs>
 
       {/* Order Details Dialog */}
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Order Details</DialogTitle>
+            <DialogTitle className="text-xl">Order Details</DialogTitle>
             <DialogDescription>
               Complete information about this order
             </DialogDescription>
           </DialogHeader>
 
           {detailOrder && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-6">
+              <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="font-semibold">Order Information</h3>
-                  <p>Order ID: {detailOrder.id || detailOrder._id}</p>
-                  <p>Date: {formatDate(detailOrder.createdAt)}</p>
-                  <p>Status: {getStatusBadge(detailOrder.status)}</p>
-                  <p>Total: {formatPrice(detailOrder.totalAmount)}</p>
-                  {detailOrder.shippingAddress && (
-                    <p>Shipping Address: {detailOrder.shippingAddress}</p>
-                  )}
-                  {detailOrder.contactPhone && (
-                    <p>Contact Phone: {detailOrder.contactPhone}</p>
-                  )}
+                  <p className="text-sm text-muted-foreground">Order ID</p>
+                  <p className="font-medium">{detailOrder.id || detailOrder._id}</p>
                 </div>
-                <div>
-                  <h3 className="font-semibold">Customer Information</h3>
-                  <p>Name: {getUserName(detailOrder.userId)}</p>
-                  {typeof detailOrder.userId === "object" ? (
-                    <>
-                      <p>Email: {detailOrder.userId.email || "N/A"}</p>
-                      <p>Phone: {detailOrder.userId.phone || "N/A"}</p>
-                      <p>Address: {detailOrder.userId.address || "N/A"}</p>
-                    </>
-                  ) : users[detailOrder.userId] ? (
-                    <>
-                      <p>Email: {users[detailOrder.userId].email || "N/A"}</p>
-                      <p>Phone: {users[detailOrder.userId].phone || "N/A"}</p>
-                      <p>Address: {users[detailOrder.userId].address || "N/A"}</p>
-                    </>
-                  ) : (
-                    <p>User ID: {detailOrder.userId || "N/A"}</p>
-                  )}
-                </div>
+                <div>{getStatusBadge(detailOrder.status)}</div>
+              </div>
+              
+              <Separator />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Customer Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="grid grid-cols-[100px_1fr]">
+                      <span className="text-muted-foreground">Name:</span>
+                      <span>{getUserName(detailOrder.userId)}</span>
+                    </div>
+                    {typeof detailOrder.userId === "object" ? (
+                      <>
+                        <div className="grid grid-cols-[100px_1fr]">
+                          <span className="text-muted-foreground">Email:</span>
+                          <span>{detailOrder.userId.email || "N/A"}</span>
+                        </div>
+                        <div className="grid grid-cols-[100px_1fr]">
+                          <span className="text-muted-foreground">Phone:</span>
+                          <span>{detailOrder.userId.phone || "N/A"}</span>
+                        </div>
+                        <div className="grid grid-cols-[100px_1fr]">
+                          <span className="text-muted-foreground">Address:</span>
+                          <span>{detailOrder.userId.address || "N/A"}</span>
+                        </div>
+                      </>
+                    ) : users[detailOrder.userId] ? (
+                      <>
+                        <div className="grid grid-cols-[100px_1fr]">
+                          <span className="text-muted-foreground">Email:</span>
+                          <span>{users[detailOrder.userId].email || "N/A"}</span>
+                        </div>
+                        <div className="grid grid-cols-[100px_1fr]">
+                          <span className="text-muted-foreground">Phone:</span>
+                          <span>{users[detailOrder.userId].phone || "N/A"}</span>
+                        </div>
+                        <div className="grid grid-cols-[100px_1fr]">
+                          <span className="text-muted-foreground">Address:</span>
+                          <span>{users[detailOrder.userId].address || "N/A"}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="grid grid-cols-[100px_1fr]">
+                        <span className="text-muted-foreground">User ID:</span>
+                        <span>{detailOrder.userId || "N/A"}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Order Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="grid grid-cols-[120px_1fr]">
+                      <span className="text-muted-foreground">Date:</span>
+                      <span>{formatDate(detailOrder.createdAt)}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr]">
+                      <span className="text-muted-foreground">Total Amount:</span>
+                      <span className="font-medium">{formatPrice(detailOrder.totalAmount)}</span>
+                    </div>
+                    {detailOrder.shippingAddress && (
+                      <div className="grid grid-cols-[120px_1fr]">
+                        <span className="text-muted-foreground">Shipping Address:</span>
+                        <span>{detailOrder.shippingAddress}</span>
+                      </div>
+                    )}
+                    {detailOrder.contactPhone && (
+                      <div className="grid grid-cols-[120px_1fr]">
+                        <span className="text-muted-foreground">Contact Phone:</span>
+                        <span>{detailOrder.contactPhone}</span>
+                      </div>
+                    )}
+                    {detailOrder.notes && (
+                      <div className="grid grid-cols-[120px_1fr]">
+                        <span className="text-muted-foreground">Notes:</span>
+                        <span>{detailOrder.notes}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Transaction Information */}
               {detailOrder.transactionId && (
-                <div>
-                  <h3 className="font-semibold mb-2">Transaction Information</h3>
-                  <div className="bg-gray-50 p-3 rounded-md">
-                    <p>Transaction ID: {
-                      typeof detailOrder.transactionId === 'object' 
-                        ? detailOrder.transactionId._id || detailOrder.transactionId.id 
-                        : detailOrder.transactionId
-                    }</p>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Transaction Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="grid grid-cols-[150px_1fr]">
+                      <span className="text-muted-foreground">Transaction ID:</span>
+                      <span>
+                        {typeof detailOrder.transactionId === 'object' 
+                          ? detailOrder.transactionId._id || detailOrder.transactionId.id 
+                          : detailOrder.transactionId}
+                      </span>
+                    </div>
+                    
                     {typeof detailOrder.transactionId === 'object' && (
                       <>
-                        <p>Order ID: {detailOrder.transactionId.orderId}</p>
-                        <p>Payment Method: {detailOrder.transactionId.paymentMethod || 'N/A'}</p>
-                        <p>Payment Status: {detailOrder.transactionId.status}</p>
+                        <div className="grid grid-cols-[150px_1fr]">
+                          <span className="text-muted-foreground">Order ID:</span>
+                          <span>{detailOrder.transactionId.orderId}</span>
+                        </div>
+                        <div className="grid grid-cols-[150px_1fr]">
+                          <span className="text-muted-foreground">Payment Method:</span>
+                          <span>{detailOrder.transactionId.paymentMethod || 'N/A'}</span>
+                        </div>
+                        <div className="grid grid-cols-[150px_1fr]">
+                          <span className="text-muted-foreground">Payment Status:</span>
+                          <Badge variant="outline" className="w-fit font-normal">
+                            {detailOrder.transactionId.status}
+                          </Badge>
+                        </div>
                         {detailOrder.transactionId.paymentDetails && detailOrder.transactionId.paymentDetails.bankCode && (
-                          <p>Bank: {detailOrder.transactionId.paymentDetails.bankCode}</p>
+                          <div className="grid grid-cols-[150px_1fr]">
+                            <span className="text-muted-foreground">Bank:</span>
+                            <span>{detailOrder.transactionId.paymentDetails.bankCode}</span>
+                          </div>
                         )}
                       </>
                     )}
-                  </div>
-                </div>
-              )}              <div>
-                <h3 className="font-semibold mb-2">Order Items</h3>
-                <div className="relative w-full overflow-auto">
-                  <table className="w-full caption-bottom text-sm">
-                    <thead className="[&_tr]:border-b">
-                      <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Product ID</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Price</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Quantity</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody className="[&_tr:last-child]:border-0">
-                      {detailOrder.items && detailOrder.items.length > 0 ? (
-                        detailOrder.items.map((item, index) => (
-                          <tr key={index} className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                            <td className="p-4 align-middle">
-                              {typeof item.productId === "object"
-                                ? item.productId._id || item.productId.id
-                                : item.productId}
-                            </td>
-                            <td className="p-4 align-middle">{formatPrice(item.price)}</td>
-                            <td className="p-4 align-middle">{item.quantity}</td>
-                            <td className="p-4 align-middle">
+                  </CardContent>
+                </Card>
+              )}              
+              
+              {/* Order Items Section */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Order Items</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {detailOrder.items && detailOrder.items.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead className="text-right">Unit Price</TableHead>
+                          <TableHead className="text-center">Quantity</TableHead>
+                          <TableHead className="text-right">Subtotal</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {detailOrder.items.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>
+                              {getProductName(item.productId)}
+                            </TableCell>
+                            <TableCell className="text-right">{formatPrice(item.price)}</TableCell>
+                            <TableCell className="text-center">{item.quantity}</TableCell>
+                            <TableCell className="text-right font-medium">
                               {formatPrice(item.price * item.quantity)}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr className="border-b transition-colors hover:bg-muted/50">
-                          <td colSpan={4} className="p-4 align-middle text-center">
-                            No items in this order or items not available
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-right font-medium">Total</TableCell>
+                          <TableCell className="text-right font-bold">{formatPrice(detailOrder.totalAmount)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-4 text-muted-foreground">
+                      No items available for this order
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              
+              {detailOrder.rejectionReason && (
+                <Card className="border-red-200">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base text-red-600">Rejection Information</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p><span className="font-medium">Reason: </span>{detailOrder.rejectionReason}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {detailOrder.refundReason && (
+                <Card className="border-emerald-200">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base text-emerald-600">Refund Information</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p><span className="font-medium">Reason: </span>{detailOrder.refundReason}</p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 flex-wrap">
             <Button variant="outline" onClick={() => setOpenDetails(false)}>
               Close
             </Button>
-            {detailOrder && (
-              <Select
-                disabled={statusUpdating}
-                defaultValue={detailOrder.status}
-                onValueChange={(value) =>
-                  handleStatusChange(detailOrder.id || detailOrder._id, value)
-                }
-              >
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Update Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getAvailableStatuses(detailOrder.status).map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            
+            <div className="flex items-center gap-2">
+              {detailOrder && detailOrder.status === 'rejected' && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setOpenRefundDialog(true);
+                    setProcessingOrderId(detailOrder.id || detailOrder._id || null);
+                  }}
+                  disabled={statusUpdating}
+                >
+                  Process Refund
+                </Button>
+              )}
+              
+              {detailOrder && (
+                <Select
+                  disabled={statusUpdating}
+                  defaultValue={detailOrder.status}
+                  onValueChange={(value) =>
+                    handleStatusChange(detailOrder.id || detailOrder._id, value)
+                  }
+                >
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Update Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getAvailableStatuses(detailOrder.status).map(status => (
+                      <SelectItem key={status} value={status}>{status}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
-      </Dialog>        {/* Reject Order Dialog */}
+      </Dialog>
+
+      {/* Reject Order Dialog */}
       <Dialog 
         open={openRejectDialog} 
         onOpenChange={(open) => {
@@ -605,25 +840,25 @@ const ManageOrdersPage = () => {
             }}
             className="space-y-4"
           >
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
+            <div className="space-y-2">
+              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                 Rejection Reason <span className="text-red-500">*</span>
               </label>
               <textarea
                 name="rejectionReason"
-                className="mt-1 block w-full p-2 border rounded-md focus:ring focus:ring-primary focus:outline-none"
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 rows={3}
                 placeholder="Enter the reason for rejection"
                 required
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
+            <div className="space-y-2">
+              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                 Note (optional)
               </label>
               <textarea
                 name="note"
-                className="mt-1 block w-full p-2 border rounded-md focus:ring focus:ring-primary focus:outline-none"
+                className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 rows={2}
                 placeholder="Enter an optional note"
               />
@@ -648,7 +883,9 @@ const ManageOrdersPage = () => {
             </DialogFooter>
           </form>
         </DialogContent>
-      </Dialog>{/* Refund Order Dialog */}
+      </Dialog>
+
+      {/* Refund Order Dialog */}
       <Dialog 
         open={openRefundDialog} 
         onOpenChange={(open) => {
@@ -691,24 +928,24 @@ const ManageOrdersPage = () => {
               }}
               className="space-y-4"
             >
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
+              <div className="space-y-2">
+                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                   Refund Reason (optional)
                 </label>
                 <textarea
                   name="refundReason"
-                  className="mt-1 block w-full p-2 border rounded-md focus:ring focus:ring-primary focus:outline-none"
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   rows={3}
                   placeholder="Enter the reason for refund"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
+              <div className="space-y-2">
+                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                   Note (optional)
                 </label>
                 <textarea
                   name="note"
-                  className="mt-1 block w-full p-2 border rounded-md focus:ring focus:ring-primary focus:outline-none"
+                  className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   rows={2}
                   placeholder="Enter an optional note"
                 />
@@ -725,7 +962,7 @@ const ManageOrdersPage = () => {
                 <Button
                   type="submit"
                 >
-                  Refund Order
+                  Process Refund
                 </Button>
               </DialogFooter>
             </form>
