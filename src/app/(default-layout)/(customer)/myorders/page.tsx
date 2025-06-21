@@ -5,10 +5,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { orderService, Order } from '@/api/orderService';
+import { userService, User } from '@/api/userService';
 import { 
   Loader2, Package, ShoppingBag, AlertCircle, 
   ChevronDown, ChevronUp, Clock, CheckCircle2, 
-  TruckIcon, Box, XCircle, ArrowRight, Calendar
+  TruckIcon, Box, XCircle, ArrowRight, Calendar,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +57,10 @@ interface ExtendedOrder extends Omit<Order, 'items' | 'userId' | 'processedBy'> 
   contactPhone?: string;
   itemCount?: number;
   totalQuantity?: number;
+  rejectionReason?: string; // Reason for rejection
+  refundReason?: string;   // Reason for refund
+  refundedAt?: string;     // When the refund was processed
+  notes?: string;          // Additional notes
 }
 
 export default function MyOrdersPage() {
@@ -63,7 +69,36 @@ export default function MyOrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [processedByUsers, setProcessedByUsers] = useState<Record<string, User>>({});
   const router = useRouter();
+
+  // Helper function to get processor name from either object or ID
+  const getProcessorName = (processedBy: string | { _id?: string; id?: string; name?: string; email?: string; }) => {
+    // If processedBy is an object with name, use it directly
+    if (typeof processedBy === 'object' && processedBy.name) {
+      return processedBy.name;
+    }
+    
+    // Get the ID
+    let id: string | undefined;
+    if (typeof processedBy === 'string') {
+      id = processedBy;
+    } else if (processedBy._id) {
+      id = processedBy._id;
+    } else if (processedBy.id) {
+      id = processedBy.id;
+    }
+    
+    // If we have the user information in our state
+    if (id && processedByUsers[id]) {
+      return processedByUsers[id].fullName;
+    }
+    
+    // Fallback
+    return typeof processedBy === 'string' 
+      ? `Staff ID: ${processedBy.slice(0, 8)}...` 
+      : `Staff ID: ${(processedBy._id || processedBy.id || 'Unknown').slice(0, 8)}...`;
+  };
 
   useEffect(() => {
     // Check if user is authenticated
@@ -72,7 +107,9 @@ export default function MyOrdersPage() {
       setIsAuthenticated(false);
       setLoading(false);
       return;
-    }    async function loadOrders() {
+    }
+    
+    async function loadOrders() {
       try {
         setLoading(true);
         const data = await orderService.getCurrentUserOrders();
@@ -101,6 +138,56 @@ export default function MyOrdersPage() {
       router.push('/login');
     }
   }, [isAuthenticated, loading, router]);
+
+  // Fetch processor details when order is expanded
+  useEffect(() => {
+    if (!expandedOrder) return;
+    
+    const currentOrder = orders.find(order => order.id === expandedOrder);
+    if (!currentOrder || !currentOrder.processedBy) return;
+    
+    // Extract processedBy ID
+    let processedById: string | undefined;
+    
+    if (typeof currentOrder.processedBy === 'string') {
+      processedById = currentOrder.processedBy;
+    } else if (currentOrder.processedBy._id) {
+      processedById = currentOrder.processedBy._id;
+    } else if (currentOrder.processedBy.id) {
+      processedById = currentOrder.processedBy.id;
+    }
+    
+    // If we have an ID and we haven't fetched this user yet
+    if (processedById && !processedByUsers[processedById]) {
+      // Set a loading state for this user
+      setProcessedByUsers(prev => ({
+        ...prev,
+        [processedById!]: { _id: processedById!, fullName: 'Loading...', email: '' } as User
+      }));
+      
+      // Fetch user details
+      userService.getUserById(processedById)
+        .then(userData => {
+          setProcessedByUsers(prev => ({
+            ...prev,
+            [processedById!]: userData
+          }));
+        })
+        .catch(err => {
+          console.error(`Failed to fetch user ${processedById}:`, err);
+          // Set an error state for this user
+          setProcessedByUsers(prev => ({
+            ...prev,
+            [processedById!]: { 
+              _id: processedById!, 
+              fullName: `User ${processedById?.slice(0, 8)}...`, 
+              email: '' 
+            } as User
+          }));
+        });
+    }
+  }, [expandedOrder, orders, processedByUsers]);
+  
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -141,7 +228,7 @@ export default function MyOrdersPage() {
       case 'rejected':
         return <XCircle className="h-5 w-5 text-red-500" />;
       case 'refunded':
-        return <ArrowRight className="h-5 w-5 text-emerald-500" />;
+        return <RefreshCw className="h-5 w-5 text-emerald-500" />;
       case 'cancelled':
       case 'canceled':
         return <XCircle className="h-5 w-5 text-gray-500" />;
@@ -173,17 +260,28 @@ export default function MyOrdersPage() {
   const toggleOrderExpand = (orderId: string) => {
     setExpandedOrder(expandedOrder === orderId ? null : orderId);
   };
-  // Filter orders by status (including rejected and refunded)
-  const pendingOrders = orders.filter(order => 
-    ['pending', 'processing', 'shipped'].includes(order.status.toLowerCase())
+  // Filter orders by specific statuses
+  const strictlyPendingOrders = orders.filter(order => 
+    order.status.toLowerCase() === 'pending'
   );
+  
+  const activeOrders = orders.filter(order => 
+    ['pending', 'processing', 'approved', 'shipped', 'shipping'].includes(order.status.toLowerCase())
+  );
+  
   const completedOrders = orders.filter(order => 
     order.status.toLowerCase() === 'delivered'
   );
-  const cancelledOrders = orders.filter(order => 
-    ['cancelled', 'rejected', 'refunded'].includes(order.status.toLowerCase())
+  
+  // Separate refunded orders from cancelled/rejected
+  const refundedOrders = orders.filter(order => 
+    order.status.toLowerCase() === 'refunded'
   );
-
+  
+  // Only cancelled and rejected orders, not including refunded
+  const cancelledOrders = orders.filter(order => 
+    ['cancelled', 'canceled', 'rejected'].includes(order.status.toLowerCase())
+  );
   if (!isAuthenticated) {
     return null; // Will redirect to login
   }
@@ -242,20 +340,30 @@ export default function MyOrdersPage() {
         </div>
       ) : (
         <div className="space-y-8">          <Tabs defaultValue="all" className="w-full">
-            <TabsList className="grid grid-cols-4 mb-6">
+            <TabsList className="grid grid-cols-6 mb-6">
               <TabsTrigger value="all">All Orders ({orders.length})</TabsTrigger>
-              <TabsTrigger value="active">Active ({pendingOrders.length})</TabsTrigger>
+              <TabsTrigger value="pending" className="text-yellow-700">Pending ({strictlyPendingOrders.length})</TabsTrigger>
+              <TabsTrigger value="active">Active ({activeOrders.length})</TabsTrigger>
               <TabsTrigger value="completed">Completed ({completedOrders.length})</TabsTrigger>
               <TabsTrigger value="cancelled">Cancelled/Rejected ({cancelledOrders.length})</TabsTrigger>
+              <TabsTrigger value="refunded" className="text-emerald-700">Refunded ({refundedOrders.length})</TabsTrigger>
             </TabsList>
             
             <TabsContent value="all" className="space-y-6">
               <OrderList orders={orders} />
             </TabsContent>
             
+            <TabsContent value="pending" className="space-y-6">
+              {strictlyPendingOrders.length > 0 ? (
+                <OrderList orders={strictlyPendingOrders} />
+              ) : (
+                <EmptyState message="No pending orders at the moment" />
+              )}
+            </TabsContent>
+            
             <TabsContent value="active" className="space-y-6">
-              {pendingOrders.length > 0 ? (
-                <OrderList orders={pendingOrders} />
+              {activeOrders.length > 0 ? (
+                <OrderList orders={activeOrders} />
               ) : (
                 <EmptyState message="No active orders at the moment" />
               )}
@@ -276,6 +384,14 @@ export default function MyOrdersPage() {
                 <EmptyState message="No cancelled orders" />
               )}
             </TabsContent>
+            
+            <TabsContent value="refunded" className="space-y-6">
+              {refundedOrders.length > 0 ? (
+                <OrderList orders={refundedOrders} />
+              ) : (
+                <EmptyState message="No refunded orders" />
+              )}
+            </TabsContent>
           </Tabs>
         </div>
       )}
@@ -294,9 +410,40 @@ export default function MyOrdersPage() {
   function OrderList({ orders }: { orders: ExtendedOrder[] }) {
     return (
       <div className="space-y-6">
-        {orders.map((order) => (
-          <Card key={order.id} className="overflow-hidden border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-md">
-            {/* <div className="px-6 py-5 bg-gradient-to-r from-gray-50 to-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4"> */}
+        {orders.map((order) => (          <Card key={order.id} className={`overflow-hidden border hover:border-gray-200 transition-all duration-300 hover:shadow-md ${
+            order.status.toLowerCase() === 'refunded' 
+              ? 'border-emerald-200' 
+              : order.status.toLowerCase() === 'rejected' 
+                ? 'border-red-200' 
+                : 'border-gray-100'
+          }`}>            {order.status.toLowerCase() === 'pending' && (
+              <div className="bg-yellow-50 px-6 py-3 flex items-center gap-3 border-b border-yellow-100">
+                <Clock className="h-4 w-4 text-yellow-500" />
+                <div>
+                  <p className="text-sm text-yellow-800 font-medium">
+                    This order is awaiting confirmation. We'll process it shortly.
+                  </p>
+                  <p className="text-xs text-yellow-700 mt-1">
+                    Submitted on: {formatDate(order.createdAt)}
+                  </p>
+                </div>
+              </div>
+            )}
+            {order.status.toLowerCase() === 'refunded' && (
+              <div className="bg-emerald-50 px-6 py-3 flex items-center gap-3 border-b border-emerald-100">
+                <RefreshCw className="h-4 w-4 text-emerald-500" />
+                <div>
+                  <p className="text-sm text-emerald-800 font-medium">
+                    This order has been refunded. Your payment has been returned.
+                  </p>
+                  {order.refundedAt && (
+                    <p className="text-xs text-emerald-700 mt-1">
+                      Refunded on: {formatDate(order.refundedAt)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="hidden md:flex h-12 w-12 rounded-full bg-blue-50 items-center justify-center">
@@ -385,8 +532,45 @@ export default function MyOrdersPage() {
                         </div>
                       ))}
                     </div>
-                  </div>
-                  
+                  </div>                  {/* Pending Information - Show only if order is pending */}
+                  {order.status.toLowerCase() === 'pending' && (
+                    <div className="border-t border-gray-100 pt-4 space-y-3">
+                      <h3 className="font-medium flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-yellow-500" />
+                        Order Status
+                      </h3>
+                      <div className="bg-yellow-50 rounded-lg p-4 text-yellow-800">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                            Awaiting Confirmation
+                          </Badge>
+                        </div>
+                        
+                        <p className="text-sm mb-3">
+                          Your order has been received and is currently being reviewed. 
+                          We'll notify you once it's confirmed and begins processing.
+                        </p>
+                        
+                        <div className="mt-3 text-xs text-yellow-700 flex items-center gap-1">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM8.8 12H7.2V10.4H8.8V12ZM8.8 8.8H7.2V4H8.8V8.8Z" fill="#ca8a04"/>
+                          </svg>
+                          <span>Orders are typically confirmed within 24 hours</span>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-blue-50 rounded-lg p-4 text-blue-800 text-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM8.8 12H7.2V10.4H8.8V12ZM8.8 8.8H7.2V4H8.8V8.8Z" fill="#2563EB"/>
+                          </svg>
+                          <span className="font-medium">Need to modify your order?</span>
+                        </div>
+                        <p>You can still modify or cancel your order while it's pending. Contact our support team for assistance.</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Rejection Information - Show only if order is rejected */}
                   {order.status.toLowerCase() === 'rejected' && order.rejectionReason && (
                     <div className="border-t border-gray-100 pt-4 space-y-3">
@@ -397,14 +581,69 @@ export default function MyOrdersPage() {
                       <div className="bg-red-50 rounded-lg p-4 text-red-800">
                         <div className="font-medium mb-1">Rejection Reason:</div>
                         <p className="text-sm">{order.rejectionReason}</p>
-                        
-                        {order.processedBy && (
+                          {order.processedBy && (
                           <div className="text-xs text-red-600 mt-2">
-                            Processed by staff ID: {typeof order.processedBy === 'object' 
-                              ? order.processedBy._id || order.processedBy.id 
-                              : order.processedBy}
+                            Processed by: {getProcessorName(order.processedBy)}
                           </div>
                         )}
+                      </div>
+                    </div>
+                  )}
+                    {/* Refund Information - Show only if order is refunded */}
+                  {order.status.toLowerCase() === 'refunded' && (
+                    <div className="border-t border-gray-100 pt-4 space-y-3">
+                      <h3 className="font-medium flex items-center gap-2">
+                        <RefreshCw className="h-4 w-4 text-emerald-500" />
+                        Refund Information
+                      </h3>
+                      <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 text-emerald-800">
+                        <div className="flex items-center justify-between mb-3">
+                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
+                            Payment Refunded
+                          </Badge>
+                          {order.refundedAt && (
+                            <div className="text-xs text-emerald-700">
+                              Refunded on: {formatDate(order.refundedAt)}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {order.refundReason && (
+                          <>
+                            <div className="font-medium mb-1">Refund Reason:</div>
+                            <p className="text-sm mb-3">{order.refundReason}</p>
+                          </>
+                        )}
+                        
+                        {order.rejectionReason && (
+                          <>
+                            <div className="font-medium mb-1">Original Rejection Reason:</div>
+                            <p className="text-sm">{order.rejectionReason}</p>
+                          </>
+                        )}
+                        
+                        {order.notes && (
+                          <>
+                            <div className="font-medium mb-1 mt-3">Additional Notes:</div>
+                            <p className="text-sm">{order.notes}</p>
+                          </>
+                        )}
+                        
+                        {order.processedBy && (
+                          <div className="text-xs text-emerald-600 mt-3 pt-3 border-t border-emerald-100">
+                            Processed by: {getProcessorName(order.processedBy)}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="bg-blue-50 rounded-lg p-4 text-blue-800 text-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM8.8 12H7.2V10.4H8.8V12ZM8.8 8.8H7.2V4H8.8V8.8Z" fill="#2563EB"/>
+                          </svg>
+                          <span className="font-medium">Refund Information</span>
+                        </div>
+                        <p>Your payment has been successfully refunded. Please allow 3-5 business days for the refund to appear in your account.</p>
                       </div>
                     </div>
                   )}

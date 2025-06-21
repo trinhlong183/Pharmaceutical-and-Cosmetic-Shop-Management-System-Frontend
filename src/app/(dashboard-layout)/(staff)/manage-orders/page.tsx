@@ -91,6 +91,45 @@ interface Order {
   [key: string]: any;
 }
 
+// Update the constants to include status color and icon information for better visualization
+const StatusConfig = {
+  pending: { 
+    bg: "bg-yellow-100 text-yellow-800", 
+    icon: <Package2 className="h-3 w-3 mr-1" />,
+    description: "Waiting for approval"
+  },
+  approved: { 
+    bg: "bg-blue-100 text-blue-800", 
+    icon: <CheckCircle2 className="h-3 w-3 mr-1" />,
+    description: "Order has been approved"
+  },
+  rejected: { 
+    bg: "bg-red-100 text-red-800", 
+    icon: <XCircle className="h-3 w-3 mr-1" />,
+    description: "Order has been rejected"
+  },
+  refunded: { 
+    bg: "bg-emerald-100 text-emerald-800", 
+    icon: <RefreshCw className="h-3 w-3 mr-1" />,
+    description: "Payment has been refunded"
+  },
+  shipping: { 
+    bg: "bg-indigo-100 text-indigo-800", 
+    icon: <Truck className="h-3 w-3 mr-1" />,
+    description: "Order is being shipped"
+  },
+  delivered: { 
+    bg: "bg-green-100 text-green-800", 
+    icon: <CheckCircle2 className="h-3 w-3 mr-1" />,
+    description: "Order has been delivered"
+  },
+  canceled: { 
+    bg: "bg-gray-100 text-gray-800", 
+    icon: <XCircle className="h-3 w-3 mr-1" />,
+    description: "Order has been canceled"
+  },
+};
+
 const ManageOrdersPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
@@ -105,6 +144,19 @@ const ManageOrdersPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
+
+  // Add state for validation errors
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Add state for current refund form data
+  const [refundFormData, setRefundFormData] = useState({
+    refundReason: '',
+    note: ''
+  });
+
+  // Add state to track if a refund operation is in progress
+  const [isRefunding, setIsRefunding] = useState(false);
+
   const router = useRouter();
 
   useEffect(() => {
@@ -282,22 +334,16 @@ const ManageOrdersPage = () => {
       setStatusUpdating(false);
     }
   };
-
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { bg: string, icon: React.ReactNode }> = {
-      pending: { bg: "bg-yellow-100 text-yellow-800", icon: <Package2 className="h-3 w-3 mr-1" /> },
-      approved: { bg: "bg-blue-100 text-blue-800", icon: <CheckCircle2 className="h-3 w-3 mr-1" /> },
-      rejected: { bg: "bg-red-100 text-red-800", icon: <XCircle className="h-3 w-3 mr-1" /> },
-      refunded: { bg: "bg-emerald-100 text-emerald-800", icon: <RefreshCw className="h-3 w-3 mr-1" /> },
-      shipping: { bg: "bg-indigo-100 text-indigo-800", icon: <Truck className="h-3 w-3 mr-1" /> },
-      delivered: { bg: "bg-green-100 text-green-800", icon: <CheckCircle2 className="h-3 w-3 mr-1" /> },
-      canceled: { bg: "bg-gray-100 text-gray-800", icon: <XCircle className="h-3 w-3 mr-1" /> },
-    };
-
-    const config = statusConfig[status] || { bg: "bg-gray-100 text-gray-800", icon: null };
+    const config = StatusConfig[status as keyof typeof StatusConfig] || 
+      { bg: "bg-gray-100 text-gray-800", icon: null, description: "Unknown status" };
 
     return (
-      <Badge variant="outline" className={`${config.bg} flex items-center`}>
+      <Badge 
+        variant="outline" 
+        className={`${config.bg} flex items-center`}
+        title={config.description}
+      >
         {config.icon}
         <span className="capitalize">{status}</span>
       </Badge>
@@ -363,31 +409,78 @@ const ManageOrdersPage = () => {
       setProcessingOrderId(null);
     }
   };
-
-  // Function to handle order refund
+  // Function to handle order refund based on API documentation
   const handleRefundOrder = async (orderId: string, data: { refundReason?: string; note?: string }) => {
     if (!orderId) return;
     
     try {
       setProcessingOrderId(orderId);
+      setIsRefunding(true);
+      setValidationError(null);
+      
+      // Validate that the order is in rejected state before attempting refund
+      const orderToRefund = orders.find(order => 
+        (order.id === orderId || order._id === orderId)
+      );
+      
+      if (orderToRefund && orderToRefund.status !== 'rejected') {
+        setValidationError("Order can only be refunded if it was previously rejected");
+        return;
+      }
       
       // Use orderService to refund the order
-      await orderService.refundOrder(orderId, {
+      const refundedOrder = await orderService.refundOrder(orderId, {
         refundReason: data.refundReason,
         note: data.note
       });
       
-      toast.success("Order refunded successfully");
-      // Refresh orders list
-      fetchOrders();
+      toast.success("Order has been refunded successfully");
       
-      // Close dialog first after successful operation
+      // Update orders in state to reflect the change
+      setOrders(orders.map(order => 
+        ((order.id && order.id === orderId) || (order._id && order._id === orderId))
+          ? {...order, status: 'refunded', refundReason: data.refundReason} 
+          : order
+      ));
+      
+      // If the order detail dialog is open and showing this order, update it
+      if (detailOrder && 
+          ((detailOrder.id && detailOrder.id === orderId) || 
+           (detailOrder._id && detailOrder._id === orderId))) {
+        setDetailOrder({ 
+          ...detailOrder, 
+          status: 'refunded',
+          refundReason: data.refundReason || detailOrder.refundReason
+        });
+      }
+      
+      // Close refund dialog
       setOpenRefundDialog(false);
-    } catch (error) {
-      toast.error("Failed to refund order");
+      
+      // Clear refund form data
+      setRefundFormData({
+        refundReason: '',
+        note: ''
+      });
+      
+    } catch (error: any) {
+      // Handle specific error types based on API documentation
+      if (error.message && error.message.includes('409')) {
+        toast.error("Order can only be refunded if it was previously rejected");
+        setValidationError("Order can only be refunded if it was previously rejected");
+      } else if (error.message && error.message.includes('401')) {
+        toast.error("Your session has expired. Please login again");
+      } else if (error.message && error.message.includes('403')) {
+        toast.error("You don't have permission to perform this action");
+      } else if (error.message && error.message.includes('404')) {
+        toast.error("Order not found");
+      } else {
+        toast.error("Failed to refund order");
+      }
       console.error("Error refunding order:", error);
     } finally {
       setProcessingOrderId(null);
+      setIsRefunding(false);
     }
   };
 
@@ -487,17 +580,27 @@ const ManageOrdersPage = () => {
                                     <Eye className="h-3.5 w-3.5" />
                                     Details
                                   </Button>
-                                  
-                                  {order.status === 'rejected' && (
+                                    {order.status === 'rejected' && (
                                     <Button
                                       size="sm"
                                       variant="secondary"
                                       onClick={() => {
                                         setOpenRefundDialog(true);
                                         setProcessingOrderId(orderId);
+                                        
+                                        // Reset the refund form data
+                                        setRefundFormData({
+                                          refundReason: '',
+                                          note: ''
+                                        });
+                                        
+                                        // Reset any validation errors
+                                        setValidationError(null);
                                       }}
-                                      disabled={processingOrderId === orderId}
+                                      disabled={processingOrderId === orderId || isRefunding}
+                                      className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 flex items-center gap-1"
                                     >
+                                      <RefreshCw className="h-3.5 w-3.5" />
                                       Refund
                                     </Button>
                                   )}
@@ -733,27 +836,88 @@ const ManageOrdersPage = () => {
                   )}
                 </CardContent>
               </Card>
-              
-              {detailOrder.rejectionReason && (
-                <Card className="border-red-200">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-red-600">Rejection Information</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p><span className="font-medium">Reason: </span>{detailOrder.rejectionReason}</p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {detailOrder.refundReason && (
-                <Card className="border-emerald-200">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base text-emerald-600">Refund Information</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p><span className="font-medium">Reason: </span>{detailOrder.refundReason}</p>
-                  </CardContent>
-                </Card>
+                {/* Rejection and Refund Information */}
+              {(detailOrder.rejectionReason || detailOrder.refundReason) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {detailOrder.rejectionReason && (
+                    <Card className="border-red-200">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base text-red-600 flex items-center gap-2">
+                          <XCircle className="h-4 w-4" />
+                          Rejection Information
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Reason for Rejection</p>
+                          <p className="text-sm">{detailOrder.rejectionReason}</p>
+                        </div>
+                        
+                        {detailOrder.processedBy && (
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">Processed By</p>
+                            <p className="text-sm">{detailOrder.processedBy}</p>
+                          </div>
+                        )}
+                        
+                        {!detailOrder.refundReason && detailOrder.status === 'rejected' && (
+                          <div className="mt-2 pt-2 border-t border-red-100">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 border-red-200 hover:bg-red-50"
+                              onClick={() => {
+                                setOpenRefundDialog(true);
+                                setProcessingOrderId(detailOrder.id || detailOrder._id || null);
+                                setRefundFormData({
+                                  refundReason: '',
+                                  note: ''
+                                });
+                                setValidationError(null);
+                              }}
+                              disabled={isRefunding}
+                            >
+                              Process Refund
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+                  
+                  {detailOrder.refundReason && (
+                    <Card className="border-emerald-200">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base text-emerald-600 flex items-center gap-2">
+                          <RefreshCw className="h-4 w-4" />
+                          Refund Information
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Reason for Refund</p>
+                          <p className="text-sm">{detailOrder.refundReason}</p>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Status</p>
+                          <p className="flex items-center gap-1">
+                            <Badge className="bg-emerald-100 text-emerald-800">
+                              Refunded
+                            </Badge>
+                          </p>
+                        </div>
+                        
+                        {detailOrder.notes && (
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">Notes</p>
+                            <p className="text-sm whitespace-pre-wrap">{detailOrder.notes}</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -763,16 +927,24 @@ const ManageOrdersPage = () => {
               Close
             </Button>
             
-            <div className="flex items-center gap-2">
-              {detailOrder && detailOrder.status === 'rejected' && (
+            <div className="flex items-center gap-2">              {detailOrder && detailOrder.status === 'rejected' && (
                 <Button
                   variant="secondary"
                   onClick={() => {
                     setOpenRefundDialog(true);
                     setProcessingOrderId(detailOrder.id || detailOrder._id || null);
+                    // Reset the refund form data
+                    setRefundFormData({
+                      refundReason: '',
+                      note: ''
+                    });
+                    // Reset any validation errors
+                    setValidationError(null);
                   }}
-                  disabled={statusUpdating}
+                  disabled={statusUpdating || isRefunding}
+                  className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 flex items-center gap-1"
                 >
+                  <RefreshCw className="h-4 w-4" />
                   Process Refund
                 </Button>
               )}
@@ -883,16 +1055,19 @@ const ManageOrdersPage = () => {
             </DialogFooter>
           </form>
         </DialogContent>
-      </Dialog>
-
-      {/* Refund Order Dialog */}
+      </Dialog>      {/* Refund Order Dialog */}
       <Dialog 
         open={openRefundDialog} 
         onOpenChange={(open) => {
           if (!open) {
             // Only allow closing if we're not processing
-            if (!processingOrderId) {
+            if (!isRefunding) {
               setOpenRefundDialog(false);
+              setValidationError(null);
+              setRefundFormData({
+                refundReason: '',
+                note: ''
+              });
             }
           } else {
             setOpenRefundDialog(open);
@@ -901,66 +1076,99 @@ const ManageOrdersPage = () => {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Refund Order</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-emerald-600" />
+              Refund Order
+            </DialogTitle>
             <DialogDescription>
-              Provide a reason and optional note for refunding this order
+              Provide a reason and optional note for refunding this rejected order
             </DialogDescription>
           </DialogHeader>
 
-          {processingOrderId ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          {isRefunding ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Processing refund request...</p>
             </div>
           ) : (
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const refundReason = formData.get('refundReason') as string;
-                const note = formData.get('note') as string;
-                
                 if (processingOrderId) {
-                  handleRefundOrder(processingOrderId, {
-                    refundReason: refundReason || undefined,
-                    note: note || undefined
-                  });
+                  handleRefundOrder(processingOrderId, refundFormData);
                 }
               }}
               className="space-y-4"
             >
+              {validationError && (
+                <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-3 text-sm">
+                  <p>{validationError}</p>
+                </div>
+              )}
+              
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-3 space-y-2">
+                <h3 className="text-sm font-medium text-amber-800 flex items-center gap-2">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM8.8 12H7.2V10.4H8.8V12ZM8.8 8.8H7.2V4H8.8V8.8Z" fill="#92400E"/>
+                  </svg>
+                  Important Information
+                </h3>
+                <p className="text-xs text-amber-800">
+                  This action will refund the payment for a rejected order. According to system rules, only orders with "rejected" status can be refunded.
+                </p>
+              </div>
+              
               <div className="space-y-2">
                 <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                   Refund Reason (optional)
                 </label>
                 <textarea
-                  name="refundReason"
+                  value={refundFormData.refundReason}
+                  onChange={(e) => setRefundFormData({...refundFormData, refundReason: e.target.value})}
                   className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   rows={3}
                   placeholder="Enter the reason for refund"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Explain why the payment is being refunded. This will be visible to the customer.
+                </p>
               </div>
+              
               <div className="space-y-2">
                 <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Note (optional)
+                  Administrative Note (optional)
                 </label>
                 <textarea
-                  name="note"
+                  value={refundFormData.note}
+                  onChange={(e) => setRefundFormData({...refundFormData, note: e.target.value})}
                   className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   rows={2}
-                  placeholder="Enter an optional note"
+                  placeholder="Enter an optional internal note"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Internal note for administrative purposes. Not visible to customers.
+                </p>
               </div>
               
               <DialogFooter>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setOpenRefundDialog(false)}
+                  onClick={() => {
+                    setOpenRefundDialog(false);
+                    setValidationError(null);
+                    setRefundFormData({
+                      refundReason: '',
+                      note: ''
+                    });
+                  }}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
+                  variant="default"
+                  className="bg-emerald-600 hover:bg-emerald-700"
                 >
                   Process Refund
                 </Button>
