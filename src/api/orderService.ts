@@ -6,6 +6,10 @@ export interface Order {
   status: string;
   createdAt: string;
   updatedAt: string;
+  rejectionReason?: string;
+  refundReason?: string;
+  processedBy?: string;
+  notes?: string;
 }
 
 export interface OrderItem {
@@ -166,6 +170,53 @@ export const orderService = {
     }
     const data: ApiResponse<Order> = await response.json();
     return data.data;
+  },
+
+  async rejectOrder(id: string, data: { rejectionReason: string; note?: string }): Promise<Order> {
+    const token = getAuthToken();
+    
+    const response = await fetch(`${API_URL}/orders/${id}/process`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        status: 'rejected',
+        rejectionReason: data.rejectionReason,
+        note: data.note,
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to reject order');
+    }
+    
+    const responseData: ApiResponse<Order> = await response.json();
+    return responseData.data;
+  },
+
+  async refundOrder(id: string, data: { refundReason?: string; note?: string }): Promise<Order> {
+    const token = getAuthToken();
+    
+    const response = await fetch(`${API_URL}/orders/${id}/refund`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        refundReason: data.refundReason,
+        note: data.note,
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to refund order');
+    }
+    
+    const responseData: ApiResponse<Order> = await response.json();
+    return responseData.data;
   },
 };
 

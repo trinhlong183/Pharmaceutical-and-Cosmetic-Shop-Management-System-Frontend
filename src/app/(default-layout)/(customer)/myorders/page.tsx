@@ -16,8 +16,49 @@ import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'react-hot-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+// Extend the OrderItem interface to match actual data structure
+interface ExtendedOrderItem {
+  id?: string;
+  orderId?: string;
+  productId: string;
+  productDetails?: {
+    productName?: string;
+    price?: number;
+    id?: string;
+  };
+  quantity: number;
+  price: number;
+  productName?: string;
+  productImage?: string;
+  subtotal?: number;
+}
+
+// Extend the Order interface to match actual data structure
+interface ExtendedOrder extends Omit<Order, 'items' | 'userId' | 'processedBy'> {
+  _id?: string;
+  userId: string | {
+    _id?: string;
+    id?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
+  items: ExtendedOrderItem[];
+  processedBy?: string | {
+    _id?: string;
+    id?: string;
+    name?: string;
+    email?: string;
+  };
+  shippingAddress?: string;
+  contactPhone?: string;
+  itemCount?: number;
+  totalQuantity?: number;
+}
+
 export default function MyOrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<ExtendedOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
@@ -31,13 +72,12 @@ export default function MyOrdersPage() {
       setIsAuthenticated(false);
       setLoading(false);
       return;
-    }
-
-    async function loadOrders() {
+    }    async function loadOrders() {
       try {
         setLoading(true);
         const data = await orderService.getCurrentUserOrders();
-        setOrders(data);
+        // Cast data to ExtendedOrder type
+        setOrders(data as unknown as ExtendedOrder[]);
       } catch (err) {
         console.error('Error loading orders:', err);
         if (err instanceof Error && err.message.includes('Authentication token is missing')) {
@@ -61,19 +101,26 @@ export default function MyOrdersPage() {
       router.push('/login');
     }
   }, [isAuthenticated, loading, router]);
-
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'processing':
         return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'approved':
+        return 'bg-green-100 text-green-800 border-green-200';
       case 'shipped':
+      case 'shipping':
         return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'delivered':
         return 'bg-green-100 text-green-800 border-green-200';
-      case 'cancelled':
+      case 'rejected':
         return 'bg-red-100 text-red-800 border-red-200';
+      case 'refunded':
+        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case 'cancelled':
+      case 'canceled':
+        return 'bg-gray-100 text-gray-800 border-gray-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -84,13 +131,20 @@ export default function MyOrdersPage() {
       case 'pending':
         return <Clock className="h-5 w-5" />;
       case 'processing':
+      case 'approved':
         return <Box className="h-5 w-5" />;
       case 'shipped':
+      case 'shipping':
         return <TruckIcon className="h-5 w-5" />;
       case 'delivered':
         return <CheckCircle2 className="h-5 w-5" />;
+      case 'rejected':
+        return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'refunded':
+        return <ArrowRight className="h-5 w-5 text-emerald-500" />;
       case 'cancelled':
-        return <XCircle className="h-5 w-5" />;
+      case 'canceled':
+        return <XCircle className="h-5 w-5 text-gray-500" />;
       default:
         return <Clock className="h-5 w-5" />;
     }
@@ -119,8 +173,7 @@ export default function MyOrdersPage() {
   const toggleOrderExpand = (orderId: string) => {
     setExpandedOrder(expandedOrder === orderId ? null : orderId);
   };
-
-  // Filter orders by status
+  // Filter orders by status (including rejected and refunded)
   const pendingOrders = orders.filter(order => 
     ['pending', 'processing', 'shipped'].includes(order.status.toLowerCase())
   );
@@ -128,7 +181,7 @@ export default function MyOrdersPage() {
     order.status.toLowerCase() === 'delivered'
   );
   const cancelledOrders = orders.filter(order => 
-    order.status.toLowerCase() === 'cancelled'
+    ['cancelled', 'rejected', 'refunded'].includes(order.status.toLowerCase())
   );
 
   if (!isAuthenticated) {
@@ -188,13 +241,12 @@ export default function MyOrdersPage() {
           </Link>
         </div>
       ) : (
-        <div className="space-y-8">
-          <Tabs defaultValue="all" className="w-full">
+        <div className="space-y-8">          <Tabs defaultValue="all" className="w-full">
             <TabsList className="grid grid-cols-4 mb-6">
               <TabsTrigger value="all">All Orders ({orders.length})</TabsTrigger>
               <TabsTrigger value="active">Active ({pendingOrders.length})</TabsTrigger>
               <TabsTrigger value="completed">Completed ({completedOrders.length})</TabsTrigger>
-              <TabsTrigger value="cancelled">Cancelled ({cancelledOrders.length})</TabsTrigger>
+              <TabsTrigger value="cancelled">Cancelled/Rejected ({cancelledOrders.length})</TabsTrigger>
             </TabsList>
             
             <TabsContent value="all" className="space-y-6">
@@ -239,7 +291,7 @@ export default function MyOrdersPage() {
     );
   }
 
-  function OrderList({ orders }: { orders: Order[] }) {
+  function OrderList({ orders }: { orders: ExtendedOrder[] }) {
     return (
       <div className="space-y-6">
         {orders.map((order) => (
@@ -291,6 +343,7 @@ export default function MyOrdersPage() {
             {expandedOrder === order.id && (
               <CardContent className="p-0">
                 <div className="p-6 border-t border-gray-100 space-y-6">
+                  {/* Order Items Section */}
                   <div className="space-y-4">
                     <h3 className="font-medium flex items-center gap-2">
                       <ShoppingBag className="h-4 w-4" />
@@ -334,7 +387,28 @@ export default function MyOrdersPage() {
                     </div>
                   </div>
                   
-                  <div className="border-t border-gray-100 pt-4">
+                  {/* Rejection Information - Show only if order is rejected */}
+                  {order.status.toLowerCase() === 'rejected' && order.rejectionReason && (
+                    <div className="border-t border-gray-100 pt-4 space-y-3">
+                      <h3 className="font-medium flex items-center gap-2">
+                        <XCircle className="h-4 w-4 text-red-500" />
+                        Rejection Information
+                      </h3>
+                      <div className="bg-red-50 rounded-lg p-4 text-red-800">
+                        <div className="font-medium mb-1">Rejection Reason:</div>
+                        <p className="text-sm">{order.rejectionReason}</p>
+                        
+                        {order.processedBy && (
+                          <div className="text-xs text-red-600 mt-2">
+                            Processed by staff ID: {typeof order.processedBy === 'object' 
+                              ? order.processedBy._id || order.processedBy.id 
+                              : order.processedBy}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                    <div className="border-t border-gray-100 pt-4">
                     <div className="flex justify-between items-center py-2">
                       <span className="text-gray-500">Subtotal:</span>
                       <span>{formatCurrency(order.totalAmount)}</span>
