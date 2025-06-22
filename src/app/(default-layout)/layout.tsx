@@ -4,20 +4,30 @@ import { ReactNode, useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import Link from "next/link";
-import { ShoppingBag, MessageCircle } from "lucide-react"; // Thêm icon chat
+import { ShoppingBag, MessageCircle } from "lucide-react";
 import Chatbox from "@/components/chatbox/Chatbox";
+import { useUser } from "@/contexts/UserContext";
+import { toast } from "sonner";
 
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   const [chatboxOpen, setChatboxOpen] = useState(false);
+  const { user } = useUser();
+
+  const handleOpenChatbox = () => {
+    if (!user) {
+      toast.error("Please log in to chat with us!");
+      return;
+    }
+    setChatboxOpen(true);
+  };
 
   return (
     <>
       <Header />
       <main className="flex-grow">
         {children}
-        {/* Enhanced Floating Action Buttons */}
+        {/* Main Shopping Button */}{" "}
         <div className="fixed bottom-6 right-6 z-50 flex flex-col space-y-4">
-          {/* Main Shopping Button */}
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-pink-500 via-purple-500 to-rose-500 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
             <Link
@@ -44,7 +54,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
               type="button"
               className="relative bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 text-white p-4 rounded-full shadow-2xl hover:shadow-emerald-500/50 transition-all duration-500 transform hover:scale-110 group flex items-center justify-center"
               aria-label="Chat with us"
-              onClick={() => setChatboxOpen(true)}
+              onClick={handleOpenChatbox}
             >
               <MessageCircle className="h-6 w-6 group-hover:animate-bounce" />
             </button>
@@ -55,10 +65,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
             </div>
           </div>
         </div>
-        {/* Chatbox Modal */}
-        {chatboxOpen && (
-          <Chatbox open={chatboxOpen} onClose={() => setChatboxOpen(false)} />
-        )}
+        <Chatbox open={chatboxOpen} onClose={() => setChatboxOpen(false)} />
       </main>
 
       <Footer />
