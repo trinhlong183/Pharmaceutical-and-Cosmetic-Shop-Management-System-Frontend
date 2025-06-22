@@ -244,7 +244,7 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
                       </form>
                     ) : (
                       <div className="relative flex items-center">
-                        {hoveredMsgId === msg.id && (
+                        {msg.from === "user" && hoveredMsgId === msg.id && (
                           <div className="flex gap-1 mr-4">
                             <button
                               className="text-blue-500 hover:text-blue-700"
