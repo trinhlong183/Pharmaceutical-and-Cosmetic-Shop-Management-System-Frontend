@@ -139,27 +139,8 @@ export const userService = {
     return await response.json();
   },
 
-  // Upload avatar
-  async uploadAvatar(formData: FormData): Promise<ApiResponse<User>> {
-    // Remove Content-Type header for multipart form data
-    const headers = getAuthHeader();
-    delete headers["Content-Type"];
-
-    const response = await fetch(`${API_URL}/users/avatar`, {
-      method: "PATCH",
-      headers: {
-        Authorization: headers.Authorization,
-      },
-      body: formData,
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to upload avatar");
-    }
-
-    return await response.json();
+    uploadAvatar: async (formData: FormData) => {
+    return await http.patch("/users/avatar", formData);
   },
 
   // Logout user

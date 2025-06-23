@@ -207,7 +207,7 @@ const ProductForm = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    Price ($)<span className="text-red-500">*</span>
+                    Price (₫)<span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
                     <Input

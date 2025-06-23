@@ -35,6 +35,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
       ? price * (1 - salePercentage / 100)
       : price;
 
+  const formatVND = (price: number): string => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      minimumFractionDigits: 0,
+    }).format(price);
+  };
   return (
     <div className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full border border-indigo-50 group">
       {/* Image & Badges */}
@@ -120,15 +127,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
             {salePercentage > 0 ? (
               <div className="flex flex-col">
                 <span className="text-xl font-bold bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent">
-                  ${finalPrice.toFixed(2)}
+                  {formatVND(finalPrice)}
                 </span>
                 <span className="text-xs text-gray-400 line-through">
-                  ${price.toFixed(2)}
+                  {formatVND(price)}
                 </span>
               </div>
             ) : (
               <span className="text-xl font-bold text-gray-900">
-                ${price.toFixed(2)}
+                {formatVND(price)}
               </span>
             )}
           </div>

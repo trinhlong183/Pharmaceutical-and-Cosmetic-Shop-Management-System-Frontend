@@ -45,12 +45,6 @@ export default function Header() {
             Products
           </Link>
           <Link
-            href="/skin-analysis"
-            className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
-          >
-            AI Skin Analysis
-          </Link>
-          <Link
             href="/aboutus"
             className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
           >
@@ -60,18 +54,7 @@ export default function Header() {
 
         {/* Right Side Actions */}
         <div className="flex items-center space-x-4">
-          {/* Shopping Cart */}
-          {/* <Link
-            href="/cartpage"
-            className="relative p-2 text-gray-600 hover:text-blue-600 transition-colors"
-          >
-            <ShoppingCart className="w-6 h-6" />
-            <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-              {totalItems}
-            </span>
-          </Link> */}
           <CartIcon />
-
           {/* User Menu */}
           {loading ? (
             <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse" />
@@ -80,7 +63,7 @@ export default function Header() {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-100 transition-colors">
                   <Avatar className="w-10 h-10">
-                    <AvatarImage src={user.avatar} />
+                    <AvatarImage src={user.photoUrl} />
                     <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
                       {user.fullName ? user.fullName[0].toUpperCase() : "U"}
                     </AvatarFallback>
@@ -178,12 +161,7 @@ export default function Header() {
               >
                 Products
               </Link>
-              <Link
-                href="/skin-analysis"
-                className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
-              >
-                AI Skin Analysis
-              </Link>
+
               <Link
                 href="/cart"
                 className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors flex items-center"

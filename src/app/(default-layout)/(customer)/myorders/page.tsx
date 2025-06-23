@@ -1,23 +1,41 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { orderService, Order } from '@/api/orderService';
-import { userService, User } from '@/api/userService';
-import { 
-  Loader2, Package, ShoppingBag, AlertCircle, 
-  ChevronDown, ChevronUp, Clock, CheckCircle2, 
-  TruckIcon, Box, XCircle, ArrowRight, Calendar,
-  RefreshCw
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { toast } from 'react-hot-toast';
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { orderService, Order } from "@/api/orderService";
+import { userService, User } from "@/api/userService";
+import { reviewService } from "@/api/reviewService";
+import {
+  Package,
+  ShoppingBag,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  CheckCircle2,
+  TruckIcon,
+  Box,
+  XCircle,
+  ArrowRight,
+  Calendar,
+  RefreshCw,
+  Star,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "react-hot-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { useUser } from "@/contexts/UserContext";
 // Extend the OrderItem interface to match actual data structure
 interface ExtendedOrderItem {
   id?: string;
@@ -36,31 +54,36 @@ interface ExtendedOrderItem {
 }
 
 // Extend the Order interface to match actual data structure
-interface ExtendedOrder extends Omit<Order, 'items' | 'userId' | 'processedBy'> {
+interface ExtendedOrder
+  extends Omit<Order, "items" | "userId" | "processedBy"> {
   _id?: string;
-  userId: string | {
-    _id?: string;
-    id?: string;
-    name?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-  };
+  userId:
+    | string
+    | {
+        _id?: string;
+        id?: string;
+        name?: string;
+        email?: string;
+        phone?: string;
+        address?: string;
+      };
   items: ExtendedOrderItem[];
-  processedBy?: string | {
-    _id?: string;
-    id?: string;
-    name?: string;
-    email?: string;
-  };
+  processedBy?:
+    | string
+    | {
+        _id?: string;
+        id?: string;
+        name?: string;
+        email?: string;
+      };
   shippingAddress?: string;
   contactPhone?: string;
   itemCount?: number;
   totalQuantity?: number;
   rejectionReason?: string; // Reason for rejection
-  refundReason?: string;   // Reason for refund
-  refundedAt?: string;     // When the refund was processed
-  notes?: string;          // Additional notes
+  refundReason?: string; // Reason for refund
+  refundedAt?: string; // When the refund was processed
+  notes?: string; // Additional notes
 }
 
 export default function MyOrdersPage() {
@@ -69,46 +92,62 @@ export default function MyOrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
-  const [processedByUsers, setProcessedByUsers] = useState<Record<string, User>>({});
+  const [processedByUsers, setProcessedByUsers] = useState<
+    Record<string, User>
+  >({});
+  const [productReviews, setProductReviews] = useState<Record<string, any>>({});
+  const [reviewDialog, setReviewDialog] = useState<{
+    open: boolean;
+    productId: string | null;
+    review?: any;
+  }>({ open: false, productId: null });
   const router = useRouter();
+  const { user } = useUser();
 
   // Helper function to get processor name from either object or ID
-  const getProcessorName = (processedBy: string | { _id?: string; id?: string; name?: string; email?: string; }) => {
+  const getProcessorName = (
+    processedBy:
+      | string
+      | { _id?: string; id?: string; name?: string; email?: string }
+  ) => {
     // If processedBy is an object with name, use it directly
-    if (typeof processedBy === 'object' && processedBy.name) {
+    if (typeof processedBy === "object" && processedBy.name) {
       return processedBy.name;
     }
-    
+
     // Get the ID
     let id: string | undefined;
-    if (typeof processedBy === 'string') {
+    if (typeof processedBy === "string") {
       id = processedBy;
     } else if (processedBy._id) {
       id = processedBy._id;
     } else if (processedBy.id) {
       id = processedBy.id;
     }
-    
+
     // If we have the user information in our state
     if (id && processedByUsers[id]) {
       return processedByUsers[id].fullName;
     }
-    
+
     // Fallback
-    return typeof processedBy === 'string' 
-      ? `Staff ID: ${processedBy.slice(0, 8)}...` 
-      : `Staff ID: ${(processedBy._id || processedBy.id || 'Unknown').slice(0, 8)}...`;
+    return typeof processedBy === "string"
+      ? `Staff ID: ${processedBy.slice(0, 8)}...`
+      : `Staff ID: ${(processedBy._id || processedBy.id || "Unknown").slice(
+          0,
+          8
+        )}...`;
   };
 
   useEffect(() => {
     // Check if user is authenticated
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem("accessToken");
     if (!token) {
       setIsAuthenticated(false);
       setLoading(false);
       return;
     }
-    
+
     async function loadOrders() {
       try {
         setLoading(true);
@@ -116,12 +155,15 @@ export default function MyOrdersPage() {
         // Cast data to ExtendedOrder type
         setOrders(data as unknown as ExtendedOrder[]);
       } catch (err) {
-        console.error('Error loading orders:', err);
-        if (err instanceof Error && err.message.includes('Authentication token is missing')) {
+        console.error("Error loading orders:", err);
+        if (
+          err instanceof Error &&
+          err.message.includes("Authentication token is missing")
+        ) {
           setIsAuthenticated(false);
         } else {
-          setError('Failed to load orders. Please try again later.');
-          toast.error('Failed to load orders');
+          setError("Failed to load orders. Please try again later.");
+          toast.error("Failed to load orders");
         }
       } finally {
         setLoading(false);
@@ -134,103 +176,137 @@ export default function MyOrdersPage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!isAuthenticated && !loading) {
-      toast.error('Please login to view your orders');
-      router.push('/login');
+      toast.error("Please login to view your orders");
+      router.push("/login");
     }
   }, [isAuthenticated, loading, router]);
 
   // Fetch processor details when order is expanded
   useEffect(() => {
     if (!expandedOrder) return;
-    
-    const currentOrder = orders.find(order => order.id === expandedOrder);
+
+    const currentOrder = orders.find((order) => order.id === expandedOrder);
     if (!currentOrder || !currentOrder.processedBy) return;
-    
+
     // Extract processedBy ID
     let processedById: string | undefined;
-    
-    if (typeof currentOrder.processedBy === 'string') {
+
+    if (typeof currentOrder.processedBy === "string") {
       processedById = currentOrder.processedBy;
     } else if (currentOrder.processedBy._id) {
       processedById = currentOrder.processedBy._id;
     } else if (currentOrder.processedBy.id) {
       processedById = currentOrder.processedBy.id;
     }
-    
+
     // If we have an ID and we haven't fetched this user yet
     if (processedById && !processedByUsers[processedById]) {
       // Set a loading state for this user
-      setProcessedByUsers(prev => ({
+      setProcessedByUsers((prev) => ({
         ...prev,
-        [processedById!]: { _id: processedById!, fullName: 'Loading...', email: '' } as User
+        [processedById!]: {
+          _id: processedById!,
+          fullName: "Loading...",
+          email: "",
+        } as User,
       }));
-      
+
       // Fetch user details
-      userService.getUserById(processedById)
-        .then(userData => {
-          setProcessedByUsers(prev => ({
+      userService
+        .getUserById(processedById)
+        .then((userData) => {
+          setProcessedByUsers((prev) => ({
             ...prev,
-            [processedById!]: userData
+            [processedById!]: userData,
           }));
         })
-        .catch(err => {
+        .catch((err) => {
           console.error(`Failed to fetch user ${processedById}:`, err);
           // Set an error state for this user
-          setProcessedByUsers(prev => ({
+          setProcessedByUsers((prev) => ({
             ...prev,
-            [processedById!]: { 
-              _id: processedById!, 
-              fullName: `User ${processedById?.slice(0, 8)}...`, 
-              email: '' 
-            } as User
+            [processedById!]: {
+              _id: processedById!,
+              fullName: `User ${processedById?.slice(0, 8)}...`,
+              email: "",
+            } as User,
           }));
         });
     }
   }, [expandedOrder, orders, processedByUsers]);
-  
+
+  // Lấy review của user cho từng sản phẩm khi mở chi tiết đơn hàng đã giao
+  useEffect(() => {
+    fetchReviews();
+  }, [expandedOrder, orders]);
+
+  const fetchReviews = async () => {
+    if (!expandedOrder) return;
+
+    const order = orders.find((o) => o.id === expandedOrder);
+    if (!order || order.status.toLowerCase() !== "delivered") return;
+
+    const userId = user?.id;
+
+    for (const item of order.items) {
+      if (!item.productId || !userId) continue;
+      if (!productReviews[item.productId]) {
+        const res = await reviewService.getAllReviews({
+          productId: item.productId,
+          userId,
+        });
+        const myReview = Array.isArray(res) && res.length > 0 ? res[0] : null;
+        setProductReviews((prev) => ({
+          ...prev,
+          [item.productId]: myReview,
+        }));
+      }
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'processing':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'approved':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'shipped':
-      case 'shipping':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'delivered':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'rejected':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'refunded':
-        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      case 'cancelled':
-      case 'canceled':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "processing":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "approved":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "shipped":
+      case "shipping":
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      case "delivered":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "rejected":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "refunded":
+        return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      case "cancelled":
+      case "canceled":
+        return "bg-gray-100 text-gray-800 border-gray-200";
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'pending':
+      case "pending":
         return <Clock className="h-5 w-5" />;
-      case 'processing':
-      case 'approved':
+      case "processing":
+      case "approved":
         return <Box className="h-5 w-5" />;
-      case 'shipped':
-      case 'shipping':
+      case "shipped":
+      case "shipping":
         return <TruckIcon className="h-5 w-5" />;
-      case 'delivered':
+      case "delivered":
         return <CheckCircle2 className="h-5 w-5" />;
-      case 'rejected':
+      case "rejected":
         return <XCircle className="h-5 w-5 text-red-500" />;
-      case 'refunded':
+      case "refunded":
         return <RefreshCw className="h-5 w-5 text-emerald-500" />;
-      case 'cancelled':
-      case 'canceled':
+      case "cancelled":
+      case "canceled":
         return <XCircle className="h-5 w-5 text-gray-500" />;
       default:
         return <Clock className="h-5 w-5" />;
@@ -239,21 +315,21 @@ export default function MyOrdersPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('vi-VN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Intl.DateTimeFormat("vi-VN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     }).format(date);
   };
 
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -261,26 +337,28 @@ export default function MyOrdersPage() {
     setExpandedOrder(expandedOrder === orderId ? null : orderId);
   };
   // Filter orders by specific statuses
-  const strictlyPendingOrders = orders.filter(order => 
-    order.status.toLowerCase() === 'pending'
+  const strictlyPendingOrders = orders.filter(
+    (order) => order.status.toLowerCase() === "pending"
   );
-  
-  const activeOrders = orders.filter(order => 
-    ['pending', 'processing', 'approved', 'shipped', 'shipping'].includes(order.status.toLowerCase())
+
+  const activeOrders = orders.filter((order) =>
+    ["pending", "processing", "approved", "shipped", "shipping"].includes(
+      order.status.toLowerCase()
+    )
   );
-  
-  const completedOrders = orders.filter(order => 
-    order.status.toLowerCase() === 'delivered'
+
+  const completedOrders = orders.filter(
+    (order) => order.status.toLowerCase() === "delivered"
   );
-  
+
   // Separate refunded orders from cancelled/rejected
-  const refundedOrders = orders.filter(order => 
-    order.status.toLowerCase() === 'refunded'
+  const refundedOrders = orders.filter(
+    (order) => order.status.toLowerCase() === "refunded"
   );
-  
+
   // Only cancelled and rejected orders, not including refunded
-  const cancelledOrders = orders.filter(order => 
-    ['cancelled', 'canceled', 'rejected'].includes(order.status.toLowerCase())
+  const cancelledOrders = orders.filter((order) =>
+    ["cancelled", "canceled", "rejected"].includes(order.status.toLowerCase())
   );
   if (!isAuthenticated) {
     return null; // Will redirect to login
@@ -311,15 +389,22 @@ export default function MyOrdersPage() {
             <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
             <Package className="h-6 w-6 text-blue-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
           </div>
-          <span className="mt-6 text-lg text-gray-600">Loading your orders...</span>
+          <span className="mt-6 text-lg text-gray-600">
+            Loading your orders...
+          </span>
           <p className="text-gray-400 text-sm mt-2">This may take a moment</p>
         </div>
       ) : error ? (
         <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
           <AlertCircle className="h-16 w-16 mx-auto text-red-500 mb-4" />
-          <div className="text-xl font-medium text-gray-900 mb-2">Sorry, something went wrong</div>
+          <div className="text-xl font-medium text-gray-900 mb-2">
+            Sorry, something went wrong
+          </div>
           <div className="text-gray-500 mb-6 max-w-md mx-auto">{error}</div>
-          <Button onClick={() => window.location.reload()} className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+          <Button
+            onClick={() => window.location.reload()}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+          >
             Try Again
           </Button>
         </div>
@@ -328,9 +413,12 @@ export default function MyOrdersPage() {
           <div className="w-24 h-24 bg-blue-50 rounded-full mx-auto mb-6 flex items-center justify-center">
             <ShoppingBag className="h-12 w-12 text-blue-500" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">No Orders Yet</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            No Orders Yet
+          </h2>
           <p className="text-gray-500 mb-8 max-w-md mx-auto">
-            Looks like you haven't placed any orders yet. Start shopping to see your orders here!
+            Looks like you haven't placed any orders yet. Start shopping to see
+            your orders here!
           </p>
           <Link href="/products">
             <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-8 py-6 h-auto text-lg">
@@ -339,20 +427,34 @@ export default function MyOrdersPage() {
           </Link>
         </div>
       ) : (
-        <div className="space-y-8">          <Tabs defaultValue="all" className="w-full">
+        <div className="space-y-8">
+          {" "}
+          <Tabs defaultValue="all" className="w-full">
             <TabsList className="grid grid-cols-6 mb-6">
-              <TabsTrigger value="all">All Orders ({orders.length})</TabsTrigger>
-              <TabsTrigger value="pending" className="text-yellow-700">Pending ({strictlyPendingOrders.length})</TabsTrigger>
-              <TabsTrigger value="active">Active ({activeOrders.length})</TabsTrigger>
-              <TabsTrigger value="completed">Completed ({completedOrders.length})</TabsTrigger>
-              <TabsTrigger value="cancelled">Cancelled/Rejected ({cancelledOrders.length})</TabsTrigger>
-              <TabsTrigger value="refunded" className="text-emerald-700">Refunded ({refundedOrders.length})</TabsTrigger>
+              <TabsTrigger value="all">
+                All Orders ({orders.length})
+              </TabsTrigger>
+              <TabsTrigger value="pending" className="text-yellow-700">
+                Pending ({strictlyPendingOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="active">
+                Active ({activeOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="completed">
+                Completed ({completedOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="cancelled">
+                Cancelled/Rejected ({cancelledOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="refunded" className="text-emerald-700">
+                Refunded ({refundedOrders.length})
+              </TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="all" className="space-y-6">
               <OrderList orders={orders} />
             </TabsContent>
-            
+
             <TabsContent value="pending" className="space-y-6">
               {strictlyPendingOrders.length > 0 ? (
                 <OrderList orders={strictlyPendingOrders} />
@@ -360,7 +462,7 @@ export default function MyOrdersPage() {
                 <EmptyState message="No pending orders at the moment" />
               )}
             </TabsContent>
-            
+
             <TabsContent value="active" className="space-y-6">
               {activeOrders.length > 0 ? (
                 <OrderList orders={activeOrders} />
@@ -368,7 +470,7 @@ export default function MyOrdersPage() {
                 <EmptyState message="No active orders at the moment" />
               )}
             </TabsContent>
-            
+
             <TabsContent value="completed" className="space-y-6">
               {completedOrders.length > 0 ? (
                 <OrderList orders={completedOrders} />
@@ -376,7 +478,7 @@ export default function MyOrdersPage() {
                 <EmptyState message="No completed orders yet" />
               )}
             </TabsContent>
-            
+
             <TabsContent value="cancelled" className="space-y-6">
               {cancelledOrders.length > 0 ? (
                 <OrderList orders={cancelledOrders} />
@@ -384,7 +486,7 @@ export default function MyOrdersPage() {
                 <EmptyState message="No cancelled orders" />
               )}
             </TabsContent>
-            
+
             <TabsContent value="refunded" className="space-y-6">
               {refundedOrders.length > 0 ? (
                 <OrderList orders={refundedOrders} />
@@ -410,18 +512,24 @@ export default function MyOrdersPage() {
   function OrderList({ orders }: { orders: ExtendedOrder[] }) {
     return (
       <div className="space-y-6">
-        {orders.map((order) => (          <Card key={order.id} className={`overflow-hidden border hover:border-gray-200 transition-all duration-300 hover:shadow-md ${
-            order.status.toLowerCase() === 'refunded' 
-              ? 'border-emerald-200' 
-              : order.status.toLowerCase() === 'rejected' 
-                ? 'border-red-200' 
-                : 'border-gray-100'
-          }`}>            {order.status.toLowerCase() === 'pending' && (
+        {orders.map((order) => (
+          <Card
+            key={order.id}
+            className={`overflow-hidden border hover:border-gray-200 transition-all duration-300 hover:shadow-md ${
+              order.status.toLowerCase() === "refunded"
+                ? "border-emerald-200"
+                : order.status.toLowerCase() === "rejected"
+                ? "border-red-200"
+                : "border-gray-100"
+            }`}
+          >
+            {order.status.toLowerCase() === "pending" && (
               <div className="bg-yellow-50 px-6 py-3 flex items-center gap-3 border-b border-yellow-100">
                 <Clock className="h-4 w-4 text-yellow-500" />
                 <div>
                   <p className="text-sm text-yellow-800 font-medium">
-                    This order is awaiting confirmation. We'll process it shortly.
+                    This order is awaiting confirmation. We'll process it
+                    shortly.
                   </p>
                   <p className="text-xs text-yellow-700 mt-1">
                     Submitted on: {formatDate(order.createdAt)}
@@ -429,12 +537,13 @@ export default function MyOrdersPage() {
                 </div>
               </div>
             )}
-            {order.status.toLowerCase() === 'refunded' && (
+            {order.status.toLowerCase() === "refunded" && (
               <div className="bg-emerald-50 px-6 py-3 flex items-center gap-3 border-b border-emerald-100">
                 <RefreshCw className="h-4 w-4 text-emerald-500" />
                 <div>
                   <p className="text-sm text-emerald-800 font-medium">
-                    This order has been refunded. Your payment has been returned.
+                    This order has been refunded. Your payment has been
+                    returned.
                   </p>
                   {order.refundedAt && (
                     <p className="text-xs text-emerald-700 mt-1">
@@ -452,8 +561,14 @@ export default function MyOrdersPage() {
                 <div>
                   <div className="font-semibold text-lg flex items-center gap-2">
                     Order #{order.id.slice(-6)}
-                    <Badge className={`${getStatusColor(order.status)} flex items-center gap-1 ml-2`}>
-                      <span className="md:hidden">{getStatusIcon(order.status)}</span>
+                    <Badge
+                      className={`${getStatusColor(
+                        order.status
+                      )} flex items-center gap-1 ml-2`}
+                    >
+                      <span className="md:hidden">
+                        {getStatusIcon(order.status)}
+                      </span>
                       <span>{order.status}</span>
                     </Badge>
                   </div>
@@ -462,31 +577,39 @@ export default function MyOrdersPage() {
                       <Calendar className="h-3.5 w-3.5" />
                       {formatDate(order.createdAt)}
                     </div>
-                    <div className="font-medium">{order.items.length} items</div>
+                    <div className="font-medium">
+                      {order.items.length} items
+                    </div>
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4">
                 <div className="text-right">
                   <div className="text-sm text-gray-500">Total Amount:</div>
-                  <div className="font-bold text-lg">{formatCurrency(order.totalAmount)}</div>
+                  <div className="font-bold text-lg">
+                    {formatCurrency(order.totalAmount)}
+                  </div>
                 </div>
-                <Button 
+                <Button
                   variant="outline"
                   size="sm"
                   className="flex items-center gap-1"
                   onClick={() => toggleOrderExpand(order.id)}
                 >
                   {expandedOrder === order.id ? (
-                    <>Details <ChevronUp className="h-4 w-4" /></>
+                    <>
+                      Details <ChevronUp className="h-4 w-4" />
+                    </>
                   ) : (
-                    <>Details <ChevronDown className="h-4 w-4" /></>
+                    <>
+                      Details <ChevronDown className="h-4 w-4" />
+                    </>
                   )}
                 </Button>
               </div>
             </div>
-            
+
             {expandedOrder === order.id && (
               <CardContent className="p-0">
                 <div className="p-6 border-t border-gray-100 space-y-6">
@@ -502,10 +625,10 @@ export default function MyOrdersPage() {
                           <div className="flex items-center gap-4">
                             <div className="h-16 w-16 bg-gray-100 rounded-lg shrink-0 overflow-hidden relative">
                               {item.productImage ? (
-                                <Image 
-                                  src={item.productImage} 
-                                  alt={item.productName || "Product"} 
-                                  fill 
+                                <Image
+                                  src={item.productImage}
+                                  alt={item.productName || "Product"}
+                                  fill
                                   className="object-cover"
                                   unoptimized
                                 />
@@ -515,25 +638,108 @@ export default function MyOrdersPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-medium truncate">
-                                Product: {item.productDetails?.productName || item.productName}
+                                Product:{" "}
+                                {item.productDetails?.productName ||
+                                  item.productName}
                               </div>
                               <div className="text-sm text-gray-500 mt-1">
                                 Quantity: {item.quantity}
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="text-sm text-gray-500">Unit Price:</div>
+                              <div className="text-sm text-gray-500">
+                                Unit Price:
+                              </div>
                               <div>{formatCurrency(item.price)}</div>
                               <div className="font-semibold mt-1">
                                 {formatCurrency(item.price * item.quantity)}
                               </div>
+                              {/* Đánh giá sản phẩm nếu đã giao */}
+                              {order.status.toLowerCase() === "delivered" && (
+                                <div className="mt-4 flex flex-col items-end">
+                                  {!productReviews[item.productId] ? (
+                                    // Nếu chưa review, hiển thị nút tạo review như cũ
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="flex items-center gap-1"
+                                      onClick={() =>
+                                        setReviewDialog({
+                                          open: true,
+                                          productId: item.productId,
+                                          review: undefined,
+                                        })
+                                      }
+                                    >
+                                      <Star className="h-4 w-4 text-yellow-500" />
+                                      Review
+                                    </Button>
+                                  ) : (
+                                    <div className="group relative w-full flex flex-col items-end">
+                                      <div className="mt-1 text-xs text-gray-600 text-left w-full flex items-center justify-end gap-2">
+                                        <span className="flex items-center gap-1">
+                                          {Array.from(
+                                            {
+                                              length:
+                                                productReviews[item.productId]
+                                                  ?.rating || 0,
+                                            },
+                                            (_, i) => (
+                                              <Star
+                                                key={i}
+                                                className="h-3 w-3 text-yellow-400 fill-yellow-400"
+                                              />
+                                            )
+                                          )}
+                                        </span>
+                                        <span>
+                                          {
+                                            productReviews[item.productId]
+                                              ?.content
+                                          }
+                                        </span>
+                                        <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                                          <button
+                                            type="button"
+                                            className="p-1 rounded hover:bg-gray-100"
+                                            title="Edit review"
+                                            onClick={() =>
+                                              setReviewDialog({
+                                                open: true,
+                                                productId: item.productId,
+                                                review:
+                                                  productReviews[
+                                                    item.productId
+                                                  ],
+                                              })
+                                            }
+                                          >
+                                            <svg
+                                              width="16"
+                                              height="16"
+                                              fill="none"
+                                              viewBox="0 0 20 20"
+                                            >
+                                              <path
+                                                d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5zM17.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                                                fill="#f59e42"
+                                              />
+                                            </svg>
+                                          </button>
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
-                  </div>                  {/* Pending Information - Show only if order is pending */}
-                  {order.status.toLowerCase() === 'pending' && (
+                  </div>{" "}
+                  {/* Pending Information - Show only if order is pending */}
+                  {order.status.toLowerCase() === "pending" && (
                     <div className="border-t border-gray-100 pt-4 space-y-3">
                       <h3 className="font-medium flex items-center gap-2">
                         <Clock className="h-4 w-4 text-yellow-500" />
@@ -545,52 +751,79 @@ export default function MyOrdersPage() {
                             Awaiting Confirmation
                           </Badge>
                         </div>
-                        
+
                         <p className="text-sm mb-3">
-                          Your order has been received and is currently being reviewed. 
-                          We'll notify you once it's confirmed and begins processing.
+                          Your order has been received and is currently being
+                          reviewed. We'll notify you once it's confirmed and
+                          begins processing.
                         </p>
-                        
+
                         <div className="mt-3 text-xs text-yellow-700 flex items-center gap-1">
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM8.8 12H7.2V10.4H8.8V12ZM8.8 8.8H7.2V4H8.8V8.8Z" fill="#ca8a04"/>
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            fill="none"
+                          >
+                            <path
+                              d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM8.8 12H7.2V10.4H8.8V12ZM8.8 8.8H7.2V4H8.8V8.8Z"
+                              fill="#ca8a04"
+                            />
                           </svg>
-                          <span>Orders are typically confirmed within 24 hours</span>
+                          <span>
+                            Orders are typically confirmed within 24 hours
+                          </span>
                         </div>
                       </div>
-                      
+
                       <div className="bg-blue-50 rounded-lg p-4 text-blue-800 text-sm">
                         <div className="flex items-center gap-2 mb-2">
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM8.8 12H7.2V10.4H8.8V12ZM8.8 8.8H7.2V4H8.8V8.8Z" fill="#2563EB"/>
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            fill="none"
+                          >
+                            <path
+                              d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM8.8 12H7.2V10.4H8.8V12ZM8.8 8.8H7.2V4H8.8V8.8Z"
+                              fill="#2563EB"
+                            />
                           </svg>
-                          <span className="font-medium">Need to modify your order?</span>
+                          <span className="font-medium">
+                            Need to modify your order?
+                          </span>
                         </div>
-                        <p>You can still modify or cancel your order while it's pending. Contact our support team for assistance.</p>
+                        <p>
+                          You can still modify or cancel your order while it's
+                          pending. Contact our support team for assistance.
+                        </p>
                       </div>
                     </div>
                   )}
-
                   {/* Rejection Information - Show only if order is rejected */}
-                  {order.status.toLowerCase() === 'rejected' && order.rejectionReason && (
-                    <div className="border-t border-gray-100 pt-4 space-y-3">
-                      <h3 className="font-medium flex items-center gap-2">
-                        <XCircle className="h-4 w-4 text-red-500" />
-                        Rejection Information
-                      </h3>
-                      <div className="bg-red-50 rounded-lg p-4 text-red-800">
-                        <div className="font-medium mb-1">Rejection Reason:</div>
-                        <p className="text-sm">{order.rejectionReason}</p>
-                          {order.processedBy && (
-                          <div className="text-xs text-red-600 mt-2">
-                            Processed by: {getProcessorName(order.processedBy)}
+                  {order.status.toLowerCase() === "rejected" &&
+                    order.rejectionReason && (
+                      <div className="border-t border-gray-100 pt-4 space-y-3">
+                        <h3 className="font-medium flex items-center gap-2">
+                          <XCircle className="h-4 w-4 text-red-500" />
+                          Rejection Information
+                        </h3>
+                        <div className="bg-red-50 rounded-lg p-4 text-red-800">
+                          <div className="font-medium mb-1">
+                            Rejection Reason:
                           </div>
-                        )}
+                          <p className="text-sm">{order.rejectionReason}</p>
+                          {order.processedBy && (
+                            <div className="text-xs text-red-600 mt-2">
+                              Processed by:{" "}
+                              {getProcessorName(order.processedBy)}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                    {/* Refund Information - Show only if order is refunded */}
-                  {order.status.toLowerCase() === 'refunded' && (
+                    )}
+                  {/* Refund Information - Show only if order is refunded */}
+                  {order.status.toLowerCase() === "refunded" && (
                     <div className="border-t border-gray-100 pt-4 space-y-3">
                       <h3 className="font-medium flex items-center gap-2">
                         <RefreshCw className="h-4 w-4 text-emerald-500" />
@@ -607,47 +840,67 @@ export default function MyOrdersPage() {
                             </div>
                           )}
                         </div>
-                        
+
                         {order.refundReason && (
                           <>
-                            <div className="font-medium mb-1">Refund Reason:</div>
+                            <div className="font-medium mb-1">
+                              Refund Reason:
+                            </div>
                             <p className="text-sm mb-3">{order.refundReason}</p>
                           </>
                         )}
-                        
+
                         {order.rejectionReason && (
                           <>
-                            <div className="font-medium mb-1">Original Rejection Reason:</div>
+                            <div className="font-medium mb-1">
+                              Original Rejection Reason:
+                            </div>
                             <p className="text-sm">{order.rejectionReason}</p>
                           </>
                         )}
-                        
+
                         {order.notes && (
                           <>
-                            <div className="font-medium mb-1 mt-3">Additional Notes:</div>
+                            <div className="font-medium mb-1 mt-3">
+                              Additional Notes:
+                            </div>
                             <p className="text-sm">{order.notes}</p>
                           </>
                         )}
-                        
+
                         {order.processedBy && (
                           <div className="text-xs text-emerald-600 mt-3 pt-3 border-t border-emerald-100">
                             Processed by: {getProcessorName(order.processedBy)}
                           </div>
                         )}
                       </div>
-                      
+
                       <div className="bg-blue-50 rounded-lg p-4 text-blue-800 text-sm">
                         <div className="flex items-center gap-2 mb-2">
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM8.8 12H7.2V10.4H8.8V12ZM8.8 8.8H7.2V4H8.8V8.8Z" fill="#2563EB"/>
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            fill="none"
+                          >
+                            <path
+                              d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM8.8 12H7.2V10.4H8.8V12ZM8.8 8.8H7.2V4H8.8V8.8Z"
+                              fill="#2563EB"
+                            />
                           </svg>
-                          <span className="font-medium">Refund Information</span>
+                          <span className="font-medium">
+                            Refund Information
+                          </span>
                         </div>
-                        <p>Your payment has been successfully refunded. Please allow 3-5 business days for the refund to appear in your account.</p>
+                        <p>
+                          Your payment has been successfully refunded. Please
+                          allow 3-5 business days for the refund to appear in
+                          your account.
+                        </p>
                       </div>
                     </div>
                   )}
-                    <div className="border-t border-gray-100 pt-4">
+                  <div className="border-t border-gray-100 pt-4">
                     <div className="flex justify-between items-center py-2">
                       <span className="text-gray-500">Subtotal:</span>
                       <span>{formatCurrency(order.totalAmount)}</span>
@@ -661,22 +914,181 @@ export default function MyOrdersPage() {
                       <span>{formatCurrency(order.totalAmount)}</span>
                     </div>
                   </div>
-                  
                   <div className="bg-gray-50 -mx-6 -mb-6 p-6 flex justify-between items-center">
                     <div>
-                      <div className="text-sm font-medium">Need help with this order?</div>
-                      <div className="text-sm text-gray-500">Contact our support team</div>
+                      <div className="text-sm font-medium">
+                        Need help with this order?
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        Contact our support team
+                      </div>
                     </div>
-                    <Button variant="outline" size="sm" className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1"
+                    >
                       Contact Support <ArrowRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
+                {/* Dialog đánh giá sản phẩm */}
+                <ReviewDialog
+                  open={reviewDialog.open}
+                  review={reviewDialog.review}
+                  onOpenChange={(open) =>
+                    setReviewDialog((prev) => ({ ...prev, open }))
+                  }
+                  onSubmit={async (data) => {
+                    if (!reviewDialog.productId) return;
+
+                    try {
+                      if (reviewDialog.review) {
+                        await reviewService.updateReview(
+                          reviewDialog.review._id || reviewDialog.review.id,
+                          {
+                            productId: reviewDialog.productId,
+                            rating: data.rating,
+                            content: data.content,
+                            userId: user?.id,
+                          }
+                        );
+                        toast.success("Review updated!");
+                      } else {
+                        await reviewService.createReview({
+                          productId: reviewDialog.productId,
+                          rating: data.rating,
+                          content: data.content,
+                          userId: user?.id,
+                        });
+                        toast.success("Review submitted!");
+                      }
+                      // reload review
+                      const res = await reviewService.getAllReviews({
+                        productId: reviewDialog.productId,
+                        userId: user?.id,
+                      });
+
+                      const myReview =
+                        Array.isArray(res?.data) && res.data.length > 0
+                          ? res.data[0]
+                          : null;
+                      setProductReviews((prev) => ({
+                        ...prev,
+                        [reviewDialog.productId!]: myReview,
+                      }));
+                      setReviewDialog({ open: false, productId: null });
+                    } catch (err) {
+                      toast.error("Failed to submit review");
+                    }
+                  }}
+                  onDelete={async () => {
+                    if (!reviewDialog.productId || !reviewDialog.review) return;
+                    try {
+                      await reviewService.deleteReview(
+                        reviewDialog.review._id || reviewDialog.review.id
+                      );
+                      setProductReviews((prev) => ({
+                        ...prev,
+                        [reviewDialog.productId!]: null,
+                      }));
+                      toast.success("Review deleted!");
+                      setReviewDialog({ open: false, productId: null });
+                    } catch {
+                      toast.error("Failed to delete review");
+                    }
+                  }}
+                />
               </CardContent>
             )}
           </Card>
         ))}
       </div>
+    );
+  }
+
+  // Dialog component sử dụng shadcnUI
+  function ReviewDialog({
+    open,
+    review,
+    onOpenChange,
+    onSubmit,
+    onDelete,
+  }: {
+    open: boolean;
+    review?: any;
+    onOpenChange: (open: boolean) => void;
+    onSubmit: (data: { rating: number; content: string }) => void;
+    onDelete: () => void;
+  }) {
+    const [rating, setRating] = useState<number>(review?.rating || 5);
+    const [content, setContent] = useState<string>(review?.content || "");
+    useEffect(() => {
+      setRating(review?.rating || 5);
+      setContent(review?.content || "");
+    }, [review, open]);
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {review ? "Edit Review" : "Write a Review"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center gap-1 mb-3">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setRating(star)}
+                className="focus:outline-none"
+              >
+                <Star
+                  className={`h-6 w-6 ${
+                    rating >= star
+                      ? "text-yellow-400 fill-yellow-400"
+                      : "text-gray-300"
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
+          <textarea
+            className="w-full border rounded p-2 mb-3"
+            rows={3}
+            placeholder="Write your review..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+          <DialogFooter className="gap-2">
+            {review && (
+              <Button
+                variant="destructive"
+                onClick={onDelete}
+                type="button"
+                size="sm"
+              >
+                Delete
+              </Button>
+            )}
+            <Button
+              onClick={() => onSubmit({ rating, content })}
+              type="button"
+              size="sm"
+            >
+              {review ? "Update" : "Submit"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              type="button"
+              size="sm"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     );
   }
 }
