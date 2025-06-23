@@ -189,7 +189,6 @@ export default function CartPage() {
     try {
       await removeFromCart(productId);
       await fetchCart();
-      toast.success('Item removed from cart');
     } catch (error) {
       toast.error('Failed to remove item');
     }

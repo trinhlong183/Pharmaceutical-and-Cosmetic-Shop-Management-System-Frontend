@@ -81,41 +81,27 @@ export default function ProfilePage() {
       toast.error("File size should not exceed 5MB");
       return;
     }
-
-   
     const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/gif"];
     if (!validTypes.includes(file.type)) {
       toast.error("Only JPG, PNG and GIF images are supported");
       return;
     }
-
     try {
       setUploading(true);
-
       // Tạo FormData để gửi file
       const formData = new FormData();
       formData.append("avatar", file);
 
-  
       const response = await userService.uploadAvatar(formData);
       console.log("Avatar upload response:", response);
 
-     
-      let photoUrl: string | undefined;
-
-    
-      if (response.payload?.data?.photoUrl) {
-        photoUrl = response.payload.data.photoUrl;
-      } else if (typeof response.payload === "string") {
-        photoUrl = response.payload;
-      }
-
+      const photoUrl: string | undefined = response?.payload?.data.photoUrl;
       if (photoUrl) {
-        setUser((prev) => (prev ? { ...prev, avatar: photoUrl } : null));
+        setUser((prev) => (prev ? { ...prev, photoUrl } : null));
         toast.success("Avatar updated successfully");
       } else {
         toast.error("Couldn't get avatar URL from response");
-        console.error("Unexpected response format:", response)
+        console.error("Unexpected response format:", response);
       }
     } catch (error) {
       console.error("Error uploading avatar:", error);
@@ -139,19 +125,17 @@ export default function ProfilePage() {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-      
           <div className="lg:col-span-1">
             <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
               <CardContent className="p-6 text-center">
                 <div className="relative inline-block mb-6">
                   <Avatar className="w-32 h-32 mx-auto border-4 border-white shadow-lg">
-                    <AvatarImage src={user?.avatar} />
+                    <AvatarImage src={user?.photoUrl} />
                     <AvatarFallback className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-4xl">
                       {user?.fullName ? user?.fullName[0].toUpperCase() : "U"}
                     </AvatarFallback>
                   </Avatar>
 
-             
                   <input
                     type="file"
                     ref={fileInputRef}
@@ -186,7 +170,6 @@ export default function ProfilePage() {
                   </Badge>
                 </div>
 
-             
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-4 rounded-lg">
                     <div className="text-2xl font-bold text-indigo-600">12</div>
@@ -200,7 +183,6 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-       
             <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm mt-10">
               <CardHeader>
                 <CardTitle className="text-xl bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent">
@@ -218,7 +200,6 @@ export default function ProfilePage() {
             </Card>
           </div>
 
-  
           <div className="lg:col-span-2">
             <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
               <CardHeader className="flex flex-row items-center justify-between">

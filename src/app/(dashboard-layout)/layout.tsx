@@ -116,7 +116,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-100 transition-colors">
                   <Avatar className="w-10 h-10">
-                    <AvatarImage src={user?.avatar} />
+                    <AvatarImage src={user?.photoUrl} />
                     <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
                       {user?.fullName ? user?.fullName[0].toUpperCase() : "U"}
                     </AvatarFallback>
