@@ -6,6 +6,7 @@ import { Product } from "@/types/product";
 import { toast } from "react-hot-toast";
 import { productService } from "@/api/productService";
 import { categoriesService } from "@/api/categoriesService";
+import { reviewService } from "@/api/reviewService";
 import { useRouter } from "next/navigation";
 import AddToCart from "@/components/product/AddToCart";
 import { Badge } from "@/components/ui/badge";
@@ -23,11 +24,13 @@ import {
   ShoppingCart,
   Check,
   Clock,
-  AlertCircle
+  AlertCircle,
+  ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { useUser } from "@/contexts/UserContext";
 
 export default function ProductDetailPage({
   params,
@@ -41,6 +44,55 @@ export default function ProductDetailPage({
   const [categories, setCategories] = useState<Record<string, Category>>({});
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [userReview, setUserReview] = useState<any>(null);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const { user } = useUser();
+
+  // Fetch reviews for the product
+  const fetchReviews = async (productId: string) => {
+    if (!productId) return;
+
+    setReviewsLoading(true);
+    try {
+      // Get all reviews for the product
+      const allReviews = await reviewService.getAllReviews({
+        productId,
+        userId: "",
+      });
+
+      let userSpecificReview = null;
+      let otherReviews = allReviews || [];
+
+      // If user is logged in, check for their specific review
+      if (user?.id) {
+        try {
+          const userReviewData = await reviewService.getAllReviews({
+            productId,
+            userId: user.id,
+          });
+
+          if (userReviewData && userReviewData.length > 0) {
+            userSpecificReview = userReviewData[0];
+            // Remove user's review from other reviews to avoid duplication
+            otherReviews = allReviews.filter(
+              (review: any) => review.userId !== user.id
+            );
+          }
+        } catch (error) {
+          console.log("No user review found");
+        }
+      }
+
+      setUserReview(userSpecificReview);
+      setReviews(otherReviews);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      setReviews([]);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchProductAndCategories = async () => {
@@ -54,6 +106,9 @@ export default function ProductDetailPage({
         }
 
         setProduct(productData);
+
+        // Fetch reviews for this product
+        await fetchReviews(productData.id || productData._id);
 
         // If product has categories, fetch their details
         if (productData.category && productData.category.length > 0) {
@@ -89,7 +144,7 @@ export default function ProductDetailPage({
     };
 
     fetchProductAndCategories();
-  }, [resolvedParams.id, router]);
+  }, [resolvedParams.id, router, user?.id]);
 
   // Format price to VND
   const formatVND = (price: number) => {
@@ -116,7 +171,9 @@ export default function ProductDetailPage({
           <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
           <ShoppingCart className="h-6 w-6 text-blue-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
         </div>
-        <span className="mt-6 text-lg text-gray-600">Loading product details...</span>
+        <span className="mt-6 text-lg text-gray-600">
+          Loading product details...
+        </span>
         <p className="text-gray-400 text-sm mt-2">This may take a moment</p>
       </div>
     );
@@ -127,8 +184,12 @@ export default function ProductDetailPage({
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white to-gray-50">
         <div className="text-center p-8 bg-white rounded-2xl shadow-md max-w-md">
           <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-800 mb-3">Product Not Found</h1>
-          <p className="text-gray-600 mb-6">We couldn't find the product you're looking for.</p>
+          <h1 className="text-2xl font-bold text-gray-800 mb-3">
+            Product Not Found
+          </h1>
+          <p className="text-gray-600 mb-6">
+            We couldn't find the product you're looking for.
+          </p>
           <Link href="/products">
             <Button className="gap-2">
               <ArrowLeft className="h-4 w-4" /> Browse All Products
@@ -139,14 +200,70 @@ export default function ProductDetailPage({
     );
   }
 
+  // Render individual review
+  const renderReview = (review: any, isUserReview = false) => (
+    <div
+      key={review._id || review.id}
+      className={`p-4 rounded-lg border ${
+        isUserReview ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"
+      }`}
+    >
+      {isUserReview && (
+        <div className="flex items-center gap-1 mb-2">
+          <Badge className="bg-blue-100 text-blue-700 text-xs">
+            Your Review
+          </Badge>
+        </div>
+      )}
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+            <span className="text-sm font-medium text-gray-600">
+              {review.userName?.charAt(0).toUpperCase() || "U"}
+            </span>
+          </div>
+          <div>
+            <p className="font-medium text-sm">{review.userName || "Anonymous"}</p>
+            <div className="flex items-center">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                  key={star}
+                  className={`w-3 h-3 ${
+                    star <= review.rating
+                      ? "text-yellow-400 fill-yellow-400"
+                      : "text-gray-300"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+        <span className="text-xs text-gray-500">
+          {new Date(review.createdAt).toLocaleDateString()}
+        </span>
+      </div>
+      <p className="text-gray-700 text-sm">{review.content}</p>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-gray-50 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <div className="flex items-center space-x-2 mb-6 text-sm">
-          <Link href="/" className="text-gray-500 hover:text-blue-600 transition-colors">Home</Link>
+          <Link
+            href="/"
+            className="text-gray-500 hover:text-blue-600 transition-colors"
+          >
+            Home
+          </Link>
           <ChevronRight className="h-4 w-4 text-gray-400" />
-          <Link href="/products" className="text-gray-500 hover:text-blue-600 transition-colors">Products</Link>
+          <Link
+            href="/products"
+            className="text-gray-500 hover:text-blue-600 transition-colors"
+          >
+            Products
+          </Link>
           <ChevronRight className="h-4 w-4 text-gray-400" />
           <span className="text-gray-700 font-medium truncate max-w-[180px] sm:max-w-xs">
             {product.productName}
@@ -179,7 +296,7 @@ export default function ProductDetailPage({
                       {product.salePercentage}% OFF
                     </div>
                   )}
-                  
+
                   {product.stock <= 5 && product.stock > 0 && (
                     <div className="absolute top-4 right-4 bg-amber-500 text-white text-sm font-medium px-3 py-1.5 rounded-full shadow-sm">
                       Only {product.stock} left
@@ -214,24 +331,20 @@ export default function ProductDetailPage({
 
                 {/* Action buttons - visibile on mobile only */}
                 <div className="flex items-center space-x-2 mt-4 md:hidden">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="flex-1"
                     onClick={() => setIsFavorite(!isFavorite)}
                   >
-                    <HeartIcon 
+                    <HeartIcon
                       className={`h-5 w-5 mr-1.5 ${
                         isFavorite ? "fill-red-500 text-red-500" : ""
-                      }`} 
+                      }`}
                     />
                     {isFavorite ? "Saved" : "Save"}
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                  >
+                  <Button variant="outline" size="sm" className="flex-1">
                     <Share2 className="h-5 w-5 mr-1.5" />
                     Share
                   </Button>
@@ -245,27 +358,29 @@ export default function ProductDetailPage({
                 {/* Categories & Brand */}
                 <div className="flex flex-wrap gap-2 mb-3">
                   {/* Show categories */}
-                  {product.category && product.category.map((categoryId, index) => (
-                    <Badge 
-                      key={`category-${index}`}
-                      variant="secondary"
-                      className="bg-blue-50 text-blue-700 hover:bg-blue-100"
-                    >
-                      {categories[categoryId as string]?.categoryName || 'Category'}
-                    </Badge>
-                  ))}
-                  
+                  {product.category &&
+                    product.category.map((categoryId, index) => (
+                      <Badge
+                        key={`category-${index}`}
+                        variant="secondary"
+                        className="bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      >
+                        {categories[categoryId as string]?.categoryName ||
+                          "Category"}
+                      </Badge>
+                    ))}
+
                   {/* Brand badge */}
                   <Badge variant="outline" className="border-gray-200">
                     {product.brand}
                   </Badge>
                 </div>
-                
+
                 {/* Product Name */}
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
                   {product.productName}
                 </h1>
-                
+
                 {/* Rating */}
                 <div className="flex items-center mb-4">
                   <div className="flex items-center">
@@ -281,12 +396,14 @@ export default function ProductDetailPage({
                     ))}
                   </div>
                   <span className="ml-2 text-sm text-gray-600">
-                    {product.averageRating 
-                      ? `${product.averageRating.toFixed(1)} (${product.reviewCount || 0} reviews)` 
-                      : 'No reviews yet'}
+                    {product.averageRating
+                      ? `${product.averageRating.toFixed(1)} (${
+                          product.reviewCount || 0
+                        } reviews)`
+                      : "No reviews yet"}
                   </span>
                 </div>
-                
+
                 {/* Price Section */}
                 <div className="bg-gray-50 p-4 rounded-xl mb-6">
                   {product.salePercentage && product.salePercentage > 0 ? (
@@ -306,7 +423,10 @@ export default function ProductDetailPage({
                       </div>
                       <div className="flex items-center">
                         <Badge className="bg-red-100 text-red-700 hover:bg-red-200 border-none">
-                          You save {formatVND(product.price * (product.salePercentage / 100))}
+                          You save{" "}
+                          {formatVND(
+                            product.price * (product.salePercentage / 100)
+                          )}
                         </Badge>
                       </div>
                     </div>
@@ -333,7 +453,9 @@ export default function ProductDetailPage({
                     ) : (
                       <>
                         <AlertCircle className="h-5 w-5 text-red-500 mr-1.5" />
-                        <span className="text-red-700 font-medium">Out of Stock</span>
+                        <span className="text-red-700 font-medium">
+                          Out of Stock
+                        </span>
                       </>
                     )}
                   </div>
@@ -341,26 +463,29 @@ export default function ProductDetailPage({
 
                 {/* Add to Cart and Action Buttons */}
                 <div className="flex flex-col gap-4 mb-8">
-                  <AddToCart 
-                    productId={product.id || product._id} 
+                  <AddToCart
+                    productId={product.id || product._id}
                     disabled={product.stock <= 0}
                   />
-                  
+
                   {/* Desktop action buttons */}
                   <div className="hidden md:flex items-center space-x-4">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="flex items-center gap-2"
                       onClick={() => setIsFavorite(!isFavorite)}
                     >
-                      <HeartIcon 
+                      <HeartIcon
                         className={`h-5 w-5 ${
                           isFavorite ? "fill-red-500 text-red-500" : ""
-                        }`} 
+                        }`}
                       />
                       {isFavorite ? "Saved to Wishlist" : "Add to Wishlist"}
                     </Button>
-                    <Button variant="outline" className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
                       <Share2 className="h-5 w-5" />
                       Share
                     </Button>
@@ -372,22 +497,34 @@ export default function ProductDetailPage({
                   <div className="flex items-start gap-3">
                     <Truck className="h-5 w-5 text-blue-600 mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Free delivery</p>
-                      <p className="text-sm text-gray-600">For orders above $50</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        Free delivery
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        For orders above $50
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <Package2 className="h-5 w-5 text-blue-600 mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Returns</p>
-                      <p className="text-sm text-gray-600">30 day return policy</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        Returns
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        30 day return policy
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <ShieldCheck className="h-5 w-5 text-blue-600 mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Secure Payment</p>
-                      <p className="text-sm text-gray-600">SSL encrypted checkout</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        Secure Payment
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        SSL encrypted checkout
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -399,70 +536,104 @@ export default function ProductDetailPage({
                       <TabsTrigger value="description">Description</TabsTrigger>
                       <TabsTrigger value="details">Details</TabsTrigger>
                       <TabsTrigger value="reviews">
-                        Reviews {product.reviewCount ? `(${product.reviewCount})` : ''}
+                        Reviews{" "}
+                        {product.reviewCount ? `(${product.reviewCount})` : ""}
                       </TabsTrigger>
                     </TabsList>
-                    
-                    <TabsContent value="description" className="p-4 bg-gray-50 rounded-xl">
+
+                    <TabsContent
+                      value="description"
+                      className="p-4 bg-gray-50 rounded-xl"
+                    >
                       <div className="text-gray-700 prose max-w-none">
                         <p>{product.productDescription}</p>
                       </div>
                     </TabsContent>
-                    
-                    <TabsContent value="details" className="p-4 bg-gray-50 rounded-xl">
+
+                    <TabsContent
+                      value="details"
+                      className="p-4 bg-gray-50 rounded-xl"
+                    >
                       <div className="space-y-4">
                         {product.ingredients && (
                           <div>
-                            <h3 className="text-sm font-medium text-gray-700 mb-1">Ingredients</h3>
-                            <p className="text-gray-600">{product.ingredients}</p>
+                            <h3 className="text-sm font-medium text-gray-700 mb-1">
+                              Ingredients
+                            </h3>
+                            <p className="text-gray-600">
+                              {product.ingredients}
+                            </p>
                           </div>
                         )}
-                        
+
                         {product.suitableFor && (
                           <div>
-                            <h3 className="text-sm font-medium text-gray-700 mb-1">Suitable For</h3>
-                            <p className="text-gray-600">{product.suitableFor}</p>
+                            <h3 className="text-sm font-medium text-gray-700 mb-1">
+                              Suitable For
+                            </h3>
+                            <p className="text-gray-600">
+                              {product.suitableFor}
+                            </p>
                           </div>
                         )}
-                        
+
                         {product.usage && (
                           <div>
-                            <h3 className="text-sm font-medium text-gray-700 mb-1">Usage Instructions</h3>
+                            <h3 className="text-sm font-medium text-gray-700 mb-1">
+                              Usage Instructions
+                            </h3>
                             <p className="text-gray-600">{product.usage}</p>
                           </div>
                         )}
-                        
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <h3 className="text-sm font-medium text-gray-700 mb-1">Weight</h3>
+                            <h3 className="text-sm font-medium text-gray-700 mb-1">
+                              Weight
+                            </h3>
                             <p className="text-gray-600">
-                              {product.weight ? `${product.weight}g` : 'Not specified'}
+                              {product.weight
+                                ? `${product.weight}g`
+                                : "Not specified"}
                             </p>
                           </div>
-                          
+
                           <div className="flex items-center gap-1.5">
                             <Calendar className="h-4 w-4 text-gray-500" />
-                            <h3 className="text-sm font-medium text-gray-700">Expiry Date</h3>
+                            <h3 className="text-sm font-medium text-gray-700">
+                              Expiry Date
+                            </h3>
                             <p className="text-gray-600">
-                              {product.expiryDate 
-                                ? new Date(product.expiryDate).toLocaleDateString('en-US', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
+                              {product.expiryDate
+                                ? new Date(
+                                    product.expiryDate
+                                  ).toLocaleDateString("en-US", {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
                                   })
-                                : 'Not specified'}
+                                : "Not specified"}
                             </p>
                           </div>
                         </div>
                       </div>
                     </TabsContent>
-                    
-                    <TabsContent value="reviews" className="p-4 bg-gray-50 rounded-xl">
-                      {product.reviewCount && product.reviewCount > 0 ? (
+
+                    <TabsContent
+                      value="reviews"
+                      className="p-4 bg-gray-50 rounded-xl"
+                    >
+                      {reviewsLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                          <span className="ml-2 text-gray-600">Loading reviews...</span>
+                        </div>
+                      ) : (
                         <div className="space-y-4">
+                          {/* Overall Rating Summary */}
                           <div className="flex items-center">
                             <span className="text-3xl font-bold mr-2">
-                              {product.averageRating?.toFixed(1)}
+                              {product.averageRating?.toFixed(1) || "0.0"}
                             </span>
                             <div>
                               <div className="flex">
@@ -477,21 +648,40 @@ export default function ProductDetailPage({
                                   />
                                 ))}
                               </div>
-                              <p className="text-sm text-gray-500">{product.reviewCount} reviews</p>
+                              <p className="text-sm text-gray-500">
+                                {(userReview ? 1 : 0) + reviews.length} reviews
+                              </p>
                             </div>
                           </div>
-                          
+
                           <Separator />
-                          
-                          <div className="text-center p-4">
-                            <p>See all reviews and ratings for this product</p>
-                            <Button variant="outline" className="mt-2">View All Reviews</Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center py-8">
-                          <p className="text-gray-500">No reviews yet</p>
-                          <Button variant="outline" className="mt-4">Be the first to review</Button>
+
+                          {/* Reviews List */}
+                          {userReview || reviews.length > 0 ? (
+                            <div className="space-y-3 max-h-96 overflow-y-auto">
+                              {/* User's review first (if exists) */}
+                              {userReview && renderReview(userReview, true)}
+
+                              {/* Other reviews */}
+                              {reviews.map((review) => renderReview(review))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8">
+                              <p className="text-gray-500 mb-4">No reviews yet</p>
+                              {user && (
+                                <Button variant="outline">
+                                  Be the first to review
+                                </Button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Add Review Button for logged in users */}
+                          {user && !userReview && (
+                            <div className="pt-4 border-t">
+                              <Button className="w-full">Write a Review</Button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </TabsContent>
@@ -505,4 +695,3 @@ export default function ProductDetailPage({
     </div>
   );
 }
-          
