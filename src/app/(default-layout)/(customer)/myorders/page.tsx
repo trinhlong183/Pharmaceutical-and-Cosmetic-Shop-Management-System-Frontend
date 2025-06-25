@@ -36,6 +36,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useUser } from "@/contexts/UserContext";
+import ReviewDialog from "@/components/reviewDialog";
 // Extend the OrderItem interface to match actual data structure
 interface ExtendedOrderItem {
   id?: string;
@@ -251,15 +252,28 @@ export default function MyOrdersPage() {
     for (const item of order.items) {
       if (!item.productId || !userId) continue;
       if (!productReviews[item.productId]) {
-        const res = await reviewService.getAllReviews({
-          productId: item.productId,
-          userId,
-        });
-        const myReview = Array.isArray(res) && res.length > 0 ? res[0] : null;
-        setProductReviews((prev) => ({
-          ...prev,
-          [item.productId]: myReview,
-        }));
+        try {
+          const res = await reviewService.getAllReviews({
+            productId: item.productId,
+            userId,
+          });
+          // Handle both direct array response and nested data response
+          const reviewsArray = Array.isArray(res) ? res : res?.data || [];
+          const myReview = reviewsArray.length > 0 ? reviewsArray[0] : null;
+          setProductReviews((prev) => ({
+            ...prev,
+            [item.productId]: myReview,
+          }));
+        } catch (error) {
+          console.error(
+            `Failed to fetch review for product ${item.productId}:`,
+            error
+          );
+          setProductReviews((prev) => ({
+            ...prev,
+            [item.productId]: null,
+          }));
+        }
       }
     }
   };
@@ -497,6 +511,83 @@ export default function MyOrdersPage() {
           </Tabs>
         </div>
       )}
+      {/* Move ReviewDialog here - outside the order expansion area */}
+      <ReviewDialog
+        open={reviewDialog.open}
+        review={reviewDialog.review}
+        onOpenChange={(open) => setReviewDialog((prev) => ({ ...prev, open }))}
+        onSubmit={async (data) => {
+          if (!reviewDialog.productId) return;
+
+          try {
+            if (reviewDialog.review) {
+              await reviewService.updateReview(
+                reviewDialog.review._id || reviewDialog.review.id,
+                {
+                  productId: reviewDialog.productId,
+                  rating: data.rating,
+                  content: data.content,
+                  userId: user?.id,
+                }
+              );
+              toast.success("Review updated!");
+            } else {
+              await reviewService.createReview({
+                productId: reviewDialog.productId,
+                rating: data.rating,
+                content: data.content,
+                userId: user?.id,
+              });
+              toast.success("Review submitted!");
+            }
+
+            // Reload review with proper error handling
+            try {
+              const res = await reviewService.getAllReviews({
+                productId: reviewDialog.productId,
+                userId: user?.id,
+              });
+
+              // Handle both direct array response and nested data response
+              const reviewsArray = Array.isArray(res) ? res : res?.data || [];
+              const myReview = reviewsArray.length > 0 ? reviewsArray[0] : null;
+
+              setProductReviews((prev) => ({
+                ...prev,
+                [reviewDialog.productId!]: myReview,
+              }));
+            } catch (fetchError) {
+              console.error("Failed to fetch updated review:", fetchError);
+              // Force a re-fetch of all reviews for the expanded order
+              setTimeout(() => {
+                fetchReviews();
+              }, 500);
+            }
+
+            setReviewDialog({ open: false, productId: null });
+          } catch (err) {
+            console.error("Review operation failed:", err);
+            toast.error("Failed to submit review");
+          }
+        }}
+        onDelete={async () => {
+          if (!reviewDialog.productId || !reviewDialog.review) return;
+          try {
+            await reviewService.deleteReview(
+              reviewDialog.review._id || reviewDialog.review.id
+            );
+            setProductReviews((prev) => ({
+              ...prev,
+              [reviewDialog.productId!]: null,
+            }));
+            toast.success("Review deleted!");
+            setReviewDialog({ open: false, productId: null });
+          } catch (error) {
+            console.error("Failed to delete review:", error);
+            toast.error("Failed to delete review");
+          }
+        }}
+      />
     </div>
   );
 
@@ -932,163 +1023,11 @@ export default function MyOrdersPage() {
                     </Button>
                   </div>
                 </div>
-                {/* Dialog đánh giá sản phẩm */}
-                <ReviewDialog
-                  open={reviewDialog.open}
-                  review={reviewDialog.review}
-                  onOpenChange={(open) =>
-                    setReviewDialog((prev) => ({ ...prev, open }))
-                  }
-                  onSubmit={async (data) => {
-                    if (!reviewDialog.productId) return;
-
-                    try {
-                      if (reviewDialog.review) {
-                        await reviewService.updateReview(
-                          reviewDialog.review._id || reviewDialog.review.id,
-                          {
-                            productId: reviewDialog.productId,
-                            rating: data.rating,
-                            content: data.content,
-                            userId: user?.id,
-                          }
-                        );
-                        toast.success("Review updated!");
-                      } else {
-                        await reviewService.createReview({
-                          productId: reviewDialog.productId,
-                          rating: data.rating,
-                          content: data.content,
-                          userId: user?.id,
-                        });
-                        toast.success("Review submitted!");
-                      }
-                      // reload review
-                      const res = await reviewService.getAllReviews({
-                        productId: reviewDialog.productId,
-                        userId: user?.id,
-                      });
-
-                      const myReview =
-                        Array.isArray(res?.data) && res.data.length > 0
-                          ? res.data[0]
-                          : null;
-                      setProductReviews((prev) => ({
-                        ...prev,
-                        [reviewDialog.productId!]: myReview,
-                      }));
-                      setReviewDialog({ open: false, productId: null });
-                    } catch (err) {
-                      toast.error("Failed to submit review");
-                    }
-                  }}
-                  onDelete={async () => {
-                    if (!reviewDialog.productId || !reviewDialog.review) return;
-                    try {
-                      await reviewService.deleteReview(
-                        reviewDialog.review._id || reviewDialog.review.id
-                      );
-                      setProductReviews((prev) => ({
-                        ...prev,
-                        [reviewDialog.productId!]: null,
-                      }));
-                      toast.success("Review deleted!");
-                      setReviewDialog({ open: false, productId: null });
-                    } catch {
-                      toast.error("Failed to delete review");
-                    }
-                  }}
-                />
               </CardContent>
             )}
           </Card>
         ))}
       </div>
-    );
-  }
-
-  // Dialog component sử dụng shadcnUI
-  function ReviewDialog({
-    open,
-    review,
-    onOpenChange,
-    onSubmit,
-    onDelete,
-  }: {
-    open: boolean;
-    review?: any;
-    onOpenChange: (open: boolean) => void;
-    onSubmit: (data: { rating: number; content: string }) => void;
-    onDelete: () => void;
-  }) {
-    const [rating, setRating] = useState<number>(review?.rating || 5);
-    const [content, setContent] = useState<string>(review?.content || "");
-    useEffect(() => {
-      setRating(review?.rating || 5);
-      setContent(review?.content || "");
-    }, [review, open]);
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {review ? "Edit Review" : "Write a Review"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex items-center gap-1 mb-3">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                type="button"
-                onClick={() => setRating(star)}
-                className="focus:outline-none"
-              >
-                <Star
-                  className={`h-6 w-6 ${
-                    rating >= star
-                      ? "text-yellow-400 fill-yellow-400"
-                      : "text-gray-300"
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
-          <textarea
-            className="w-full border rounded p-2 mb-3"
-            rows={3}
-            placeholder="Write your review..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-          />
-          <DialogFooter className="gap-2">
-            {review && (
-              <Button
-                variant="destructive"
-                onClick={onDelete}
-                type="button"
-                size="sm"
-              >
-                Delete
-              </Button>
-            )}
-            <Button
-              onClick={() => onSubmit({ rating, content })}
-              type="button"
-              size="sm"
-            >
-              {review ? "Update" : "Submit"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              type="button"
-              size="sm"
-            >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     );
   }
 }
