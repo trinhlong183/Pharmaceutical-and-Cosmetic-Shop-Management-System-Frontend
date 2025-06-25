@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, use } from "react";
 import { Product } from "@/types/product";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 import { productService } from "@/api/productService";
 import { categoriesService } from "@/api/categoriesService";
 import { reviewService } from "@/api/reviewService";
@@ -17,20 +17,20 @@ import {
   Truck,
   Calendar,
   ShieldCheck,
-  CircleHelp,
   Package2,
   HeartIcon,
   Share2,
   ShoppingCart,
   Check,
-  Clock,
   AlertCircle,
   ArrowLeft,
+  Edit3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { useUser } from "@/contexts/UserContext";
+import ReviewDialog from "@/components/reviewDialog";
 
 export default function ProductDetailPage({
   params,
@@ -47,6 +47,7 @@ export default function ProductDetailPage({
   const [reviews, setReviews] = useState<any[]>([]);
   const [userReview, setUserReview] = useState<any>(null);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const { user } = useUser();
 
   // Fetch reviews for the product
@@ -164,6 +165,65 @@ export default function ProductDetailPage({
     return (originalPrice * (100 - salePercentage)) / 100;
   };
 
+  // Handle review submission (create or update)
+  const handleReviewSubmit = async (data: {
+    rating: number;
+    content: string;
+  }) => {
+    if (!user?.id || !product) return;
+
+    try {
+      const reviewData = {
+        productId: product.id,
+        rating: data.rating,
+        content: data.content,
+        userId: user.id,
+      };
+
+      if (userReview) {
+        // Update existing review
+        await reviewService.updateReview(
+          userReview._id || userReview.id,
+          reviewData
+        );
+        toast.success("Review updated successfully!");
+      } else {
+        // Create new review
+        const response = await reviewService.createReview(reviewData);
+        console.log("Review created response:", response);
+        if (response.errorCode === 400) {
+          toast.error(response.message);
+          return;
+        }
+        toast.success("Review submitted successfully!");
+      }
+
+      // Refresh reviews
+      await fetchReviews(product.id);
+      setReviewDialogOpen(false);
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      toast.error("Failed to submit review. Please try again.");
+    }
+  };
+
+  // Handle review deletion
+  const handleReviewDelete = async () => {
+    if (!userReview || !product) return;
+
+    try {
+      await reviewService.deleteReview(userReview._id || userReview.id);
+      toast.success("Review deleted successfully!");
+
+      // Refresh reviews
+      await fetchReviews(product.id || product._id);
+      setReviewDialogOpen(false);
+    } catch (error) {
+      console.error("Error deleting review:", error);
+      toast.error("Failed to delete review. Please try again.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-white to-gray-50">
@@ -209,10 +269,18 @@ export default function ProductDetailPage({
       }`}
     >
       {isUserReview && (
-        <div className="flex items-center gap-1 mb-2">
+        <div className="flex items-center justify-between mb-2">
           <Badge className="bg-blue-100 text-blue-700 text-xs">
             Your Review
           </Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setReviewDialogOpen(true)}
+            className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 h-auto p-1"
+          >
+            <Edit3 className="h-4 w-4" />
+          </Button>
         </div>
       )}
       <div className="flex items-start justify-between mb-2">
@@ -223,7 +291,9 @@ export default function ProductDetailPage({
             </span>
           </div>
           <div>
-            <p className="font-medium text-sm">{review.userName || "Anonymous"}</p>
+            <p className="font-medium text-sm">
+              {review.userName || "Anonymous"}
+            </p>
             <div className="flex items-center">
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star
@@ -626,7 +696,9 @@ export default function ProductDetailPage({
                       {reviewsLoading ? (
                         <div className="flex items-center justify-center py-8">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                          <span className="ml-2 text-gray-600">Loading reviews...</span>
+                          <span className="ml-2 text-gray-600">
+                            Loading reviews...
+                          </span>
                         </div>
                       ) : (
                         <div className="space-y-4">
@@ -667,19 +739,31 @@ export default function ProductDetailPage({
                             </div>
                           ) : (
                             <div className="text-center py-8">
-                              <p className="text-gray-500 mb-4">No reviews yet</p>
+                              <p className="text-gray-500 mb-4">
+                                No reviews yet
+                              </p>
                               {user && (
-                                <Button variant="outline">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setReviewDialogOpen(true)}
+                                >
                                   Be the first to review
                                 </Button>
                               )}
                             </div>
                           )}
 
-                          {/* Add Review Button for logged in users */}
-                          {user && !userReview && (
+                          {/* Add/Edit Review Button for logged in users */}
+                          {user && (
                             <div className="pt-4 border-t">
-                              <Button className="w-full">Write a Review</Button>
+                              <Button
+                                className="w-full"
+                                onClick={() => setReviewDialogOpen(true)}
+                              >
+                                {userReview
+                                  ? "Edit Your Review"
+                                  : "Write a Review"}
+                              </Button>
                             </div>
                           )}
                         </div>
@@ -691,6 +775,15 @@ export default function ProductDetailPage({
             </div>
           </div>
         </div>
+
+        {/* Review Dialog */}
+        <ReviewDialog
+          open={reviewDialogOpen}
+          review={userReview}
+          onOpenChange={setReviewDialogOpen}
+          onSubmit={handleReviewSubmit}
+          onDelete={handleReviewDelete}
+        />
       </div>
     </div>
   );
