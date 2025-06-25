@@ -23,7 +23,8 @@ import {
   ShoppingCart,
   Check,
   Clock,
-  AlertCircle
+  AlertCircle,
+  ArrowLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -251,7 +252,9 @@ export default function ProductDetailPage({
                       variant="secondary"
                       className="bg-blue-50 text-blue-700 hover:bg-blue-100"
                     >
-                      {categories[categoryId as string]?.categoryName || 'Category'}
+                      {typeof categoryId === 'string' 
+                        ? categories[categoryId]?.categoryName || 'Category'
+                        : categoryId?.categoryName || 'Category'}
                     </Badge>
                   ))}
                   
@@ -342,8 +345,9 @@ export default function ProductDetailPage({
                 {/* Add to Cart and Action Buttons */}
                 <div className="flex flex-col gap-4 mb-8">
                   <AddToCart 
-                    productId={product.id || product._id} 
+                    productId={(product.id || product._id) as string} 
                     disabled={product.stock <= 0}
+                    maxQuantity={product.stock}
                   />
                   
                   {/* Desktop action buttons */}
