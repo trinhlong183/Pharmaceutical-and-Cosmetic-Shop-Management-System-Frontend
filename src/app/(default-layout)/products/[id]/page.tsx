@@ -24,7 +24,8 @@ import {
   Check,
   Clock,
   AlertCircle,
-  ArrowLeft
+  ArrowLeft,
+  Edit3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
