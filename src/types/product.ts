@@ -31,6 +31,9 @@ export interface Product {
   reviews?: Review[];
   salePercentage?: number;
   averageRating?: number;
+  reviewCount?: number;
+  usage?: string;
+  weight?: number;
   expiryDate: string | Date;
   createdAt?: string | Date;
   updatedAt?: string | Date;

@@ -144,6 +144,7 @@ const ManageOrdersPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Add state for validation errors
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -158,6 +159,10 @@ const ManageOrdersPage = () => {
   const [isRefunding, setIsRefunding] = useState(false);
 
   const router = useRouter();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     fetchOrders();
@@ -373,7 +378,25 @@ const ManageOrdersPage = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
+    // Use consistent formatting to avoid hydration mismatch
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  };
+
+  const formatDateOnly = (dateString: string) => {
+    // Format only date part to avoid hydration mismatch
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${day}/${month}/${year}`;
   };
 
   const formatPrice = (price: number) => {
@@ -498,7 +521,7 @@ const ManageOrdersPage = () => {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-6 space-y-6" suppressHydrationWarning>
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Order Management</h1>
@@ -566,7 +589,9 @@ const ManageOrdersPage = () => {
                             <TableRow key={orderId}>
                               <TableCell className="font-medium">{orderId.slice(0, 8)}...</TableCell>
                               <TableCell>{getUserName(order.userId)}</TableCell>
-                              <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                              <TableCell suppressHydrationWarning>
+                                {isMounted ? formatDateOnly(order.createdAt) : ''}
+                              </TableCell>
                               <TableCell className="text-right font-medium">{formatPrice(order.totalAmount)}</TableCell>
                               <TableCell>{getStatusBadge(order.status)}</TableCell>
                               <TableCell className="text-right">
@@ -644,328 +669,391 @@ const ManageOrdersPage = () => {
         </div>
       </Tabs>
 
-      {/* Order Details Dialog */}
+      {/* Order Details Dialog - Redesigned */}
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Order Details</DialogTitle>
-            <DialogDescription>
-              Complete information about this order
-            </DialogDescription>
+        <DialogContent className="max-w-[98vw] w-full max-h-[95vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0 pb-4 border-b sticky top-0 bg-background z-10">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-2xl font-bold text-primary">Order Details</DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground mt-1">
+                  Order #{detailOrder?.id?.slice(0, 8) || detailOrder?._id?.slice(0, 8)} - Complete information
+                </DialogDescription>
+              </div>
+              <div className="flex items-center gap-3">
+                {detailOrder && getStatusBadge(detailOrder.status)}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setOpenDetails(false)}
+                  className="rounded-full h-8 w-8 p-0"
+                >
+                  ✕
+                </Button>
+              </div>
+            </div>
           </DialogHeader>
 
           {detailOrder && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm text-muted-foreground">Order ID</p>
-                  <p className="font-medium">{detailOrder.id || detailOrder._id}</p>
-                </div>
-                <div>{getStatusBadge(detailOrder.status)}</div>
-              </div>
-              
-              <Separator />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Customer Information</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div className="grid grid-cols-[100px_1fr]">
-                      <span className="text-muted-foreground">Name:</span>
-                      <span>{getUserName(detailOrder.userId)}</span>
+            <div className="flex-1 overflow-y-auto pt-4">
+              {/* Order Overview Card */}
+              <Card className="border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10 mb-6">
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 text-center">
+                    <div className="min-w-0">
+                      <div className="text-lg md:text-xl font-bold text-primary truncate">{detailOrder.id?.slice(0, 8) || detailOrder._id?.slice(0, 8)}</div>
+                      <div className="text-xs text-muted-foreground font-medium mt-1">Order ID</div>
                     </div>
-                    {typeof detailOrder.userId === "object" ? (
-                      <>
-                        <div className="grid grid-cols-[100px_1fr]">
-                          <span className="text-muted-foreground">Email:</span>
-                          <span>{detailOrder.userId.email || "N/A"}</span>
+                    <div className="min-w-0">
+                      <div className="text-lg md:text-xl font-bold text-green-600 truncate">{formatPrice(detailOrder.totalAmount)}</div>
+                      <div className="text-xs text-muted-foreground font-medium mt-1">Total Amount</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm md:text-base font-semibold truncate">{formatDate(detailOrder.createdAt).split(' ')[0]}</div>
+                      <div className="text-xs text-muted-foreground font-medium mt-1">Order Date</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm md:text-base font-semibold">{detailOrder.items?.length || 0}</div>
+                      <div className="text-xs text-muted-foreground font-medium mt-1">Items</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm md:text-base font-semibold capitalize truncate">{detailOrder.status}</div>
+                      <div className="text-xs text-muted-foreground font-medium mt-1">Status</div>
+                    </div>
+                  </div>
+                  
+                  {/* Additional info row */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 text-center mt-4 pt-4 border-t border-gray-200">
+                    <div className="min-w-0">
+                      <div className="text-sm md:text-base font-semibold truncate">{getUserName(detailOrder.userId)}</div>
+                      <div className="text-xs text-muted-foreground font-medium mt-1">Customer</div>
+                    </div>
+                    {detailOrder.transactionId && (
+                      <div className="min-w-0">
+                        <div className="text-sm md:text-base font-semibold truncate">
+                          {typeof detailOrder.transactionId === 'object' 
+                            ? detailOrder.transactionId.paymentMethod || 'N/A'
+                            : 'N/A'}
                         </div>
-                        <div className="grid grid-cols-[100px_1fr]">
-                          <span className="text-muted-foreground">Phone:</span>
-                          <span>{detailOrder.userId.phone || "N/A"}</span>
-                        </div>
-                        <div className="grid grid-cols-[100px_1fr]">
-                          <span className="text-muted-foreground">Address:</span>
-                          <span>{detailOrder.userId.address || "N/A"}</span>
-                        </div>
-                      </>
-                    ) : users[detailOrder.userId] ? (
-                      <>
-                        <div className="grid grid-cols-[100px_1fr]">
-                          <span className="text-muted-foreground">Email:</span>
-                          <span>{users[detailOrder.userId].email || "N/A"}</span>
-                        </div>
-                        <div className="grid grid-cols-[100px_1fr]">
-                          <span className="text-muted-foreground">Phone:</span>
-                          <span>{users[detailOrder.userId].phone || "N/A"}</span>
-                        </div>
-                        <div className="grid grid-cols-[100px_1fr]">
-                          <span className="text-muted-foreground">Address:</span>
-                          <span>{users[detailOrder.userId].address || "N/A"}</span>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="grid grid-cols-[100px_1fr]">
-                        <span className="text-muted-foreground">User ID:</span>
-                        <span>{detailOrder.userId || "N/A"}</span>
+                        <div className="text-xs text-muted-foreground font-medium mt-1">Payment</div>
                       </div>
                     )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Order Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div className="grid grid-cols-[120px_1fr]">
-                      <span className="text-muted-foreground">Date:</span>
-                      <span>{formatDate(detailOrder.createdAt)}</span>
+                    <div className="min-w-0">
+                      <div className="text-sm md:text-base font-semibold truncate">{formatDate(detailOrder.createdAt).split(' ')[1]}</div>
+                      <div className="text-xs text-muted-foreground font-medium mt-1">Time</div>
                     </div>
-                    <div className="grid grid-cols-[120px_1fr]">
-                      <span className="text-muted-foreground">Total Amount:</span>
-                      <span className="font-medium">{formatPrice(detailOrder.totalAmount)}</span>
-                    </div>
-                    {detailOrder.shippingAddress && (
-                      <div className="grid grid-cols-[120px_1fr]">
-                        <span className="text-muted-foreground">Shipping Address:</span>
-                        <span>{detailOrder.shippingAddress}</span>
-                      </div>
-                    )}
-                    {detailOrder.contactPhone && (
-                      <div className="grid grid-cols-[120px_1fr]">
-                        <span className="text-muted-foreground">Contact Phone:</span>
-                        <span>{detailOrder.contactPhone}</span>
-                      </div>
-                    )}
-                    {detailOrder.notes && (
-                      <div className="grid grid-cols-[120px_1fr]">
-                        <span className="text-muted-foreground">Notes:</span>
-                        <span>{detailOrder.notes}</span>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Transaction Information */}
-              {detailOrder.transactionId && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Transaction Information</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div className="grid grid-cols-[150px_1fr]">
-                      <span className="text-muted-foreground">Transaction ID:</span>
-                      <span>
-                        {typeof detailOrder.transactionId === 'object' 
-                          ? detailOrder.transactionId._id || detailOrder.transactionId.id 
-                          : detailOrder.transactionId}
-                      </span>
-                    </div>
-                    
-                    {typeof detailOrder.transactionId === 'object' && (
-                      <>
-                        <div className="grid grid-cols-[150px_1fr]">
-                          <span className="text-muted-foreground">Order ID:</span>
-                          <span>{detailOrder.transactionId.orderId}</span>
-                        </div>
-                        <div className="grid grid-cols-[150px_1fr]">
-                          <span className="text-muted-foreground">Payment Method:</span>
-                          <span>{detailOrder.transactionId.paymentMethod || 'N/A'}</span>
-                        </div>
-                        <div className="grid grid-cols-[150px_1fr]">
-                          <span className="text-muted-foreground">Payment Status:</span>
-                          <Badge variant="outline" className="w-fit font-normal">
-                            {detailOrder.transactionId.status}
-                          </Badge>
-                        </div>
-                        {detailOrder.transactionId.paymentDetails && detailOrder.transactionId.paymentDetails.bankCode && (
-                          <div className="grid grid-cols-[150px_1fr]">
-                            <span className="text-muted-foreground">Bank:</span>
-                            <span>{detailOrder.transactionId.paymentDetails.bankCode}</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              )}              
-              
-              {/* Order Items Section */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Order Items</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {detailOrder.items && detailOrder.items.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Product</TableHead>
-                          <TableHead className="text-right">Unit Price</TableHead>
-                          <TableHead className="text-center">Quantity</TableHead>
-                          <TableHead className="text-right">Subtotal</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {detailOrder.items.map((item, index) => (
-                          <TableRow key={index}>
-                            <TableCell>
-                              {getProductName(item.productId)}
-                            </TableCell>
-                            <TableCell className="text-right">{formatPrice(item.price)}</TableCell>
-                            <TableCell className="text-center">{item.quantity}</TableCell>
-                            <TableCell className="text-right font-medium">
-                              {formatPrice(item.price * item.quantity)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow>
-                          <TableCell colSpan={3} className="text-right font-medium">Total</TableCell>
-                          <TableCell className="text-right font-bold">{formatPrice(detailOrder.totalAmount)}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <div className="text-center py-4 text-muted-foreground">
-                      No items available for this order
-                    </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
-                {/* Rejection and Refund Information */}
-              {(detailOrder.rejectionReason || detailOrder.refundReason) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {detailOrder.rejectionReason && (
-                    <Card className="border-red-200">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base text-red-600 flex items-center gap-2">
-                          <XCircle className="h-4 w-4" />
-                          Rejection Information
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">Reason for Rejection</p>
-                          <p className="text-sm">{detailOrder.rejectionReason}</p>
+              
+              <div className="space-y-6">
+                
+                {/* Row 1: Customer Information */}
+                <Card className="w-full">
+                  <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-lg">
+                    <CardTitle className="text-base font-semibold text-blue-900 flex items-center gap-2">
+                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs">👤</span>
+                      </div>
+                      Customer Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-muted-foreground font-medium text-xs">Name:</span>
+                        <span className="font-semibold text-gray-900 text-sm truncate">{getUserName(detailOrder.userId)}</span>
+                      </div>
+                      {typeof detailOrder.userId === "object" ? (
+                        <>
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">Email:</span>
+                            <span className="text-blue-600 hover:underline text-sm truncate">{detailOrder.userId.email || "N/A"}</span>
+                          </div>
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">Phone:</span>
+                            <span className="font-mono text-sm truncate">{detailOrder.userId.phone || "N/A"}</span>
+                          </div>
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">Address:</span>
+                            <span className="text-sm truncate">{detailOrder.userId.address || "N/A"}</span>
+                          </div>
+                        </>
+                      ) : users[detailOrder.userId] ? (
+                        <>
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">Email:</span>
+                            <span className="text-blue-600 hover:underline text-sm truncate">{users[detailOrder.userId].email || "N/A"}</span>
+                          </div>
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">Phone:</span>
+                            <span className="font-mono text-sm truncate">{users[detailOrder.userId].phone || "N/A"}</span>
+                          </div>
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">Address:</span>
+                            <span className="text-sm truncate">{users[detailOrder.userId].address || "N/A"}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="text-muted-foreground font-medium text-xs">User ID:</span>
+                          <span className="font-mono text-xs bg-gray-200 px-2 py-1 rounded truncate">{detailOrder.userId || "N/A"}</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Row 2: Shipping & Contact Information */}
+                <Card className="w-full">
+                  <CardHeader className="pb-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-t-lg">
+                    <CardTitle className="text-base font-semibold text-green-900 flex items-center gap-2">
+                      <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs">🚚</span>
+                      </div>
+                      Shipping & Contact Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-muted-foreground font-medium text-xs">Created Date:</span>
+                        <span className="font-semibold text-sm truncate">{formatDate(detailOrder.createdAt)}</span>
+                      </div>
+                      {detailOrder.shippingAddress && (
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="text-muted-foreground font-medium text-xs">Shipping Address:</span>
+                          <span className="text-sm truncate">{detailOrder.shippingAddress}</span>
+                        </div>
+                      )}
+                      {detailOrder.contactPhone && (
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="text-muted-foreground font-medium text-xs">Contact Phone:</span>
+                          <span className="font-mono text-sm truncate">{detailOrder.contactPhone}</span>
+                        </div>
+                      )}
+                      {detailOrder.notes && (
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="text-muted-foreground font-medium text-xs">Notes:</span>
+                          <span className="text-sm italic bg-yellow-50 px-2 py-1 rounded border border-yellow-200 truncate">{detailOrder.notes}</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Row 3: Transaction Information */}
+                {detailOrder.transactionId && (
+                  <Card className="w-full">
+                    <CardHeader className="pb-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-t-lg">
+                      <CardTitle className="text-base font-semibold text-indigo-900 flex items-center gap-2">
+                        <div className="w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs">💳</span>
+                        </div>
+                        Transaction Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="text-muted-foreground font-medium text-xs">Transaction ID:</span>
+                          <span className="font-mono text-xs bg-gray-200 px-2 py-1 rounded truncate">
+                            {typeof detailOrder.transactionId === 'object' 
+                              ? (detailOrder.transactionId._id || detailOrder.transactionId.id)?.slice(0, 8)
+                              : detailOrder.transactionId?.slice(0, 8)}
+                          </span>
                         </div>
                         
-                        {detailOrder.processedBy && (
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">Processed By</p>
-                            <p className="text-sm">{detailOrder.processedBy}</p>
-                          </div>
+                        {typeof detailOrder.transactionId === 'object' && (
+                          <>
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="text-muted-foreground font-medium text-xs">Payment Method:</span>
+                              <span className="font-semibold uppercase text-sm truncate">{detailOrder.transactionId.paymentMethod || 'N/A'}</span>
+                            </div>
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="text-muted-foreground font-medium text-xs">Status:</span>
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs font-semibold w-fit ${
+                                  detailOrder.transactionId.status === 'success' 
+                                    ? 'bg-green-100 text-green-800 border-green-300' 
+                                    : detailOrder.transactionId.status === 'pending'
+                                    ? 'bg-yellow-100 text-yellow-800 border-yellow-300'
+                                    : 'bg-red-100 text-red-800 border-red-300'
+                                }`}
+                              >
+                                {detailOrder.transactionId.status}
+                              </Badge>
+                            </div>
+                            {detailOrder.transactionId.paymentDetails && detailOrder.transactionId.paymentDetails.bankCode && (
+                              <div className="flex flex-col gap-1 min-w-0">
+                                <span className="text-muted-foreground font-medium text-xs">Bank Code:</span>
+                                <span className="font-semibold text-blue-700 text-sm bg-blue-50 px-2 py-1 rounded border border-blue-200 truncate">{detailOrder.transactionId.paymentDetails.bankCode}</span>
+                              </div>
+                            )}
+                          </>
                         )}
-                        
-                        {!detailOrder.refundReason && detailOrder.status === 'rejected' && (
-                          <div className="mt-2 pt-2 border-t border-red-100">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 border-red-200 hover:bg-red-50"
-                              onClick={() => {
-                                setOpenRefundDialog(true);
-                                setProcessingOrderId(detailOrder.id || detailOrder._id || null);
-                                setRefundFormData({
-                                  refundReason: '',
-                                  note: ''
-                                });
-                                setValidationError(null);
-                              }}
-                              disabled={isRefunding}
-                            >
-                              Process Refund
-                            </Button>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )}
-                  
-                  {detailOrder.refundReason && (
-                    <Card className="border-emerald-200">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base text-emerald-600 flex items-center gap-2">
-                          <RefreshCw className="h-4 w-4" />
-                          Refund Information
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">Reason for Refund</p>
-                          <p className="text-sm">{detailOrder.refundReason}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Row 4: Order Items */}
+                <Card className="w-full">
+                  <CardHeader className="pb-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-lg">
+                    <CardTitle className="text-base font-semibold text-purple-900 flex items-center gap-2">
+                      <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs">📦</span>
+                      </div>
+                      Order Items
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {detailOrder.items?.length || 0} items
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {detailOrder.items && detailOrder.items.length > 0 ? (
+                      <div className="max-h-96 overflow-y-auto border-t">
+                        <Table>
+                          <TableHeader className="bg-gray-50 sticky top-0 z-10">
+                            <TableRow>
+                              <TableHead className="font-semibold text-gray-700 text-xs">Product</TableHead>
+                              <TableHead className="text-right font-semibold text-gray-700 text-xs">Price</TableHead>
+                              <TableHead className="text-center font-semibold text-gray-700 text-xs">Qty</TableHead>
+                              <TableHead className="text-right font-semibold text-gray-700 text-xs">Total</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {detailOrder.items.map((item, index) => (
+                              <TableRow key={index} className="hover:bg-gray-50">
+                                <TableCell className="py-2">
+                                  <div className="font-medium text-gray-900 text-xs">
+                                    {getProductName(item.productDetails.productName)}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right py-2">
+                                  <span className="font-semibold text-blue-600 text-xs">{formatPrice(item.price)}</span>
+                                </TableCell>
+                                <TableCell className="text-center py-2">
+                                  <Badge variant="outline" className="font-bold text-xs px-2 py-0">
+                                    {item.quantity}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-right py-2">
+                                  <span className="font-bold text-green-600 text-xs">
+                                    {formatPrice(item.price * item.quantity)}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                          <tfoot className="bg-gradient-to-r from-primary/10 to-primary/5 sticky bottom-0">
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-right font-bold text-sm py-3">
+                                Total Amount:
+                              </TableCell>
+                              <TableCell className="text-right py-3">
+                                <span className="font-bold text-lg text-primary">
+                                  {formatPrice(detailOrder.totalAmount)}
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          </tfoot>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <div className="text-4xl mb-2">📦</div>
+                        <div className="text-gray-500 text-sm">No items available</div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Row 5: Rejection/Refund Information */}
+                {(detailOrder.rejectionReason || detailOrder.refundReason) && (
+                  <Card className="w-full border-orange-200">
+                    <CardHeader className="pb-3 bg-gradient-to-r from-orange-50 to-red-50 rounded-t-lg">
+                      <CardTitle className="text-base font-semibold text-orange-900 flex items-center gap-2">
+                        <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs">⚠️</span>
                         </div>
-                        
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">Status</p>
-                          <p className="flex items-center gap-1">
-                            <Badge className="bg-emerald-100 text-emerald-800">
-                              Refunded
-                            </Badge>
-                          </p>
-                        </div>
-                        
-                        {detailOrder.notes && (
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">Notes</p>
-                            <p className="text-sm whitespace-pre-wrap">{detailOrder.notes}</p>
+                        {detailOrder.refundReason ? 'Refund Information' : 'Rejection Information'}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {detailOrder.rejectionReason && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">Rejection Reason:</span>
+                            <div className="text-red-700 bg-red-50 px-3 py-2 rounded border border-red-200 text-sm break-words">{detailOrder.rejectionReason}</div>
                           </div>
                         )}
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              )}
+                        {detailOrder.refundReason && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">Refund Reason:</span>
+                            <div className="text-orange-700 bg-orange-50 px-3 py-2 rounded border border-orange-200 text-sm break-words">{detailOrder.refundReason}</div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             </div>
           )}
 
-          <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 flex-wrap">
-            <Button variant="outline" onClick={() => setOpenDetails(false)}>
-              Close
-            </Button>
-            
-            <div className="flex items-center gap-2">              {detailOrder && detailOrder.status === 'rejected' && (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setOpenRefundDialog(true);
-                    setProcessingOrderId(detailOrder.id || detailOrder._id || null);
-                    // Reset the refund form data
-                    setRefundFormData({
-                      refundReason: '',
-                      note: ''
-                    });
-                    // Reset any validation errors
-                    setValidationError(null);
-                  }}
-                  disabled={statusUpdating || isRefunding}
-                  className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 flex items-center gap-1"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Process Refund
-                </Button>
-              )}
+          <DialogFooter className="flex-shrink-0 border-t pt-4 mt-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setOpenDetails(false)}
+                className="px-6 py-2 font-semibold w-full sm:w-auto"
+              >
+                Close
+              </Button>
               
               {detailOrder && (
-                <Select
-                  disabled={statusUpdating}
-                  defaultValue={detailOrder.status}
-                  onValueChange={(value) =>
-                    handleStatusChange(detailOrder.id || detailOrder._id, value)
-                  }
-                >
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Update Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getAvailableStatuses(detailOrder.status).map(status => (
-                      <SelectItem key={status} value={status}>{status}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                  <Select
+                    disabled={statusUpdating}
+                    defaultValue={detailOrder.status}
+                    onValueChange={(value) => handleStatusChange(detailOrder.id || detailOrder._id, value)}
+                  >
+                    <SelectTrigger className="w-full sm:w-48 font-semibold">
+                      <SelectValue placeholder="Update Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getAvailableStatuses(detailOrder.status).map((status) => (
+                        <SelectItem key={status} value={status}>
+                          <div className="flex items-center gap-2">
+                            {StatusConfig[status as keyof typeof StatusConfig]?.icon}
+                            <span className="capitalize font-medium">{status}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  <Button 
+                    onClick={refreshOrders}
+                    variant="default"
+                    className="px-6 py-2 font-semibold w-full sm:w-auto"
+                    disabled={refreshing}
+                  >
+                    {refreshing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Refreshing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Refresh
+                      </>
+                    )}
+                  </Button>
+                </div>
               )}
             </div>
           </DialogFooter>

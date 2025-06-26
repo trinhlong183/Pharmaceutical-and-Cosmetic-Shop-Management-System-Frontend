@@ -54,6 +54,55 @@ export const paymentService = {
     return response.json();
   },
 
+  async createPaymentSelected(paymentData: {
+    cartPaymentDto: {
+      cart: {
+        _id: string;
+        userId: string;
+        items: Array<{
+          productId: string;
+          price: number;
+          quantity: number;
+        }>;
+        totalPrice: number;
+      };
+    };
+    selectedProductIds: string[];
+  }): Promise<{
+    success: boolean;
+    message: string;
+    paymentUrl?: string;
+    orderReference?: string;
+    totalAmount?: number;
+  }> {
+    try {
+      const response = await fetch(`${API_URL}/payments/create-payment-selected`, {
+        method: 'POST',
+        headers: getAuthHeader(),
+        credentials: 'include',
+        body: JSON.stringify(paymentData)
+      });
+
+      const data = await response.json();
+      console.log('Raw create-payment-selected API response:', data);
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Payment creation failed');
+      }
+
+      return {
+        success: true,
+        message: 'Payment URL created successfully',
+        paymentUrl: data.paymentUrl,
+        orderReference: data.orderReference,
+        totalAmount: data.totalAmount
+      };
+    } catch (error) {
+      console.error('Create payment selected error:', error);
+      throw error;
+    }
+  },
+
   async cartCheckout(cartData: {
     cart: {
       _id: string;
@@ -127,6 +176,49 @@ export const paymentService = {
     }
 
     return response.json();
+  },
+
+  async verifySelectedPayment(params: URLSearchParams): Promise<{
+    success: boolean;
+    message: string;
+    data?: {
+      isSuccess?: boolean;
+      message?: string;
+      orderId?: string;
+      amount?: number;
+      transactionId?: string;
+      bankCode?: string;
+      paymentTime?: string;
+      responseCode?: string;
+    };
+  }> {
+    try {
+      const queryString = params.toString();
+      const response = await fetch(`${API_URL}/payments/verify-selected?${queryString}`, {
+        method: 'GET',
+        headers: getAuthHeader(),
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+      console.log('Verify selected payment response:', data);
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Payment verification failed');
+      }
+
+      return {
+        success: true,
+        message: 'Payment verification completed',
+        data: data
+      };
+    } catch (error) {
+      console.error('Verify selected payment error:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Payment verification failed'
+      };
+    }
   },
 
   async verifyVNPayReturn(params: URLSearchParams): Promise<PaymentVerifyResponse> {
