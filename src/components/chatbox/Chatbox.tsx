@@ -79,20 +79,35 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
     }
   };
 
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
+
     try {
-      await chatService.createChatMessage({
-        chatId: selectedChatId,
-        userId: user.id,
-        messageContent: input,
-        sender: "user",
-      });
+      // Use the new method that handles both user message and AI response
+      await chatService.sendMessageWithAIResponse(
+        selectedChatId,
+        input,
+        user.id
+      );
       setInput("");
       await fetchChatHistory();
     } catch (error) {
       console.error("Error sending message:", error);
+      // Fallback to just sending user message if AI fails
+      try {
+        await chatService.createChatMessage({
+          chatId: selectedChatId,
+          userId: user.id,
+          messageContent: input,
+          sender: "user",
+        });
+        setInput("");
+        await fetchChatHistory();
+      } catch (fallbackError) {
+        console.error("Error sending fallback message:", fallbackError);
+      }
     }
   };
 

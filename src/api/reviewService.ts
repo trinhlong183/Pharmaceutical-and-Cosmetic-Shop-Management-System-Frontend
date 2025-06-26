@@ -9,7 +9,9 @@ type createReviewBodyType = {
 
 export const reviewService = {
   createReview: (body: createReviewBodyType) => {
-    return http.post("/reviews", body);
+    return http
+      .post<{ message: string; errorCode: number }>("/reviews", body)
+      .then((response) => response.payload);
   },
   getAllReviews: (params: { productId: string; userId: string }) => {
     return http
