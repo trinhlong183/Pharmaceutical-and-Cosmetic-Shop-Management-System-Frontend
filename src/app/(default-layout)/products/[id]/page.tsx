@@ -22,9 +22,9 @@ import {
   Share2,
   ShoppingCart,
   Check,
+  Clock,
   AlertCircle,
-  ArrowLeft,
-  Edit3,
+  ArrowLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -428,18 +428,18 @@ export default function ProductDetailPage({
                 {/* Categories & Brand */}
                 <div className="flex flex-wrap gap-2 mb-3">
                   {/* Show categories */}
-                  {product.category &&
-                    product.category.map((categoryId, index) => (
-                      <Badge
-                        key={`category-${index}`}
-                        variant="secondary"
-                        className="bg-blue-50 text-blue-700 hover:bg-blue-100"
-                      >
-                        {categories[categoryId as string]?.categoryName ||
-                          "Category"}
-                      </Badge>
-                    ))}
-
+                  {product.category && product.category.map((categoryId, index) => (
+                    <Badge 
+                      key={`category-${index}`}
+                      variant="secondary"
+                      className="bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    >
+                      {typeof categoryId === 'string' 
+                        ? categories[categoryId]?.categoryName || 'Category'
+                        : categoryId?.categoryName || 'Category'}
+                    </Badge>
+                  ))}
+                  
                   {/* Brand badge */}
                   <Badge variant="outline" className="border-gray-200">
                     {product.brand}
@@ -533,9 +533,10 @@ export default function ProductDetailPage({
 
                 {/* Add to Cart and Action Buttons */}
                 <div className="flex flex-col gap-4 mb-8">
-                  <AddToCart
-                    productId={product.id || product._id}
+                  <AddToCart 
+                    productId={(product.id || product._id) as string} 
                     disabled={product.stock <= 0}
+                    maxQuantity={product.stock}
                   />
 
                   {/* Desktop action buttons */}

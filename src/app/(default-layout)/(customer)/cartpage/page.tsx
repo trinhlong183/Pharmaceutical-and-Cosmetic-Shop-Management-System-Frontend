@@ -68,6 +68,7 @@ export default function CartPage() {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
   const [user, setUser] = useState<User | null>(null);
   const { removeFromCart } = useCart();
   const router = useRouter();
@@ -199,6 +200,9 @@ export default function CartPage() {
         return;
       }
       
+      // Add loading state for this specific item
+      setUpdatingItems(prev => new Set(prev).add(productId));
+      
       const existingItem = cart.items.find(item => 
         item.productId && item.productId._id === productId
       );
@@ -218,21 +222,48 @@ export default function CartPage() {
       }
 
       const currentQuantity = existingItem.quantity;
+      const maxStock = existingItem.productId.stock || 0;
+      
+      // Validate new quantity
+      if (newQuantity < 1) {
+        toast.error('Quantity must be at least 1');
+        return;
+      }
+      
+      if (newQuantity > maxStock) {
+        toast.error(`Maximum available quantity is ${maxStock}`);
+        return;
+      }
+      
       if (newQuantity === currentQuantity) return;
 
-      // Calculate quantity change
-      const quantityChange = newQuantity - currentQuantity;
-      
-      if (newQuantity >= 1 && newQuantity <= (existingItem.productId.stock || 0)) {
-        await cartService.addToCart(productId, quantityChange);
-        await fetchCart();
+      // If decreasing quantity, remove item and add back with new quantity
+      if (newQuantity < currentQuantity) {
+        // Remove the item completely first
+        await cartService.removeFromCart(productId);
+        // Add back with the new quantity
+        if (newQuantity > 0) {
+          await cartService.addToCart(productId, newQuantity);
+        }
       } else {
-        toast.error(`Quantity must be between 1 and ${existingItem.productId.stock || 0}`);
+        // If increasing quantity, just add the difference
+        const quantityToAdd = newQuantity - currentQuantity;
+        await cartService.addToCart(productId, quantityToAdd);
       }
+      
+      await fetchCart();
+      
     } catch (error) {
       console.error('Error updating quantity:', error);
       toast.error('Failed to update quantity');
       await fetchCart(); // Refresh cart to ensure it's in sync
+    } finally {
+      // Remove loading state for this item
+      setUpdatingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(productId);
+        return newSet;
+      });
     }
   };
 
@@ -488,69 +519,79 @@ export default function CartPage() {
                   <div key={item._id} className="group">
                     {index > 0 && <hr className="my-0" />}
                     <div className="p-4 hover:bg-gray-50">
-                      {item && item.productId ? (
-                        <div className="flex gap-4">
-                          <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border">
-                            <Image
-                              src={Array.isArray(item.productId.productImages) && item.productId.productImages.length > 0 
-                                ? item.productId.productImages[0] 
-                                : '/placeholder.png'}
-                              alt={item.productId.productName || 'Product'}
-                              fill
-                              className="object-cover"
-                              sizes="80px"
-                              unoptimized
-                            />
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between">
-                              <div>
-                                <h3 className="font-medium line-clamp-2 text-sm md:text-base">
-                                  {item.productId.productName}
-                                </h3>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  {formatVND(item.price)}
-                                </p>
+                      {item && item.productId ? (                          <div className="flex gap-4">
+                            <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                              <Image
+                                src={Array.isArray(item.productId.productImages) && item.productId.productImages.length > 0 
+                                  ? item.productId.productImages[0] 
+                                  : '/placeholder.png'}
+                                alt={item.productId.productName || 'Product'}
+                                fill
+                                className="object-cover hover:scale-105 transition-transform duration-200"
+                                sizes="96px"
+                                unoptimized
+                              />
+                            </div>                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1 min-w-0 pr-4">
+                                  <h3 className="font-semibold line-clamp-2 text-base text-gray-900 leading-tight">
+                                    {item.productId.productName}
+                                  </h3>
+                                  <div className="flex items-center mt-2 space-x-2">
+                                    <span className="text-sm font-medium text-blue-600">
+                                      {formatVND(item.price)}
+                                    </span>
+                                    <span className="text-xs text-gray-400">per item</span>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveItem(item.productId._id)}
+                                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-red-50 hover:text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleRemoveItem(item.productId._id)}
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-red-600" />
-                              </Button>
-                            </div>
                             
                             <div className="flex items-center justify-between mt-4">
-                              <div className="flex items-center border rounded-md px-1">
+                              <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
                                 <Button
                                   variant="ghost"
-                                  size="icon"
+                                  size="sm"
                                   onClick={() => handleUpdateQuantity(item.productId._id, item.quantity - 1)}
-                                  disabled={item.quantity <= 1}
-                                  className="h-7 w-7"
+                                  disabled={item.quantity <= 1 || updatingItems.has(item.productId._id)}
+                                  className="h-9 w-9 p-0 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-none border-0"
                                 >
-                                  <MinusCircle className="h-3 w-3" />
+                                  {updatingItems.has(item.productId._id) ? (
+                                    <div className="h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                  ) : (
+                                    <MinusCircle className="h-4 w-4 text-gray-600" />
+                                  )}
                                 </Button>
-                                <span className="w-7 text-center text-sm font-medium">{item.quantity}</span>
+                                <div className="flex items-center justify-center min-w-[60px] h-9 px-3 bg-white border-x border-gray-200">
+                                  <span className="text-sm font-semibold text-gray-900">{item.quantity}</span>
+                                </div>
                                 <Button
                                   variant="ghost"
-                                  size="icon"
+                                  size="sm"
                                   onClick={() => handleUpdateQuantity(item.productId._id, item.quantity + 1)}
-                                  disabled={item.quantity >= (item.productId.stock || 0)}
-                                  className="h-7 w-7"
+                                  disabled={item.quantity >= (item.productId.stock || 0) || updatingItems.has(item.productId._id)}
+                                  className="h-9 w-9 p-0 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-none border-0"
                                 >
-                                  <PlusCircle className="h-3 w-3" />
+                                  {updatingItems.has(item.productId._id) ? (
+                                    <div className="h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                  ) : (
+                                    <PlusCircle className="h-4 w-4 text-gray-600" />
+                                  )}
                                 </Button>
                               </div>
                               <div className="text-right">
-                                <p className="font-medium">
+                                <p className="font-semibold text-lg text-gray-900">
                                   {formatVND(item.price * item.quantity)}
                                 </p>
-                                <p className="text-xs text-muted-foreground">
-                                  In stock: {item.productId.stock || 0} items
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Stock: {item.productId.stock || 0} items
                                 </p>
                               </div>
                             </div>
