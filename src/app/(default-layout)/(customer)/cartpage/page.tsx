@@ -12,8 +12,8 @@ import {
   ShoppingBag, 
   ArrowLeft, 
   ShoppingCart, 
-  Truck, 
-  CreditCard
+  CreditCard,
+  Check
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Image from 'next/image';
@@ -70,6 +70,7 @@ export default function CartPage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
   const [user, setUser] = useState<User | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const { removeFromCart } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -86,16 +87,12 @@ export default function CartPage() {
   const fetchUserInfo = async (userId: string) => {
     try {
       if (!userId) {
-        console.error('No userId provided');
         return;
       }
-      
-      console.log('Attempting to fetch user info for userId:', userId);
       
       try {
         // Call getUserById with the userId from the cart
         const response = await userService.getUserById(userId);
-        console.log('User data from API:', response);
         
         // Based on the example API response you provided, the user data is directly in the response
         // No need to look for response.data
@@ -117,7 +114,6 @@ export default function CartPage() {
             createdAt: response.createdAt || '',
             updatedAt: response.updatedAt || ''
           });
-          console.log('User data set successfully');
         } else {
           console.error('Invalid or empty response from getUserById');
         }
@@ -132,7 +128,6 @@ export default function CartPage() {
   const fetchCart = async () => {
     try {
       const response = await cartService.getMyCart();
-      console.log('Cart data:', response);
       
       if (response.success && response.data) {
         // Validate cart items to ensure no null productId exists
@@ -164,22 +159,23 @@ export default function CartPage() {
         
         setCart(response.data);
         
+        // Automatically select all items when cart is loaded
+        if (response.data.items && Array.isArray(response.data.items)) {
+          const allProductIds = response.data.items.map(item => item.productId._id);
+          setSelectedProductIds(allProductIds);
+        }
+        
         // Extract userId directly from the cart data
         // This is the key change - using the correct path to userId in the cart response
         const cartUserId = response.data.userId;
         
         if (cartUserId) {
-          console.log('Found userId in cart:', cartUserId);
           await fetchUserInfo(cartUserId);
-        } else {
-          console.warn('Cart does not contain userId');
         }
       } else {
-        console.error('Invalid cart data structure:', response);
         toast.error('Error loading cart data');
       }
     } catch (error) {
-      console.error('Error fetching cart:', error);
       toast.error('Failed to fetch cart');
     } finally {
       setLoading(false);
@@ -189,10 +185,29 @@ export default function CartPage() {
   const handleRemoveItem = async (productId: string) => {
     try {
       await removeFromCart(productId);
+      // Remove from selected items if it was selected
+      setSelectedProductIds(prev => prev.filter(id => id !== productId));
       await fetchCart();
     } catch (error) {
       toast.error('Failed to remove item');
     }
+  };
+
+  const handleItemSelection = (productId: string) => {
+    setSelectedProductIds(prev => {
+      const newSelection = prev.includes(productId)
+        ? prev.filter(id => id !== productId) // Remove from selection
+        : [...prev, productId]; // Add to selection
+      
+      return newSelection;
+    });
+  };
+
+  const calculateSelectedTotal = () => {
+    if (!cart) return 0;
+    return cart.items
+      .filter(item => selectedProductIds.includes(item.productId._id))
+      .reduce((total, item) => total + (item.price * item.quantity), 0);
   };  const handleUpdateQuantity = async (productId: string, newQuantity: number) => {
     try {
       if (!cart || !cart.items) {
@@ -274,50 +289,62 @@ export default function CartPage() {
         return;
       }
 
+      if (selectedProductIds.length === 0) {
+        toast.error('Please select at least one item to checkout');
+        return;
+      }
+
       setCheckoutLoading(true);
-      const loadingToast = toast.loading('Processing checkout...');      // 1. Prepare selected items in correct format
-      const selectedItems = cart.items
-        .filter(item => item.productId && item.productId._id) // Filter out items with null productId
-        .map(item => ({
-          productId: item.productId._id,
-          price: item.price,
-          quantity: item.quantity
-        }));
-        
+      const loadingToast = toast.loading('Processing checkout...');
+
+      // Filter selected items from cart
+      const selectedItems = cart.items.filter(item => 
+        selectedProductIds.includes(item.productId._id)
+      );
+
+      // CRITICAL VALIDATION: Ensure selectedItems count matches selectedProductIds count
+      if (selectedItems.length !== selectedProductIds.length) {
+        toast.dismiss(loadingToast);
+        setCheckoutLoading(false);
+        toast.error('Selection mismatch detected. Please refresh the page and try again.');
+        return;
+      }
+
       // Check if we have any valid items after filtering
       if (selectedItems.length === 0) {
         toast.dismiss(loadingToast);
         setCheckoutLoading(false);
-        toast.error('Your cart contains invalid products. Please try refreshing or contact support.');
+        toast.error('No valid items selected for checkout.');
         return;
       }
-        // If some items were filtered out but we still have valid ones, inform the user
-      if (selectedItems.length < cart.items.length) {
-        toast(`${cart.items.length - selectedItems.length} invalid item(s) were removed from checkout`, {
-          icon: '⚠️',
-          style: {
-            background: '#FFF3CD',
-            color: '#856404'
-          }
-        });
-      }
 
-      // 2. Save items for verification
-      localStorage.setItem('selectedCartItems', JSON.stringify(selectedItems));
+      // Calculate total for selected items
+      const selectedTotal = calculateSelectedTotal();
+
+      // Store selected product IDs in localStorage for verification
+      localStorage.setItem('selectedCartItems', JSON.stringify(selectedProductIds));
       localStorage.setItem('cartId', cart._id);
 
-      // 3. Prepare checkout data
-      const checkoutData = {
-        cart: {
-          _id: cart._id,
-          items: selectedItems,
-          totalPrice: cart.totalAmount
+      // Build cart object for checkout - IMPORTANT: Only include selected items in cart.items
+      const checkoutPayload = {
+        cartPaymentDto: {
+          cart: {
+            _id: cart._id,
+            userId: cart.userId,
+            items: selectedItems.map(item => ({
+              productId: item.productId._id,
+              price: item.price,
+              quantity: item.quantity
+            })),
+            totalPrice: selectedTotal
+          }
         },
-        returnUrl: `${window.location.origin}/payment-result` // Thay đổi đường dẫn return
+        selectedProductIds: selectedProductIds
       };
 
       try {
-        const response = await paymentService.cartCheckout(checkoutData);
+        // Use the new createPaymentSelected API
+        const response = await paymentService.createPaymentSelected(checkoutPayload);
         toast.dismiss(loadingToast);
 
         // Validate response
@@ -325,26 +352,20 @@ export default function CartPage() {
           throw new Error('No response from payment service');
         }
 
-        console.log('Payment response:', response);
-
-        if (response.success && response.data?.paymentUrl) {
-          window.location.href = response.data.paymentUrl;
+        if (response.success && response.paymentUrl) {
+          // Navigate to payment URL
+          window.location.href = response.paymentUrl;
         } else {
           throw new Error(response.message || 'Payment URL not received');
         }
       } catch (error) {
         console.error('Payment API error:', error);
         throw new Error(error instanceof Error ? error.message : 'Payment creation failed');
-      }    } catch (error) {
+      }
+    } catch (error) {
       toast.dismiss();
       console.error('Checkout error:', error);
-      
-      // Check if error is related to _id property
-      if (error instanceof TypeError && error.message.includes("_id")) {
-        toast.error('There was a problem with some products in your cart. Please try refreshing the page.');
-      } else {
-        toast.error(error instanceof Error ? error.message : 'Checkout failed');
-      }
+      toast.error(error instanceof Error ? error.message : 'Checkout failed');
     } finally {
       setCheckoutLoading(false);
     }
@@ -356,46 +377,52 @@ export default function CartPage() {
       
       if (vnp_ResponseCode === "00") {
         // Payment successful
-        const productIds = JSON.parse(localStorage.getItem('selectedCartItems') || '[]')
-          .map((item: { productId: string }) => item.productId);
+        const selectedProductIds = JSON.parse(localStorage.getItem('selectedCartItems') || '[]');
         
-        if (productIds.length > 0) {
+        if (selectedProductIds.length > 0) {
           // Show loading state
-          toast.loading('Confirming your order...', { id: 'orderConfirmation' });
+          toast.loading('Verifying payment and creating order...', { id: 'orderConfirmation' });
           
           try {
-            // Call checkout-selected API first
-            await paymentService.checkoutSelected(productIds);
+            // First verify payment with VNPay using verify-selected API
+            const verifyResult = await paymentService.verifySelectedPayment(searchParams);
             
-            // Then clear cart
-            await cartService.clearCart();
-            
-            // Clear localStorage
-            localStorage.removeItem('selectedCartItems');
-            localStorage.removeItem('cartId');
-            
-            // Clear loading toast and show success message
-            toast.dismiss('orderConfirmation');
-            toast.success('Order placed successfully!');
+            if (verifyResult.success && verifyResult.data?.isSuccess) {
+              // Call checkout-selected API to remove only selected items from cart
+              await paymentService.checkoutSelected(selectedProductIds);
+              
+              // Clear localStorage
+              localStorage.removeItem('selectedCartItems');
+              localStorage.removeItem('cartId');
+              
+              // Clear loading toast and show success message
+              toast.dismiss('orderConfirmation');
+              toast.success('Order created successfully!', {
+                duration: 5000
+              });
 
-            // Clear cart state immediately
-            setCart(null);
-            
-            // Force a page reload after a short delay to ensure cart is refreshed
-            setTimeout(() => {
-              window.location.reload();
-            }, 500);
+              // Refresh cart to show updated state (only unselected items remain)
+              await fetchCart();
+              
+            } else {
+              throw new Error(verifyResult.data?.message || verifyResult.message || 'Payment verification failed');
+            }
             
           } catch (error) {
             console.error('Process order error:', error);
-            toast.error('Failed to process order');
+            toast.dismiss('orderConfirmation');
+            toast.error('Failed to process order: ' + (error instanceof Error ? error.message : 'Unknown error'));
           }
+        } else {
+          console.warn('No selected items found in localStorage');
+          toast.error('No selected items found for verification');
         }
       } else {
         // Payment failed
         toast.error('Payment failed. Please try again.');
         router.replace('/cartpage');
       }
+      
     } catch (error) {
       console.error('Payment verification error:', error);
       toast.error('Failed to verify payment');
@@ -492,6 +519,9 @@ export default function CartPage() {
             <Badge variant="secondary">
               {cart.items.length} products
             </Badge>
+            <Badge variant={selectedProductIds.length > 0 ? "default" : "outline"}>
+              {selectedProductIds.length} selected for checkout
+            </Badge>
           </div>
         </div>
         
@@ -514,12 +544,87 @@ export default function CartPage() {
                 </div>
               </CardHeader>
               
+              {/* Selection Header */}
+              <div className="px-4 py-3 border-b bg-gray-50">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (selectedProductIds.length === cart.items.length) {
+                          // Deselect all
+                          setSelectedProductIds([]);
+                        } else {
+                          // Select all
+                          setSelectedProductIds(cart.items.map(item => item.productId._id));
+                        }
+                      }}
+                      className="flex items-center space-x-2"
+                    >
+                      <div className={`w-4 h-4 border-2 rounded flex items-center justify-center ${
+                        selectedProductIds.length === cart.items.length 
+                          ? 'bg-blue-600 border-blue-600' 
+                          : 'border-gray-300'
+                      }`}>
+                        {selectedProductIds.length === cart.items.length && (
+                          <Check className="h-3 w-3 text-white" />
+                        )}
+                      </div>
+                      <span className="text-sm font-medium">
+                        {selectedProductIds.length === cart.items.length ? 'Deselect All' : 'Select All'}
+                      </span>
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        // Select only first item for testing
+                        if (cart.items.length > 0) {
+                          setSelectedProductIds([cart.items[0].productId._id]);
+                        }
+                      }}
+                      className="text-xs"
+                    >
+                      Test: Select First Only
+                    </Button>
+                  </div>
+                  <span className="text-sm text-gray-500">
+                    {selectedProductIds.length} of {cart.items.length} selected
+                  </span>
+                </div>
+              </div>
+              
               <div className="max-h-[500px] overflow-auto">
-                {cart.items.map((item, index) => (
-                  <div key={item._id} className="group">
-                    {index > 0 && <hr className="my-0" />}
-                    <div className="p-4 hover:bg-gray-50">
-                      {item && item.productId ? (                          <div className="flex gap-4">
+                {cart.items.map((item, index) => {
+                  const isSelected = selectedProductIds.includes(item.productId._id);
+                  
+                  return (
+                    <div key={item._id} className="group">
+                      {index > 0 && <hr className="my-0" />}
+                      <div className={`p-4 hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
+                        {item && item.productId ? (
+                          <div className="flex gap-4">
+                            {/* Checkbox */}
+                            <div className="flex items-start pt-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleItemSelection(item.productId._id)}
+                                className="p-0 h-auto"
+                              >
+                                <div className={`w-5 h-5 border-2 rounded flex items-center justify-center ${
+                                  isSelected 
+                                    ? 'bg-blue-600 border-blue-600' 
+                                    : 'border-gray-300 hover:border-blue-400'
+                                }`}>
+                                  {isSelected && (
+                                    <Check className="h-3 w-3 text-white" />
+                                  )}
+                                </div>
+                              </Button>
+                            </div>
                             <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
                               <Image
                                 src={Array.isArray(item.productId.productImages) && item.productId.productImages.length > 0 
@@ -531,7 +636,8 @@ export default function CartPage() {
                                 sizes="96px"
                                 unoptimized
                               />
-                            </div>                            <div className="flex-1 min-w-0">
+                            </div>
+                            <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-start">
                                 <div className="flex-1 min-w-0 pr-4">
                                   <h3 className="font-semibold line-clamp-2 text-base text-gray-900 leading-tight">
@@ -554,130 +660,64 @@ export default function CartPage() {
                                 </Button>
                               </div>
                             
-                            <div className="flex items-center justify-between mt-4">
-                              <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleUpdateQuantity(item.productId._id, item.quantity - 1)}
-                                  disabled={item.quantity <= 1 || updatingItems.has(item.productId._id)}
-                                  className="h-9 w-9 p-0 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-none border-0"
-                                >
-                                  {updatingItems.has(item.productId._id) ? (
-                                    <div className="h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                                  ) : (
-                                    <MinusCircle className="h-4 w-4 text-gray-600" />
-                                  )}
-                                </Button>
-                                <div className="flex items-center justify-center min-w-[60px] h-9 px-3 bg-white border-x border-gray-200">
-                                  <span className="text-sm font-semibold text-gray-900">{item.quantity}</span>
+                              <div className="flex items-center justify-between mt-4">
+                                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleUpdateQuantity(item.productId._id, item.quantity - 1)}
+                                    disabled={item.quantity <= 1 || updatingItems.has(item.productId._id)}
+                                    className="h-9 w-9 p-0 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-none border-0"
+                                  >
+                                    {updatingItems.has(item.productId._id) ? (
+                                      <div className="h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                      <MinusCircle className="h-4 w-4 text-gray-600" />
+                                    )}
+                                  </Button>
+                                  <div className="flex items-center justify-center min-w-[60px] h-9 px-3 bg-white border-x border-gray-200">
+                                    <span className="text-sm font-semibold text-gray-900">{item.quantity}</span>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleUpdateQuantity(item.productId._id, item.quantity + 1)}
+                                    disabled={item.quantity >= (item.productId.stock || 0) || updatingItems.has(item.productId._id)}
+                                    className="h-9 w-9 p-0 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-none border-0"
+                                  >
+                                    {updatingItems.has(item.productId._id) ? (
+                                      <div className="h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                      <PlusCircle className="h-4 w-4 text-gray-600" />
+                                    )}
+                                  </Button>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleUpdateQuantity(item.productId._id, item.quantity + 1)}
-                                  disabled={item.quantity >= (item.productId.stock || 0) || updatingItems.has(item.productId._id)}
-                                  className="h-9 w-9 p-0 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-none border-0"
-                                >
-                                  {updatingItems.has(item.productId._id) ? (
-                                    <div className="h-3 w-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                                  ) : (
-                                    <PlusCircle className="h-4 w-4 text-gray-600" />
-                                  )}
-                                </Button>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-semibold text-lg text-gray-900">
-                                  {formatVND(item.price * item.quantity)}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Stock: {item.productId.stock || 0} items
-                                </p>
+                                <div className="text-right">
+                                  <p className="font-semibold text-lg text-gray-900">
+                                    {formatVND(item.price * item.quantity)}
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Stock: {item.productId.stock || 0} items
+                                  </p>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ) : (
-                        <div className="text-center text-muted-foreground p-4">
-                          Invalid product
-                        </div>
-                      )}
+                        ) : (
+                          <div className="text-center text-muted-foreground p-4">
+                            Invalid product
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-            </Card>
-            
-            {/* Shipping Info Card */}
-            <Card className="border shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-start space-x-3">
-                  <div className="bg-blue-50 p-2 rounded-full">
-                    <Truck className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium">Free shipping</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Orders will be delivered within 2-3 business days after successful payment.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
             </Card>
           </div>
           
           {/* Order Summary - Right Side */}
           <div className="lg:col-span-4 space-y-6">
-            {/* Order Summary Card */}
-            <Card className="border shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Order Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="pb-4 space-y-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatVND(cart.totalAmount)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Shipping fee</span>
-                  <span className="text-green-600">Free</span>
-                </div>
-                <hr className="my-2" />
-                <div className="flex justify-between pt-2">
-                  <span className="font-medium">Total</span>
-                  <span className="font-bold text-xl">{formatVND(cart.totalAmount)}</span>
-                </div>
-              </CardContent>
-              <CardFooter className="flex flex-col space-y-3 pt-0">
-                <Button 
-                  className="w-full"
-                  size="lg"
-                  onClick={handleCheckout}
-                  disabled={checkoutLoading || !user?.address}
-                >
-                  {checkoutLoading ? (
-                    <>
-                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      {user?.address ? 'Proceed to Payment' : 'Address update required'}
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => router.push('/products')}
-                  className="w-full"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Continue shopping
-                </Button>
-              </CardFooter>
-            </Card>
-            
             {/* User Information Card */}
             <Card className="border shadow-sm">
               <CardHeader className="pb-3">
@@ -708,17 +748,8 @@ export default function CartPage() {
                       <p className="font-medium">{user.phone || 'Not provided'}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Delivery Address</p>
+                      <p className="text-muted-foreground">Address</p>
                       <p className="font-medium">{user.address || 'Not provided'}</p>
-                      {!user.address && (
-                        <Button
-                          variant="link"
-                          className="p-0 h-auto text-blue-600"
-                          onClick={() => router.push('/profile')}
-                        >
-                          + Add delivery address
-                        </Button>
-                      )}
                     </div>
                   </div>
                 ) : (
@@ -730,6 +761,56 @@ export default function CartPage() {
                   </div>
                 )}
               </CardContent>
+            </Card>
+            {/* Order Summary Card */}
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Order Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="pb-4 space-y-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal ({selectedProductIds.length} items)</span>
+                  <span>{formatVND(calculateSelectedTotal())}</span>
+                </div>
+                <hr className="my-2" />
+                <div className="flex justify-between pt-2">
+                  <span className="font-medium">Total</span>
+                  <span className="font-bold text-xl">{formatVND(calculateSelectedTotal())}</span>
+                </div>
+              </CardContent>
+              <CardFooter className="flex flex-col space-y-3 pt-0">
+                <Button 
+                  className="w-full"
+                  size="lg"
+                  onClick={handleCheckout}
+                  disabled={checkoutLoading || !user?.address || selectedProductIds.length === 0}
+                >
+                  {checkoutLoading ? (
+                    <>
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      {!user?.address 
+                        ? 'Address update required' 
+                        : selectedProductIds.length === 0 
+                        ? 'Select items to checkout'
+                        : `Proceed to Payment (${selectedProductIds.length} items)`
+                      }
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => router.push('/products')}
+                  className="w-full"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Continue shopping
+                </Button>
+              </CardFooter>
             </Card>
           </div>
         </div>

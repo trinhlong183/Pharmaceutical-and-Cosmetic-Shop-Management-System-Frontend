@@ -17,8 +17,6 @@ export default function PaymentResult() {
   useEffect(() => {
     const processPayment = async () => {
       try {
-        console.log("Processing payment with params:", Object.fromEntries(searchParams.entries()));
-        
         // Create a params object from all URL search parameters
         const params: Record<string, string> = {};
         searchParams.forEach((value, key) => {
@@ -29,11 +27,7 @@ export default function PaymentResult() {
         const vnp_ResponseCode = params.vnp_ResponseCode;
         const vnp_TransactionStatus = params.vnp_TransactionStatus;
         
-        console.log("VNPay response code:", vnp_ResponseCode);
-        console.log("VNPay transaction status:", vnp_TransactionStatus);
-        
         if (!vnp_ResponseCode || !vnp_TransactionStatus) {
-          console.error("Missing required VNPay parameters");
           setSuccess(false);
           toast.error('Missing payment information');
           setProcessing(false);
@@ -43,29 +37,17 @@ export default function PaymentResult() {
         // Direct check for successful VNPay response before API call
         if (vnp_ResponseCode === "00" && vnp_TransactionStatus === "00") {
           try {
-            // Verify the payment with all URL parameters
-            console.log("Calling verifyPayment with params:", params);
-            const verificationResult = await paymentService.verifyPayment(params);
-            console.log("Verification result:", verificationResult);
+            // Verify the payment using verify-selected API (matching React Native implementation)
+            const verificationResult = await paymentService.verifySelectedPayment(searchParams);
             
-            // Check specifically if the message contains success indicators
-            const messageIsSuccess = verificationResult.message && 
-              (verificationResult.message.toLowerCase().includes('success') ||
-               verificationResult.message.toLowerCase().includes('successful') ||
-               verificationResult.message.toLowerCase().includes('created'));
-            
-            // Consider it a success if either success flag is true OR message indicates success
-            if (verificationResult.success || messageIsSuccess) {
-              // Payment verified successfully
-              const productIds = JSON.parse(localStorage.getItem('selectedCartItems') || '[]')
-                .map((item: { productId: string }) => item.productId);
+            // Check if payment verification was successful
+            if (verificationResult.success && verificationResult.data?.isSuccess) {
+              // Payment verified successfully, get selected product IDs
+              const selectedProductIds = JSON.parse(localStorage.getItem('selectedCartItems') || '[]');
               
-              console.log("Selected product IDs:", productIds);
-              
-              if (productIds.length > 0) {
-                // Process the order
-                await paymentService.checkoutSelected(productIds);
-                await cartService.clearCart();
+              if (selectedProductIds.length > 0) {
+                // Remove only selected items from cart using checkout-selected API
+                await paymentService.checkoutSelected(selectedProductIds);
                 
                 // Clear localStorage
                 localStorage.removeItem('selectedCartItems');
@@ -73,32 +55,25 @@ export default function PaymentResult() {
                 
                 setSuccess(true);
                 
-                if (verificationResult.message) {
-                  toast.success(verificationResult.message);
-                }
+                // Show success message
+                toast.success('Order created successfully!');
               } else {
-                console.error("No products selected for checkout");
-                // Still consider payment successful even if products list is empty
                 setSuccess(true);
                 toast.success('Payment successful!');
               }
             } else {
-              console.error("Payment verification failed:", verificationResult.message);
               setSuccess(false);
-              toast.error(verificationResult.message || 'Payment verification failed');
+              toast.error(verificationResult.data?.message || verificationResult.message || 'Payment verification failed');
             }
           } catch (verifyError) {
-            console.error("Error during payment verification:", verifyError);
             setSuccess(false);
             toast.error('Error verifying payment');
           }
         } else {
-          console.error("VNPay response indicates failure:", vnp_ResponseCode, vnp_TransactionStatus);
           setSuccess(false);
           toast.error('Payment rejected by payment provider');
         }
       } catch (error) {
-        console.error('Payment processing error:', error);
         setSuccess(false);
         toast.error('Failed to process payment');
       } finally {
