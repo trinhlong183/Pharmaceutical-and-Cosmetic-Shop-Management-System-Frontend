@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableHeader,
@@ -10,12 +10,25 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
+type Item = {
+  _id: string;
+  inventoryLogId: string;
+  productId: { productName: string; price: number; id: string; stock: number };
+  quantity: number;
+  expiryDate: string;
+  price: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type Product = {
-  productId: { productName: string; price: number; id: string };
+  productId: string;
   quantity: number;
   _id?: string;
 };
+
 type User = { _id: string; email: string; fullName: string } | string;
+
 type InventoryLogCardProps = {
   log: {
     _id: string;
@@ -27,6 +40,7 @@ type InventoryLogCardProps = {
     createdAt: string;
     updatedAt: string;
     reason?: string;
+    items: Item[];
   };
 };
 
@@ -46,16 +60,31 @@ const statusStyles: Record<string, { color: string; label: string }> = {
 };
 
 const InventoryLogCard: React.FC<InventoryLogCardProps> = ({ log }) => {
+  // Add null safety check
+  if (!log) {
+    return <div>No log data available</div>;
+  }
+
   const status = statusStyles[log.status] ?? {
     color: "bg-slate-50 text-slate-700 border-slate-200",
     label: log.status || "Unknown",
     icon: "❓",
   };
 
-  const grandTotal = log.products.reduce(
-    (sum, p) => sum + p.quantity * p.productId.price,
-    0
-  );
+  // Use items array if available, fallback to products for backward compatibility
+  const displayItems = log.items && log.items.length > 0 ? log.items : null;
+
+  const grandTotal = displayItems
+    ? displayItems.reduce((sum, item) => sum + item.quantity * item.price, 0)
+    : 0;
+
+  const formatVND = (price: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      minimumFractionDigits: 0,
+    }).format(price);
+  };
 
   return (
     <Card className="w-full">
@@ -64,7 +93,7 @@ const InventoryLogCard: React.FC<InventoryLogCardProps> = ({ log }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">
-              Batch ID
+              Batch
             </p>
             <p className="font-bold text-lg text-slate-800">{log.batch}</p>
           </div>
@@ -139,7 +168,14 @@ const InventoryLogCard: React.FC<InventoryLogCardProps> = ({ log }) => {
               📦 Products Overview
             </h3>
             <Badge variant="outline" className="bg-slate-100">
-              {log.products.length} item{log.products.length !== 1 ? "s" : ""}
+              {displayItems ? displayItems.length : log.products.length} item
+              {displayItems
+                ? displayItems.length !== 1
+                  ? "s"
+                  : ""
+                : log.products.length !== 1
+                ? "s"
+                : ""}
             </Badge>
           </div>
 
@@ -159,63 +195,86 @@ const InventoryLogCard: React.FC<InventoryLogCardProps> = ({ log }) => {
                   <TableHead className="font-bold text-slate-700 text-right">
                     Unit Price
                   </TableHead>
+                  {displayItems && (
+                    <TableHead className="font-bold text-slate-700 text-right">
+                      Expiry Date
+                    </TableHead>
+                  )}
                   <TableHead className="font-bold text-slate-700 text-right">
                     Total
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {log.products.map((p, index) => {
-                  const total = p.quantity * p.productId.price;
-                  return (
-                    <TableRow
-                      key={p._id || p.productId.id}
-                      className={`hover:bg-blue-50 transition-colors ${
-                        index % 2 === 0 ? "bg-white" : "bg-slate-50/50"
-                      }`}
-                    >
-                      <TableCell className="font-mono text-sm text-slate-600">
-                        {p.productId.id}
-                      </TableCell>
-                      <TableCell className="font-semibold text-slate-800">
-                        {p.productId.productName}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-slate-700">
-                        {p.quantity}
-                      </TableCell>
-                      <TableCell className="text-right text-slate-600">
-                        {p.productId.price.toLocaleString("en-US", {
-                          style: "currency",
-                          currency: "USD",
-                          minimumFractionDigits: 2,
-                        })}
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-slate-800">
-                        {total.toLocaleString("en-US", {
-                          style: "currency",
-                          currency: "USD",
-                          minimumFractionDigits: 2,
-                        })}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {displayItems
+                  ? displayItems.map((item, index) => {
+                      const total = item.quantity * item.price;
+                      return (
+                        <TableRow
+                          key={item._id}
+                          className={`hover:bg-blue-50 transition-colors ${
+                            index % 2 === 0 ? "bg-white" : "bg-slate-50/50"
+                          }`}
+                        >
+                          <TableCell className="font-mono text-sm text-slate-600">
+                            {item.productId.id}
+                          </TableCell>
+                          <TableCell className="font-semibold text-slate-800">
+                            {item.productId.productName}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-slate-700">
+                            {item.quantity}
+                          </TableCell>
+                          <TableCell className="text-right text-slate-600">
+                            {formatVND(item.price)}
+                          </TableCell>
+                          <TableCell className="text-right text-slate-600">
+                            {new Date(item.expiryDate).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-slate-800">
+                            {formatVND(total)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  : log.products.map((p, index) => (
+                      <TableRow
+                        key={p._id || index}
+                        className={`hover:bg-blue-50 transition-colors ${
+                          index % 2 === 0 ? "bg-white" : "bg-slate-50/50"
+                        }`}
+                      >
+                        <TableCell className="font-mono text-sm text-slate-600">
+                          {p.productId}
+                        </TableCell>
+                        <TableCell className="font-semibold text-slate-800">
+                          -
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-slate-700">
+                          {p.quantity}
+                        </TableCell>
+                        <TableCell className="text-right text-slate-600">
+                          -
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-slate-800">
+                          -
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 {/* Grand Total Row */}
-                <TableRow className="bg-blue-100 hover:bg-blue-100 border-t-2 border-blue-200">
-                  <TableCell
-                    colSpan={4}
-                    className="font-bold text-blue-800 text-right"
-                  >
-                    Grand Total:
-                  </TableCell>
-                  <TableCell className="text-right font-bold text-lg text-blue-900">
-                    {grandTotal.toLocaleString("en-US", {
-                      style: "currency",
-                      currency: "USD",
-                      minimumFractionDigits: 2,
-                    })}
-                  </TableCell>
-                </TableRow>
+                {displayItems && (
+                  <TableRow className="bg-blue-100 hover:bg-blue-100 border-t-2 border-blue-200">
+                    <TableCell
+                      colSpan={5}
+                      className="font-bold text-blue-800 text-right"
+                    >
+                      Grand Total:
+                    </TableCell>
+                    <TableCell className="text-right font-bold text-lg text-blue-900">
+                      {formatVND(grandTotal)}
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>

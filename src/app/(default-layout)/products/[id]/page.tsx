@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { useUser } from "@/contexts/UserContext";
 import ReviewDialog from "@/components/reviewDialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function ProductDetailPage({
   params,
@@ -50,42 +51,32 @@ export default function ProductDetailPage({
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const { user } = useUser();
 
-  // Fetch reviews for the product
   const fetchReviews = async (productId: string) => {
     if (!productId) return;
 
     setReviewsLoading(true);
     try {
-      // Get all reviews for the product
       const allReviews = await reviewService.getAllReviews({
         productId,
         userId: "",
       });
-
       let userSpecificReview = null;
       let otherReviews = allReviews || [];
 
-      // If user is logged in, check for their specific review
-      if (user?.id) {
-        try {
-          const userReviewData = await reviewService.getAllReviews({
-            productId,
-            userId: user.id,
-          });
+      if (user?.id && allReviews && allReviews.length > 0) {
+        userSpecificReview = allReviews.find(
+          (review: any) => review.userId._id === user.id
+        );
 
-          if (userReviewData && userReviewData.length > 0) {
-            userSpecificReview = userReviewData[0];
-            // Remove user's review from other reviews to avoid duplication
-            otherReviews = allReviews.filter(
-              (review: any) => review.userId !== user.id
-            );
-          }
-        } catch (error) {
-          console.log("No user review found");
+        // Remove user's review from other reviews to avoid duplication
+        if (userSpecificReview) {
+          otherReviews = allReviews.filter(
+            (review: any) => review.userId._id !== user.id
+          );
         }
       }
 
-      setUserReview(userSpecificReview);
+      setUserReview(userSpecificReview || null);
       setReviews(otherReviews);
     } catch (error) {
       console.error("Error fetching reviews:", error);
@@ -108,7 +99,6 @@ export default function ProductDetailPage({
 
         setProduct(productData);
 
-        // Fetch reviews for this product
         await fetchReviews(productData.id || productData._id);
 
         // If product has categories, fetch their details
@@ -132,7 +122,6 @@ export default function ProductDetailPage({
             setCategories(categoriesMap);
           } catch (error) {
             console.error("Error fetching categories:", error);
-            // Continue showing the product even if categories can't be loaded
           }
         }
       } catch (error) {
@@ -145,7 +134,14 @@ export default function ProductDetailPage({
     };
 
     fetchProductAndCategories();
-  }, [resolvedParams.id, router, user?.id]);
+  }, [resolvedParams.id]);
+
+  // Re-fetch reviews when user state changes (login/logout)
+  useEffect(() => {
+    if (product?.id) {
+      fetchReviews(product.id);
+    }
+  }, [user?.id, product?.id]);
 
   // Format price to VND
   const formatVND = (price: number) => {
@@ -285,14 +281,17 @@ export default function ProductDetailPage({
       )}
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
-            <span className="text-sm font-medium text-gray-600">
-              {review.userName?.charAt(0).toUpperCase() || "U"}
-            </span>
-          </div>
+          <Avatar className="w-14 h-14 mx-auto border-4 border-white shadow-lg">
+            <AvatarImage src={review.userId?.photoUrl} />
+            <AvatarFallback className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-4xl">
+              {review.userId?.fullName
+                ? review.userId?.fullName[0].toUpperCase()
+                : "U"}
+            </AvatarFallback>
+          </Avatar>
           <div>
             <p className="font-medium text-sm">
-              {review.userName || "Anonymous"}
+              {review.userId?.fullName || "Anonymous"}
             </p>
             <div className="flex items-center">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -309,7 +308,7 @@ export default function ProductDetailPage({
           </div>
         </div>
         <span className="text-xs text-gray-500">
-          {new Date(review.createdAt).toLocaleDateString()}
+          {new Date(review.updatedAt).toLocaleDateString()}
         </span>
       </div>
       <p className="text-gray-700 text-sm">{review.content}</p>

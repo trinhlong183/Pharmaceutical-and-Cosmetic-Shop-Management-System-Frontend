@@ -184,7 +184,7 @@ function InventoryRequest() {
                 handleSearch();
               }}
             >
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="userId" className="text-sm font-medium">
                   User ID
                 </Label>
@@ -195,7 +195,7 @@ function InventoryRequest() {
                   value={pendingFilters.userId || ""}
                   onChange={handleFilterChange}
                 />
-              </div>
+              </div> */}
               <div className="space-y-2">
                 <Label htmlFor="productId" className="text-sm font-medium">
                   Product ID
@@ -262,9 +262,10 @@ function InventoryRequest() {
                       <TableHead className="font-semibold">
                         Created At
                       </TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <TableBody >
                     {logs.map((log, idx) => (
                       <TableRow key={idx} className="hover:bg-gray-50">
                         <TableCell className="font-medium">

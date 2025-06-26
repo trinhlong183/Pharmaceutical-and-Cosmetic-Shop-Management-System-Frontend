@@ -15,6 +15,11 @@ const InventoryLogSchema = z.object({
         .number()
         .int()
         .nonnegative("Quantity must be a non-negative integer"),
+      price: z
+        .number()
+        .min(0, "Price must be a non-negative number")
+        .optional(),
+      expiryDate: z.string().optional(),
     })
   ),
   action: z.nativeEnum(action),
@@ -30,7 +35,6 @@ const InventoryLogSchema = z.object({
 });
 export type InventoryLogType = z.infer<typeof InventoryLogSchema>;
 
-
 export const CreateInventoryLogBody = InventoryLogSchema.extend({
   userId: z.string().min(1, "User ID is required"),
   batch: z.string().min(1, "Batch is required"),
@@ -42,6 +46,10 @@ export const CreateInventoryLogBody = InventoryLogSchema.extend({
         .number()
         .int()
         .nonnegative("Quantity must be a non-negative integer"),
+      price: z.number().min(0, "Price must be a non-negative number"),
+      expiryDate: z
+        .string()
+        .datetime("Expiry date must be a valid ISO 8601 date string"),
     })
   ),
 }).strict();
@@ -56,5 +64,3 @@ export const InventoryQueryParams = z
   .strict();
 
 export type InventoryQueryParamsType = z.infer<typeof InventoryQueryParams>;
-
-
