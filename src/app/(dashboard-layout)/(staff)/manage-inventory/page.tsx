@@ -32,15 +32,20 @@ import { Role } from "@/constants/type";
 import { toast } from "sonner";
 import CreateInventoryForm from "./create-inventory-form";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 function ManageInventoryPage() {
   const [logs, setLogs] = useState<InventoryLogType[]>([]);
   const [loading, setLoading] = useState(false);
   const { user } = useUser();
-  const [filters, setFilters] = useState<Omit<InventoryQueryParamsType, "userId">>({});
+  const [filters, setFilters] = useState<
+    Omit<InventoryQueryParamsType, "userId">
+  >({});
   const [creating, setCreating] = useState(false);
   const [selectedLog, setSelectedLog] = useState<InventoryLogType | null>(null);
-  const [pendingFilters, setPendingFilters] = useState<Omit<InventoryQueryParamsType, "userId">>({});
+  const [pendingFilters, setPendingFilters] = useState<
+    Omit<InventoryQueryParamsType, "userId">
+  >({});
 
   const fetchLogs = async () => {
     if (!user?.id) return;
@@ -102,6 +107,36 @@ function ManageInventoryPage() {
     setCreating(false);
   };
 
+  const getStatusBadge = (status: string) => {
+    const statusStyles: Record<string, { color: string; label: string }> = {
+      pending: {
+        color: "bg-amber-50 text-amber-700 border-amber-200",
+        label: "Pending",
+      },
+      completed: {
+        color: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        label: "Approved",
+      },
+      denied: {
+        color: "bg-red-50 text-red-700 border-red-200",
+        label: "Denied",
+      },
+    };
+
+    const style = statusStyles[status] ?? {
+      color: "bg-slate-50 text-slate-700 border-slate-200",
+      label: status || "Unknown",
+    };
+
+    return (
+      <div
+        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${style.color}`}
+      >
+        {style.label}
+      </div>
+    );
+  };
+
   return (
     <RoleRoute allowedRoles={["staff", Role.STAFF]}>
       <div className="max-w-4xl mx-auto py-8">
@@ -129,7 +164,7 @@ function ManageInventoryPage() {
               }}
             >
               <div>
-                <Label>Product ID</Label>
+                <Label className="mb-2">Product ID</Label>
                 <Input
                   placeholder="Product ID"
                   name="productId"
@@ -138,7 +173,7 @@ function ManageInventoryPage() {
                 />
               </div>
               <div>
-                <Label>Status</Label>
+                <Label className="mb-2">Status</Label>
                 <Select
                   value={pendingFilters.status || "all"}
                   onValueChange={handleStatusChange}
@@ -149,7 +184,7 @@ function ManageInventoryPage() {
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="completed">Approved</SelectItem>
                     <SelectItem value="denied">Denied</SelectItem>
                   </SelectContent>
                 </Select>
@@ -179,40 +214,54 @@ function ManageInventoryPage() {
                   </TableHeader>
                   <TableBody>
                     {logs.map((log, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>{log.batch}</TableCell>
-                        <TableCell>{log.action}</TableCell>
-                        <TableCell>{log.status}</TableCell>
-                        <TableCell>
-                          {log.createdAt
-                            ? typeof log.createdAt === "string"
-                              ? new Date(log.createdAt).toLocaleString()
-                              : log.createdAt.toLocaleString()
-                            : ""}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setSelectedLog(log)}
-                          >
-                            View
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                      <React.Fragment key={idx}>
+                        <TableRow>
+                          <TableCell>{log.batch}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="secondary"
+                              className="capitalize bg-blue-100 text-blue-800 font-semibold"
+                            >
+                              {log.action}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {getStatusBadge(log.status || "unknown")}
+                          </TableCell>
+                          <TableCell>
+                            {log.createdAt
+                              ? typeof log.createdAt === "string"
+                                ? new Date(log.createdAt).toLocaleString()
+                                : log.createdAt.toLocaleString()
+                              : ""}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                setSelectedLog(
+                                  selectedLog?._id === log._id ? null : log
+                                )
+                              }
+                            >
+                              {selectedLog?._id === log._id ? "Hide" : "View"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                        {selectedLog && selectedLog._id === log._id && (
+                          <TableRow>
+                            <TableCell colSpan={5} className="p-0">
+                              <div className="p-4 bg-gray-50">
+                                <InventoryLogCard log={selectedLog as any} />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                     ))}
                   </TableBody>
                 </Table>
-                {selectedLog && (
-                  <div className="mt-6">
-                    <InventoryLogCard log={selectedLog as any} />
-                    <div className="mt-2">
-                      <Button size="sm" onClick={() => setSelectedLog(null)}>
-                        Close
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </>
             )}
           </CardContent>

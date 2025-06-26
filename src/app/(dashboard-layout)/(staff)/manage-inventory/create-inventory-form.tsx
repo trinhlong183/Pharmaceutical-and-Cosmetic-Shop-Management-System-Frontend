@@ -22,7 +22,7 @@ interface CreateInventoryFormProps {
 
 const defaultForm: Omit<CreateInventoryLogBodyType, "userId"> = {
   batch: "",
-  products: [{ productId: "", quantity: 0 }],
+  products: [{ productId: "", quantity: 0, price: 0, expiryDate: "" }],
   action: action.IMPORT,
 };
 
@@ -38,12 +38,18 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
     idx?: number
   ) => {
     const { name, value } = e.target;
-    if (name === "productId" || name === "quantity") {
+    if (
+      name === "productId" ||
+      name === "quantity" ||
+      name === "price" ||
+      name === "expiryDate"
+    ) {
       const products = [...form.products];
       if (idx !== undefined) {
         products[idx] = {
           ...products[idx],
-          [name]: name === "quantity" ? Number(value) : value,
+          [name]:
+            name === "quantity" || name === "price" ? Number(value) : value,
         };
         setForm({ ...form, products });
       }
@@ -62,7 +68,10 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
   const addProduct = () => {
     setForm({
       ...form,
-      products: [...form.products, { productId: "", quantity: 0 }],
+      products: [
+        ...form.products,
+        { productId: "", quantity: 0, price: 0, expiryDate: "" },
+      ],
     });
   };
 
@@ -81,14 +90,34 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
       toast.error("Product ID must be unique in the inventory log!");
       return;
     }
-    await onSubmit(form);
+
+    // Convert expiryDate to ISO format
+    const formWithISODates = {
+      ...form,
+      products: form.products.map((product) => ({
+        ...product,
+        expiryDate: product.expiryDate
+          ? new Date(product.expiryDate + "T23:59:59.000Z").toISOString()
+          : "",
+      })),
+    };
+
+    await onSubmit(formWithISODates);
     setForm(defaultForm);
+  };
+
+  // Get today's date in YYYY-MM-DD format for min date restriction
+  const getTodayDate = () => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    return tomorrow.toISOString().split("T")[0];
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label>Batch</Label>
+        <Label className="mb-2">Batch</Label>
         <Input
           name="batch"
           placeholder="Batch"
@@ -98,7 +127,7 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
         />
       </div>
       <div>
-        <Label>Action</Label>
+        <Label className="mb-2">Action</Label>
         <Select value={form.action} onValueChange={handleActionChange}>
           <SelectTrigger className="w-[140px]">
             <SelectValue />
@@ -110,7 +139,7 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
         </Select>
       </div>
       <div>
-        <Label>Products</Label>
+        <Label className="mb-2">Products</Label>
         <div className="space-y-2">
           {form.products.map((p, idx) => (
             <div key={idx} className="flex gap-2 items-center">
@@ -129,6 +158,25 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
                 onChange={(e) => handleFormChange(e, idx)}
                 required
                 min={0}
+              />
+              <Input
+                name="price"
+                type="number"
+                step="0.01"
+                placeholder="Price"
+                value={p.price}
+                onChange={(e) => handleFormChange(e, idx)}
+                required
+                min={0}
+              />
+              <Input
+                name="expiryDate"
+                type="date"
+                placeholder="Expiry Date"
+                value={p.expiryDate}
+                onChange={(e) => handleFormChange(e, idx)}
+                required
+                min={getTodayDate()}
               />
               {form.products.length > 1 && (
                 <Button
