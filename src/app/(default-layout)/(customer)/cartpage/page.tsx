@@ -12,7 +12,6 @@ import {
   ShoppingBag, 
   ArrowLeft, 
   ShoppingCart, 
-  Truck, 
   CreditCard
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -607,27 +606,54 @@ export default function CartPage() {
                 ))}
               </div>
             </Card>
-            
-            {/* Shipping Info Card */}
-            <Card className="border shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-start space-x-3">
-                  <div className="bg-blue-50 p-2 rounded-full">
-                    <Truck className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium">Free shipping</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Orders will be delivered within 2-3 business days after successful payment.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
           
           {/* Order Summary - Right Side */}
           <div className="lg:col-span-4 space-y-6">
+            {/* User Information Card */}
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-lg">
+                    Delivery Information
+                  </CardTitle>
+                  {user && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => router.push('/profile')}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {user ? (
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <p className="text-muted-foreground">Full Name</p>
+                      <p className="font-medium">{user.fullName}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Phone Number</p>
+                      <p className="font-medium">{user.phone || 'Not provided'}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Address</p>
+                      <p className="font-medium">{user.address || 'Not provided'}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-muted-foreground mb-4">Please log in to continue checkout</p>
+                    <Button className="w-full" onClick={() => router.push('/login')}>
+                      Login / Register
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
             {/* Order Summary Card */}
             <Card className="border shadow-sm">
               <CardHeader className="pb-3">
@@ -637,10 +663,6 @@ export default function CartPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>{formatVND(cart.totalAmount)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Shipping fee</span>
-                  <span className="text-green-600">Free</span>
                 </div>
                 <hr className="my-2" />
                 <div className="flex justify-between pt-2">
@@ -676,60 +698,6 @@ export default function CartPage() {
                   Continue shopping
                 </Button>
               </CardFooter>
-            </Card>
-            
-            {/* User Information Card */}
-            <Card className="border shadow-sm">
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-center">
-                  <CardTitle className="text-lg">
-                    Delivery Information
-                  </CardTitle>
-                  {user && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => router.push('/profile')}
-                    >
-                      Edit
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {user ? (
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Full Name</p>
-                      <p className="font-medium">{user.fullName}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Phone Number</p>
-                      <p className="font-medium">{user.phone || 'Not provided'}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Delivery Address</p>
-                      <p className="font-medium">{user.address || 'Not provided'}</p>
-                      {!user.address && (
-                        <Button
-                          variant="link"
-                          className="p-0 h-auto text-blue-600"
-                          onClick={() => router.push('/profile')}
-                        >
-                          + Add delivery address
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-muted-foreground mb-4">Please log in to continue checkout</p>
-                    <Button className="w-full" onClick={() => router.push('/login')}>
-                      Login / Register
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
             </Card>
           </div>
         </div>
