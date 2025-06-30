@@ -36,8 +36,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { orderService } from "@/api/orderService";
 import { userService } from "@/api/userService";
+import { shippingLogsService } from "@/api/shippingLogsService";
 import { toast } from "react-hot-toast";
-import { Loader2, Search, Filter, RefreshCw, Eye, Package2, Truck, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Search, Filter, RefreshCw, Eye, Package2, Truck as TruckIcon, CheckCircle2, XCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -103,6 +104,36 @@ const StatusConfig = {
     icon: <CheckCircle2 className="h-3 w-3 mr-1" />,
     description: "Order has been approved"
   },
+  processing: { 
+    bg: "bg-blue-100 text-blue-800", 
+    icon: <Package2 className="h-3 w-3 mr-1" />,
+    description: "Order is being processed and prepared"
+  },
+  shipped: { 
+    bg: "bg-indigo-100 text-indigo-800", 
+    icon: <Package2 className="h-3 w-3 mr-1" />,
+    description: "Order has been shipped"
+  },
+  in_transit: { 
+    bg: "bg-purple-100 text-purple-800", 
+    icon: <TruckIcon className="h-3 w-3 mr-1" />,
+    description: "Order is in transit"
+  },
+  shipping: { 
+    bg: "bg-indigo-100 text-indigo-800", 
+    icon: <TruckIcon className="h-3 w-3 mr-1" />,
+    description: "Order is being shipped"
+  },
+  delivered: { 
+    bg: "bg-green-100 text-green-800", 
+    icon: <CheckCircle2 className="h-3 w-3 mr-1" />,
+    description: "Order has been delivered"
+  },
+  received: { 
+    bg: "bg-emerald-100 text-emerald-800", 
+    icon: <CheckCircle2 className="h-3 w-3 mr-1" />,
+    description: "Order has been received by customer"
+  },
   rejected: { 
     bg: "bg-red-100 text-red-800", 
     icon: <XCircle className="h-3 w-3 mr-1" />,
@@ -113,20 +144,15 @@ const StatusConfig = {
     icon: <RefreshCw className="h-3 w-3 mr-1" />,
     description: "Payment has been refunded"
   },
-  shipping: { 
-    bg: "bg-indigo-100 text-indigo-800", 
-    icon: <Truck className="h-3 w-3 mr-1" />,
-    description: "Order is being shipped"
-  },
-  delivered: { 
-    bg: "bg-green-100 text-green-800", 
-    icon: <CheckCircle2 className="h-3 w-3 mr-1" />,
-    description: "Order has been delivered"
-  },
   canceled: { 
     bg: "bg-gray-100 text-gray-800", 
     icon: <XCircle className="h-3 w-3 mr-1" />,
     description: "Order has been canceled"
+  },
+  cancelled: { 
+    bg: "bg-gray-100 text-gray-800", 
+    icon: <XCircle className="h-3 w-3 mr-1" />,
+    description: "Order has been cancelled"
   },
 };
 
@@ -305,6 +331,16 @@ const ManageOrdersPage = () => {
   const handleStatusChange = async (orderId: string | undefined, newStatus: string) => {
     if (!orderId) return;
     
+    // Find current order and check if status change is allowed per workflow
+    const currentOrder = orders.find(order => 
+      (order.id === orderId || order._id === orderId)
+    );
+    
+    if (!currentOrder) {
+      toast.error("Order not found");
+      return;
+    }
+    
     // If new status is "rejected", show dialog requesting reason
     if (newStatus === "rejected") {
       setProcessingOrderId(orderId);
@@ -314,10 +350,45 @@ const ManageOrdersPage = () => {
     
     setStatusUpdating(true);
     try {
-      // Call the updateOrderStatus method from orderService
-      const updatedOrder = await orderService.updateOrderStatus(orderId, newStatus);
+      let updatedOrder;
       
-      toast.success(`Order status updated to ${newStatus}`);
+      // Different handling based on workflow
+      if (currentOrder.status === "pending" && newStatus === "approved") {
+        // Use processOrder API endpoint for approvals
+        updatedOrder = await orderService.processOrder(orderId);
+        
+        // Create shipping log automatically for approved order
+        try {
+          // Add more detailed debugging logs
+          console.log(`Creating shipping log for approved order: ${orderId}`);
+          
+          const shippingLog = await shippingLogsService.createFromApprovedOrder(orderId);
+          
+          console.log("Shipping log created successfully:", shippingLog);
+          toast.success("Order approved and shipping log created");
+        } catch (shippingError) {
+          console.error("Error creating shipping log:", shippingError);
+          
+          // More detailed error handling with specific error information
+          if (shippingError instanceof Error) {
+            const errorMessage = shippingError.message || "Unknown error";
+            console.error(`Shipping log creation failed with message: ${errorMessage}`);
+            toast.error(`Order approved but failed to create shipping log: ${errorMessage}`);
+          } else {
+            console.error("Unexpected error type:", typeof shippingError);
+            toast.error("Order approved but failed to create shipping log due to an unknown error");
+          }
+          
+          // Add notification that manual creation may be needed
+          toast("You may need to manually create a shipping log for this order", {
+            duration: 5000
+          });
+        }
+      } else {
+        // Standard status update for other transitions
+        updatedOrder = await orderService.updateOrderStatus(orderId, newStatus);
+        toast.success(`Order status updated to ${newStatus}`);
+      }
       
       // Update local state to reflect the change
       setOrders(orders.map(order => 
@@ -331,6 +402,11 @@ const ManageOrdersPage = () => {
           ((detailOrder.id && detailOrder.id === orderId) || 
            (detailOrder._id && detailOrder._id === orderId))) {
         setDetailOrder({ ...detailOrder, status: newStatus });
+      }
+      
+      // If status changed to "delivered", show message about customer confirmation
+      if (newStatus === "delivered") {
+        toast.success("Customer will be notified to confirm receipt", { duration: 5000 });
       }
     } catch (error) {
       toast.error("Failed to update order status");
@@ -355,25 +431,32 @@ const ManageOrdersPage = () => {
     );
   };
   
-  // Function to get available status options based on current status
+  // Function to get available status options based on current status and workflow
   const getAvailableStatuses = (currentStatus: string): string[] => {
     switch(currentStatus) {
       case 'pending':
-        return ['pending', 'approved', 'rejected', 'shipping', 'canceled'];
+        return ['pending', 'approved', 'rejected']; // Initial state can be approved or rejected
       case 'approved':
-        return ['approved', 'shipping', 'canceled']; // Can't go back to pending
+        return ['approved', 'processing']; // Approved order moves to processing
+      case 'processing':
+        return ['processing', 'shipped']; // Processing order moves to shipped
+      case 'shipped':
+        return ['shipped', 'in_transit']; // Shipped order moves to in transit
+      case 'in_transit':
+        return ['in_transit', 'delivered']; // In transit order moves to delivered
+      case 'delivered':
+        return ['delivered', 'received']; // Delivered can be marked as received (usually by customer)
+      case 'received':
+        return ['received']; // Final state
       case 'rejected':
         return ['rejected', 'refunded']; // Can only be refunded after rejection
       case 'refunded':
         return ['refunded']; // Final state
-      case 'shipping':
-        return ['shipping', 'delivered', 'canceled']; 
-      case 'delivered':
-        return ['delivered']; // Final state
+      case 'cancelled':
       case 'canceled':
-        return ['canceled']; // Final state
+        return ['cancelled', 'canceled']; // Final state
       default:
-        return ['pending', 'approved', 'rejected', 'shipping', 'canceled'];
+        return ['pending', 'approved', 'rejected'];
     }
   };
 
@@ -520,6 +603,31 @@ const ManageOrdersPage = () => {
       : productId;
   };
 
+  // Function to manually create a shipping log from an approved order
+  const handleManualShippingLogCreation = async (orderId: string) => {
+    try {
+      setLoading(true);
+      
+      console.log(`Manually creating shipping log for order: ${orderId}`);
+      const shippingLog = await shippingLogsService.createFromApprovedOrder(orderId);
+      
+      console.log("Manual shipping log creation successful:", shippingLog);
+      toast.success("Shipping log created successfully");
+      
+      // Refresh orders to show updated status
+      fetchOrders();
+    } catch (error) {
+      console.error("Manual shipping log creation failed:", error);
+      if (error instanceof Error) {
+        toast.error(`Failed to create shipping log: ${error.message}`);
+      } else {
+        toast.error("Failed to create shipping log due to an unknown error");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6" suppressHydrationWarning>
       <div className="flex justify-between items-center">
@@ -539,6 +647,101 @@ const ManageOrdersPage = () => {
           Refresh
         </Button>
       </div>
+      
+      {/* Workflow Diagram */}
+      <Card className="bg-white">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Package2 className="h-4 w-4" /> Order Processing Workflow
+          </CardTitle>
+          <CardDescription>
+            Follow this workflow to ensure proper order processing and shipping
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="relative mt-2">
+            {/* Progress line */}
+            <div className="absolute top-5 left-0 w-full h-0.5 bg-gray-200"></div>
+            
+            {/* Workflow steps */}
+            <div className="relative flex justify-between">
+              {/* Step 1: Pending */}
+              <div className="flex flex-col items-center z-10">
+                <div className="w-10 h-10 rounded-full bg-yellow-100 border-2 border-yellow-300 flex items-center justify-center">
+                  <Package2 className="h-5 w-5 text-yellow-700" />
+                </div>
+                <span className="text-xs font-medium mt-1">Pending</span>
+                <span className="text-xs text-muted-foreground">New Order</span>
+              </div>
+              
+              {/* Step 2: Approved */}
+              <div className="flex flex-col items-center z-10">
+                <div className="w-10 h-10 rounded-full bg-blue-100 border-2 border-blue-300 flex items-center justify-center">
+                  <CheckCircle2 className="h-5 w-5 text-blue-700" />
+                </div>
+                <span className="text-xs font-medium mt-1">Approved</span>
+                <span className="text-xs text-muted-foreground">Auto-creates shipping log</span>
+              </div>
+              
+              {/* Step 3: Processing */}
+              <div className="flex flex-col items-center z-10">
+                <div className="w-10 h-10 rounded-full bg-purple-100 border-2 border-purple-300 flex items-center justify-center">
+                  <Package2 className="h-5 w-5 text-purple-700" />
+                </div>
+                <span className="text-xs font-medium mt-1">Processing</span>
+                <span className="text-xs text-muted-foreground">Packaging</span>
+              </div>
+              
+              {/* Step 4: Shipped */}
+              <div className="flex flex-col items-center z-10">
+                <div className="w-10 h-10 rounded-full bg-indigo-100 border-2 border-indigo-300 flex items-center justify-center">
+                  <Package2 className="h-5 w-5 text-indigo-700" />
+                </div>
+                <span className="text-xs font-medium mt-1">Shipped</span>
+                <span className="text-xs text-muted-foreground">Ready for delivery</span>
+              </div>
+              
+              {/* Step 5: In Transit */}
+              <div className="flex flex-col items-center z-10">
+                <div className="w-10 h-10 rounded-full bg-sky-100 border-2 border-sky-300 flex items-center justify-center">
+                  <TruckIcon className="h-5 w-5 text-sky-700" />
+                </div>
+                <span className="text-xs font-medium mt-1">In Transit</span>
+                <span className="text-xs text-muted-foreground">On the way</span>
+              </div>
+              
+              {/* Step 6: Delivered */}
+              <div className="flex flex-col items-center z-10">
+                <div className="w-10 h-10 rounded-full bg-green-100 border-2 border-green-300 flex items-center justify-center">
+                  <CheckCircle2 className="h-5 w-5 text-green-700" />
+                </div>
+                <span className="text-xs font-medium mt-1">Delivered</span>
+                <span className="text-xs text-muted-foreground">Awaiting confirmation</span>
+              </div>
+              
+              {/* Step 7: Received */}
+              <div className="flex flex-col items-center z-10">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 border-2 border-emerald-300 flex items-center justify-center">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-700" />
+                </div>
+                <span className="text-xs font-medium mt-1">Received</span>
+                <span className="text-xs text-muted-foreground">Customer confirmed</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Rejection workflow */}
+          <div className="mt-6 border-t pt-4">
+            <div className="text-xs font-medium mb-2">Alternative Flows:</div>
+            <div className="flex gap-2 items-center">
+              <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">Rejected</Badge>
+              <span className="text-xs">→</span>
+              <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-200">Refunded</Badge>
+              <span className="text-xs text-muted-foreground ml-2">Orders can be refunded after rejection</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex items-center space-x-4 mb-4">
         <Search className="h-4 w-4 text-muted-foreground" />
@@ -551,14 +754,16 @@ const ManageOrdersPage = () => {
       </div>
       
       <Tabs defaultValue="all" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="all">All Orders</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="shipping">Shipping</TabsTrigger>
+          <TabsTrigger value="processing">Processing</TabsTrigger>
+          <TabsTrigger value="shipped">Shipped</TabsTrigger>
+          <TabsTrigger value="in_transit">In Transit</TabsTrigger>
           <TabsTrigger value="delivered">Delivered</TabsTrigger>
           <TabsTrigger value="rejected">Rejected</TabsTrigger>
-          <TabsTrigger value="canceled">Canceled</TabsTrigger>
+          <TabsTrigger value="refunded">Refunded</TabsTrigger>
         </TabsList>
         
         <div className="mt-4">
@@ -605,7 +810,22 @@ const ManageOrdersPage = () => {
                                     <Eye className="h-3.5 w-3.5" />
                                     Details
                                   </Button>
-                                    {order.status === 'rejected' && (
+                                  
+                                  {/* Manual shipping log creation button for approved orders */}
+                                  {order.status === 'approved' && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => orderId && handleManualShippingLogCreation(orderId)}
+                                      className="flex items-center gap-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
+                                      disabled={loading}
+                                    >
+                                      <TruckIcon className="h-3.5 w-3.5" />
+                                      Create Shipping
+                                    </Button>
+                                  )}
+                                  
+                                  {order.status === 'rejected' && (
                                     <Button
                                       size="sm"
                                       variant="secondary"
@@ -835,7 +1055,7 @@ const ManageOrdersPage = () => {
                       {detailOrder.notes && (
                         <div className="flex flex-col gap-1 min-w-0">
                           <span className="text-muted-foreground font-medium text-xs">Notes:</span>
-                          <span className="text-sm italic bg-yellow-50 px-2 py-1 rounded border border-yellow-200 truncate">{detailOrder.notes}</span>
+                          <span className="text-sm truncate">{detailOrder.notes}</span>
                         </div>
                       )}
                     </div>

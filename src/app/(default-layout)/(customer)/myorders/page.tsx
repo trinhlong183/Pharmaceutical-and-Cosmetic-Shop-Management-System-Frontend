@@ -22,6 +22,7 @@ import {
   Calendar,
   RefreshCw,
   Star,
+  CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +37,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useUser } from "@/contexts/UserContext";
-import ReviewDialog from "@/components/reviewDialog";
+import ReviewDialog from "@/components/ReviewDialog";
+import ShipmentTracking from "@/components/ShipmentTracking";
+import ConfirmReceiptDialog from "@/components/ConfirmReceiptDialog";
+
 // Extend the OrderItem interface to match actual data structure
 interface ExtendedOrderItem {
   id?: string;
@@ -102,6 +106,10 @@ export default function MyOrdersPage() {
     productId: string | null;
     review?: any;
   }>({ open: false, productId: null });
+  const [confirmingReceipt, setConfirmingReceipt] = useState<string | null>(null);
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [selectedOrderToConfirm, setSelectedOrderToConfirm] = useState<string | null>(null);
+  
   const router = useRouter();
   const { user } = useUser();
 
@@ -289,8 +297,13 @@ export default function MyOrdersPage() {
       case "shipped":
       case "shipping":
         return "bg-purple-100 text-purple-800 border-purple-200";
+      case "in transit":
+      case "in_transit":
+        return "bg-indigo-100 text-indigo-800 border-indigo-200";
       case "delivered":
         return "bg-green-100 text-green-800 border-green-200";
+      case "received":
+        return "bg-emerald-100 text-emerald-800 border-emerald-200";
       case "rejected":
         return "bg-red-100 text-red-800 border-red-200";
       case "refunded":
@@ -298,6 +311,8 @@ export default function MyOrdersPage() {
       case "cancelled":
       case "canceled":
         return "bg-gray-100 text-gray-800 border-gray-200";
+      case "returned":
+        return "bg-amber-100 text-amber-800 border-amber-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
@@ -308,13 +323,19 @@ export default function MyOrdersPage() {
       case "pending":
         return <Clock className="h-5 w-5" />;
       case "processing":
+        return <RefreshCw className="h-5 w-5 text-blue-500" />;
       case "approved":
         return <Box className="h-5 w-5" />;
       case "shipped":
       case "shipping":
         return <TruckIcon className="h-5 w-5" />;
+      case "in transit":
+      case "in_transit":
+        return <TruckIcon className="h-5 w-5 text-indigo-500" />;
       case "delivered":
         return <CheckCircle2 className="h-5 w-5" />;
+      case "received":
+        return <CheckCircle className="h-5 w-5 text-emerald-500" />;
       case "rejected":
         return <XCircle className="h-5 w-5 text-red-500" />;
       case "refunded":
@@ -322,6 +343,8 @@ export default function MyOrdersPage() {
       case "cancelled":
       case "canceled":
         return <XCircle className="h-5 w-5 text-gray-500" />;
+      case "returned":
+        return <ArrowRight className="h-5 w-5 rotate-180 text-amber-500" />;
       default:
         return <Clock className="h-5 w-5" />;
     }
@@ -350,19 +373,73 @@ export default function MyOrdersPage() {
   const toggleOrderExpand = (orderId: string) => {
     setExpandedOrder(expandedOrder === orderId ? null : orderId);
   };
+
+  // Function to open confirmation dialog
+  const openConfirmReceiptDialog = (orderId: string) => {
+    setSelectedOrderToConfirm(orderId);
+    setReceiptDialogOpen(true);
+  };
+  
+  // Function to handle order receipt confirmation
+  const confirmReceipt = async () => {
+    if (!selectedOrderToConfirm) return;
+    
+    try {
+      setConfirmingReceipt(selectedOrderToConfirm);
+      await orderService.updateOrderStatus(selectedOrderToConfirm, "received");
+      
+      // Update local state
+      setOrders(orders.map(order => 
+        (order.id === selectedOrderToConfirm || order._id === selectedOrderToConfirm) 
+          ? {...order, status: "received"} 
+          : order
+      ));
+      
+      toast.success("Thank you for confirming your order receipt!");
+      setReceiptDialogOpen(false);
+    } catch (error) {
+      console.error("Failed to confirm order receipt:", error);
+      toast.error("Failed to confirm receipt. Please try again.");
+    } finally {
+      setConfirmingReceipt(null);
+    }
+  };
+
   // Filter orders by specific statuses
   const strictlyPendingOrders = orders.filter(
     (order) => order.status.toLowerCase() === "pending"
   );
 
-  const activeOrders = orders.filter((order) =>
-    ["pending", "processing", "approved", "shipped", "shipping"].includes(
-      order.status.toLowerCase()
-    )
+  const processingOrders = orders.filter(
+    (order) => order.status.toLowerCase() === "processing"
   );
 
-  const completedOrders = orders.filter(
+  const approvedOrders = orders.filter(
+    (order) => order.status.toLowerCase() === "approved"
+  );
+  
+  const shippingOrders = orders.filter(
+    (order) => 
+      order.status.toLowerCase() === "shipped" || 
+      order.status.toLowerCase() === "shipping"
+  );
+  
+  const inTransitOrders = orders.filter(
+    (order) => 
+      order.status.toLowerCase() === "in transit" || 
+      order.status.toLowerCase() === "in_transit"
+  );
+
+  const deliveredOrders = orders.filter(
     (order) => order.status.toLowerCase() === "delivered"
+  );
+  
+  const receivedOrders = orders.filter(
+    (order) => order.status.toLowerCase() === "received"
+  );
+  
+  const returnedOrders = orders.filter(
+    (order) => order.status.toLowerCase() === "returned"
   );
 
   // Separate refunded orders from cancelled/rejected
@@ -370,10 +447,18 @@ export default function MyOrdersPage() {
     (order) => order.status.toLowerCase() === "refunded"
   );
 
-  // Only cancelled and rejected orders, not including refunded
-  const cancelledOrders = orders.filter((order) =>
-    ["cancelled", "canceled", "rejected"].includes(order.status.toLowerCase())
+  // Only cancelled orders
+  const cancelledOrders = orders.filter(
+    (order) =>
+      order.status.toLowerCase() === "cancelled" ||
+      order.status.toLowerCase() === "canceled"
   );
+
+  // Only rejected orders
+  const rejectedOrders = orders.filter(
+    (order) => order.status.toLowerCase() === "rejected"
+  );
+
   if (!isAuthenticated) {
     return null; // Will redirect to login
   }
@@ -444,23 +529,41 @@ export default function MyOrdersPage() {
         <div className="space-y-8">
           {" "}
           <Tabs defaultValue="all" className="w-full">
-            <TabsList className="grid grid-cols-6 mb-6">
-              <TabsTrigger value="all">
-                All Orders ({orders.length})
+            <TabsList className="w-full flex flex-wrap gap-2 mb-6">
+              <TabsTrigger value="all" className="flex-grow">
+                All ({orders.length})
               </TabsTrigger>
-              <TabsTrigger value="pending" className="text-yellow-700">
+              <TabsTrigger value="pending" className="text-yellow-700 flex-grow">
                 Pending ({strictlyPendingOrders.length})
               </TabsTrigger>
-              <TabsTrigger value="active">
-                Active ({activeOrders.length})
+              <TabsTrigger value="processing" className="text-blue-700 flex-grow">
+                Processing ({processingOrders.length})
               </TabsTrigger>
-              <TabsTrigger value="completed">
-                Completed ({completedOrders.length})
+              <TabsTrigger value="approved" className="text-blue-700 flex-grow">
+                Approved ({approvedOrders.length})
               </TabsTrigger>
-              <TabsTrigger value="cancelled">
-                Cancelled/Rejected ({cancelledOrders.length})
+              <TabsTrigger value="shipping" className="text-purple-700 flex-grow">
+                Shipping ({shippingOrders.length})
               </TabsTrigger>
-              <TabsTrigger value="refunded" className="text-emerald-700">
+              <TabsTrigger value="intransit" className="text-indigo-700 flex-grow">
+                In Transit ({inTransitOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="delivered" className="text-green-700 flex-grow">
+                Delivered ({deliveredOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="received" className="text-emerald-700 flex-grow">
+                Received ({receivedOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="returned" className="text-amber-700 flex-grow">
+                Returned ({returnedOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="rejected" className="text-red-700 flex-grow">
+                Rejected ({rejectedOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="cancelled" className="text-gray-700 flex-grow">
+                Cancelled ({cancelledOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="refunded" className="text-emerald-700 flex-grow">
                 Refunded ({refundedOrders.length})
               </TabsTrigger>
             </TabsList>
@@ -477,19 +580,19 @@ export default function MyOrdersPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="active" className="space-y-6">
-              {activeOrders.length > 0 ? (
-                <OrderList orders={activeOrders} />
+            <TabsContent value="approved" className="space-y-6">
+              {approvedOrders.length > 0 ? (
+                <OrderList orders={approvedOrders} />
               ) : (
-                <EmptyState message="No active orders at the moment" />
+                <EmptyState message="No approved orders at the moment" />
               )}
             </TabsContent>
 
-            <TabsContent value="completed" className="space-y-6">
-              {completedOrders.length > 0 ? (
-                <OrderList orders={completedOrders} />
+            <TabsContent value="rejected" className="space-y-6">
+              {rejectedOrders.length > 0 ? (
+                <OrderList orders={rejectedOrders} />
               ) : (
-                <EmptyState message="No completed orders yet" />
+                <EmptyState message="No rejected orders" />
               )}
             </TabsContent>
 
@@ -501,6 +604,54 @@ export default function MyOrdersPage() {
               )}
             </TabsContent>
 
+            <TabsContent value="delivered" className="space-y-6">
+              {deliveredOrders.length > 0 ? (
+                <OrderList orders={deliveredOrders} />
+              ) : (
+                <EmptyState message="No delivered orders yet" />
+              )}
+            </TabsContent>
+
+            <TabsContent value="processing" className="space-y-6">
+              {processingOrders.length > 0 ? (
+                <OrderList orders={processingOrders} />
+              ) : (
+                <EmptyState message="No orders currently being processed" />
+              )}
+            </TabsContent>
+
+            <TabsContent value="shipping" className="space-y-6">
+              {shippingOrders.length > 0 ? (
+                <OrderList orders={shippingOrders} />
+              ) : (
+                <EmptyState message="No orders currently being shipped" />
+              )}
+            </TabsContent>
+
+            <TabsContent value="intransit" className="space-y-6">
+              {inTransitOrders.length > 0 ? (
+                <OrderList orders={inTransitOrders} />
+              ) : (
+                <EmptyState message="No orders currently in transit" />
+              )}
+            </TabsContent>
+            
+            <TabsContent value="received" className="space-y-6">
+              {receivedOrders.length > 0 ? (
+                <OrderList orders={receivedOrders} />
+              ) : (
+                <EmptyState message="No received orders" />
+              )}
+            </TabsContent>
+
+            <TabsContent value="returned" className="space-y-6">
+              {returnedOrders.length > 0 ? (
+                <OrderList orders={returnedOrders} />
+              ) : (
+                <EmptyState message="No returned orders" />
+              )}
+            </TabsContent>
+            
             <TabsContent value="refunded" className="space-y-6">
               {refundedOrders.length > 0 ? (
                 <OrderList orders={refundedOrders} />
@@ -587,6 +738,14 @@ export default function MyOrdersPage() {
             toast.error("Failed to delete review");
           }
         }}
+      />
+
+      {/* Confirm Receipt Dialog */}
+      <ConfirmReceiptDialog
+        open={receiptDialogOpen}
+        onOpenChange={setReceiptDialogOpen}
+        onConfirm={confirmReceipt}
+        isLoading={!!confirmingReceipt}
       />
     </div>
   );
@@ -704,6 +863,54 @@ export default function MyOrdersPage() {
             {expandedOrder === order.id && (
               <CardContent className="p-0">
                 <div className="p-6 border-t border-gray-100 space-y-6">
+                  {/* Shipment Tracking Section for orders that are in shipment process */}
+                  {['approved', 'processing', 'shipped', 'shipping', 'in_transit', 'delivered'].includes(order.status.toLowerCase()) && (
+                    <div className="space-y-4 mb-6 border-b border-gray-100 pb-6">
+                      <h3 className="font-medium flex items-center gap-2">
+                        <TruckIcon className="h-4 w-4" />
+                        Shipment Tracking
+                      </h3>
+                      {/* Extract and validate orderId safely before passing it to the component */}
+                      {(() => {
+                        const orderId = order.id || order._id || '';
+                        if (orderId && typeof orderId === 'string' && orderId.trim() !== '') {
+                          return <ShipmentTracking orderId={orderId} />;
+                        } else {
+                          return (
+                            <div className="text-yellow-600 bg-yellow-50 p-4 rounded-md text-sm">
+                              Unable to load tracking information: Missing or invalid order ID
+                            </div>
+                          );
+                        }
+                      })()}
+                      
+                      
+                      {/* Confirm Receipt button only for delivered orders */}
+                      {order.status.toLowerCase() === "delivered" && (
+                        <div className="mt-4 bg-green-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-medium text-green-800 flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4" />
+                                Order Delivered
+                              </h4>
+                              <p className="text-sm text-green-700 mt-1">
+                                Please confirm that you've received your order in good condition.
+                              </p>
+                            </div>
+                            <Button 
+                              onClick={() => openConfirmReceiptDialog(order.id || order._id || '')}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              <CheckCircle2 className="mr-2 h-4 w-4" />
+                              Confirm Receipt
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   {/* Order Items Section */}
                   <div className="space-y-4">
                     <h3 className="font-medium flex items-center gap-2">

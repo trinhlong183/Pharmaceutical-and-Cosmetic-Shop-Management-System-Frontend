@@ -10,6 +10,7 @@ import {
   Settings,
   FolderKanban,
   Layers2,
+  Truck,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -75,6 +76,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       label: "Transactions",
       path: "/transaction-admin",
       icon: <ShoppingCart size={20} />,
+    });
+    menuItems.splice(5, 0, {
+      label: "Shipping",
+      path: "/shipping",
+      icon: <Truck size={20} />,
     });
   }
 
