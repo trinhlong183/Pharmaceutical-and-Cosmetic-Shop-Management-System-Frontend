@@ -204,55 +204,32 @@ export default function ShippingAdminPage() {
         if (!searchTerm) return true;
         const searchLower = searchTerm.toLowerCase();
         
-        // Extract searchable orderId from all possible sources
+        // Extract order ID from nested order object (new API format)
         let orderIdStr = '';
-        
-        // Direct orderId field
-        if (typeof log.orderId === 'string') {
-          orderIdStr = log.orderId;
-        } else if (typeof log.orderId === 'object' && log.orderId) {
-          const orderIdObj = log.orderId as Record<string, any>;
-          orderIdStr = orderIdObj.id || orderIdObj._id || '';
-        }
-        
-        // Order object
-        if (!orderIdStr && log.order) {
-          orderIdStr = log.order.id || log.order._id || '';
-        }
-        
-        // Extract product summary for searching
-        let productSummaryText = '';
-        if (typeof log.productSummary === 'string') {
-          productSummaryText = log.productSummary;
+        if (log.order && log.order.id) {
+          orderIdStr = log.order.id;
         }
         
         // Search through all relevant fields
         return (
-          // Order IDs
+          // Order ID
           (orderIdStr ? orderIdStr.toLowerCase().includes(searchLower) : false) ||
           
           // Shipping info
           (log.trackingNumber ? log.trackingNumber.toLowerCase().includes(searchLower) : false) ||
           
-          // Recipient info - direct fields
-          (log.recipientName ? log.recipientName.toLowerCase().includes(searchLower) : false) ||
-          (log.recipientPhone ? log.recipientPhone.toLowerCase().includes(searchLower) : false) ||
-          (log.shippingAddress ? log.shippingAddress.toLowerCase().includes(searchLower) : false) ||
-          
-          // Customer info
-          (log.customer?.name ? log.customer.name.toLowerCase().includes(searchLower) : false) ||
-          (log.customer?.fullName ? log.customer.fullName.toLowerCase().includes(searchLower) : false) ||
-          (log.customer?.phone ? log.customer.phone.toLowerCase().includes(searchLower) : false) ||
-          (log.customer?.phoneNumber ? log.customer.phoneNumber.toLowerCase().includes(searchLower) : false) ||
+          // Customer info (new API format)
           (log.customer?.email ? log.customer.email.toLowerCase().includes(searchLower) : false) ||
+          (log.customer?.phone ? log.customer.phone.toLowerCase().includes(searchLower) : false) ||
+          (log.customer?.address ? log.customer.address.toLowerCase().includes(searchLower) : false) ||
           
-          // Order info
-          (log.order?.contactName ? log.order.contactName.toLowerCase().includes(searchLower) : false) ||
-          (log.order?.contactPhone ? log.order.contactPhone.toLowerCase().includes(searchLower) : false) ||
+          // Order info (new API format)
           (log.order?.shippingAddress ? log.order.shippingAddress.toLowerCase().includes(searchLower) : false) ||
+          (log.order?.contactPhone ? log.order.contactPhone.toLowerCase().includes(searchLower) : false) ||
           
-          // Product info
-          (productSummaryText ? productSummaryText.toLowerCase().includes(searchLower) : false)
+          // Product summary
+          (log.productSummary && typeof log.productSummary === 'string' ? 
+           log.productSummary.toLowerCase().includes(searchLower) : false)
         );
       })
       .sort((a, b) => {
@@ -315,7 +292,7 @@ export default function ShippingAdminPage() {
     }
   };
   
-  // Load order items - now checks for items in the shipping log first
+  // Load order items - now uses items from shipping log directly
   const loadOrderItems = async (orderId: string | undefined, shippingLog?: ShippingLog) => {
     if (!orderId) {
       toast.error("Order ID is missing");
@@ -324,40 +301,22 @@ export default function ShippingAdminPage() {
     
     setLoadingOrderItems(true);
     try {
-      // First try to get items from the shipping log if provided
-      if (shippingLog) {
-        console.log("Checking shipping log for items:", shippingLog);
-        
-        // Direct items array in the shipping log
-        if (shippingLog.items && Array.isArray(shippingLog.items) && shippingLog.items.length > 0) {
-          console.log("Using items directly from shipping log:", shippingLog.items);
-          setOrderItems(shippingLog.items);
-          setLoadingOrderItems(false);
-          return;
-        }
-        
-        // Items in productSummary (object form)
-        if (shippingLog.productSummary && 
-            typeof shippingLog.productSummary === 'object' && 
-            shippingLog.productSummary.items && 
-            Array.isArray(shippingLog.productSummary.items) && 
-            shippingLog.productSummary.items.length > 0) {
-          console.log("Using items from productSummary:", shippingLog.productSummary.items);
-          setOrderItems(shippingLog.productSummary.items);
-          setLoadingOrderItems(false);
-          return;
-        }
-        
-        console.log("No items found in shipping log, fetching from API");
+      // Use items directly from shipping log (new API format)
+      if (shippingLog && shippingLog.items && Array.isArray(shippingLog.items) && shippingLog.items.length > 0) {
+        console.log("Using items from shipping log:", shippingLog.items);
+        setOrderItems(shippingLog.items);
+        setLoadingOrderItems(false);
+        return;
       }
       
-      // If we reach here, fetch from the API
+      // Fallback: try to fetch from API if items not available in shipping log
       const data = await shippingLogsService.getOrderItems(orderId);
       console.log("Order items loaded from API:", data);
       
       if (data && data.items) {
         setOrderItems(data.items);
       } else {
+        console.warn("No items found in API response");
         setOrderItems([]);
         toast.error("No items found for this order");
       }
@@ -552,37 +511,19 @@ export default function ShippingAdminPage() {
                   <TableRow key={log.id || log._id}>
                     <TableCell className="font-medium">
                       {(() => {
-                        // First check for direct orderId (either string or object)
-                        if (log.orderId) {
-                          let orderIdStr = '';
-                          
-                          // Handle string format
-                          if (typeof log.orderId === 'string') {
-                            orderIdStr = log.orderId;
-                          } 
-                          // Handle object format
-                          else if (typeof log.orderId === 'object' && log.orderId) {
-                            const orderIdObj = log.orderId as Record<string, any>;
-                            orderIdStr = orderIdObj.id || orderIdObj._id || '';
-                          }
-                          
-                          if (orderIdStr) {
-                            return orderIdStr.length > 8 ? `${orderIdStr.substring(0, 8)}...` : orderIdStr;
-                          }
-                        }
-                        
-                        // Then check for order object if orderId failed
-                        if (log.order && (log.order.id || log.order._id)) {
-                          const orderId = log.order.id || log.order._id;
+                        // Get order ID from nested order object (new API format)
+                        if (log.order && log.order.id) {
+                          const orderId = log.order.id;
                           return orderId.length > 8 ? `${orderId.substring(0, 8)}...` : orderId;
                         }
                         
-                        // Then check for order numberF
-                        if (log.order && log.order.orderNumber) {
-                          return log.order.orderNumber;
+                        // Fallback to orderId field if it exists
+                        if (log.orderId) {
+                          if (typeof log.orderId === 'string') {
+                            return log.orderId.length > 8 ? `${log.orderId.substring(0, 8)}...` : log.orderId;
+                          }
                         }
                         
-                        // Fallback
                         return "N/A";
                       })()}
                     </TableCell>
@@ -595,30 +536,14 @@ export default function ShippingAdminPage() {
                       <div className="flex flex-col">
                         <span>
                           {(() => {
-                            // Try all possible sources for recipient name
+                            // Get recipient name from customer object (new API format)
+                            if (log.customer) {
+                              return log.customer.email || 'Unknown Customer';
+                            }
+                            
+                            // Fallback to recipientName if exists
                             if (log.recipientName) {
                               return log.recipientName;
-                            }
-                            
-                            // Check customer object
-                            if (log.customer) {
-                              const customer = log.customer;
-                              if (customer.name) return customer.name;
-                              if (customer.fullName) return customer.fullName;
-                            }
-                            
-                            // Check customerInfo object (alternative field)
-                            if (log.customerInfo) {
-                              const customerInfo = log.customerInfo;
-                              if (customerInfo.name) return customerInfo.name;
-                              if (customerInfo.fullName) return customerInfo.fullName;
-                            }
-                            
-                            // Check order object for customer details
-                            if (log.order && log.order.customer) {
-                              const orderCustomer = log.order.customer;
-                              if (orderCustomer.name) return orderCustomer.name;
-                              if (orderCustomer.fullName) return orderCustomer.fullName;
                             }
                             
                             return 'Unknown';
@@ -626,30 +551,19 @@ export default function ShippingAdminPage() {
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {(() => {
-                            // Try all possible sources for recipient phone
+                            // Get phone from customer object (new API format)
+                            if (log.customer && log.customer.phone) {
+                              return log.customer.phone;
+                            }
+                            
+                            // Fallback to order contact phone
+                            if (log.order && log.order.contactPhone) {
+                              return log.order.contactPhone;
+                            }
+                            
+                            // Fallback to recipientPhone if exists
                             if (log.recipientPhone) {
                               return log.recipientPhone;
-                            }
-                            
-                            // Check customer object
-                            if (log.customer) {
-                              const customer = log.customer;
-                              if (customer.phone) return customer.phone;
-                              if (customer.phoneNumber) return customer.phoneNumber;
-                            }
-                            
-                            // Check customerInfo object (alternative field)
-                            if (log.customerInfo) {
-                              const customerInfo = log.customerInfo;
-                              if (customerInfo.phone) return customerInfo.phone;
-                              if (customerInfo.phoneNumber) return customerInfo.phoneNumber;
-                            }
-                            
-                            // Check order object for customer details
-                            if (log.order && log.order.customer) {
-                              const orderCustomer = log.order.customer;
-                              if (orderCustomer.phone) return orderCustomer.phone;
-                              if (orderCustomer.phoneNumber) return orderCustomer.phoneNumber;
                             }
                             
                             return 'No phone';
@@ -658,7 +572,10 @@ export default function ShippingAdminPage() {
                       </div>
                     </TableCell>
                     <TableCell>{formatDate(log.createdAt || undefined)}</TableCell>
-                    <TableCell>{log.estimatedDelivery ? formatDate(log.estimatedDelivery) : "Not specified"}</TableCell>
+                    <TableCell>
+                      {log.estimatedDelivery ? formatDate(log.estimatedDelivery) : 
+                       (log.status === 'Delivered' || log.status === 'Received') ? 'Completed' : 'Not specified'}
+                    </TableCell>
                     <TableCell>{log.trackingNumber || "Not assigned"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -689,21 +606,13 @@ export default function ShippingAdminPage() {
                             variant="ghost" 
                             size="sm"
                             onClick={() => {
-                              // First try to get ID from order object
-                              let orderId = '';
-                              if (log.order) {
-                                orderId = log.order.id || log.order._id || '';
-                              }
-                              
-                              // Fall back to extracting from orderId if needed
-                              if (!orderId && log.orderId) {
-                                orderId = extractOrderId(log.orderId);
-                              }
+                              // Get order ID from nested order object (new API format)
+                              const orderId = log.order?.id;
 
                               if (orderId) {
                                 setCurrentShipping(log);
                                 setLoadingOrderItems(true);
-                                loadOrderItems(orderId, log); // Pass the shipping log object
+                                loadOrderItems(orderId, log);
                                 setOrderItemsDialogOpen(true);
                               } else {
                                 toast.error("Order ID not found");
@@ -753,14 +662,14 @@ export default function ShippingAdminPage() {
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ShippingStatus.PENDING}>Pending (Chờ xử lý)</SelectItem>
-                  <SelectItem value={ShippingStatus.PROCESSING}>Processing (Đang xử lý)</SelectItem>
-                  <SelectItem value={ShippingStatus.SHIPPED}>Shipped (Đã gửi hàng)</SelectItem>
-                  <SelectItem value={ShippingStatus.IN_TRANSIT}>In Transit (Đang vận chuyển)</SelectItem>
-                  <SelectItem value={ShippingStatus.DELIVERED}>Delivered (Đã giao hàng)</SelectItem>
-                  <SelectItem value={ShippingStatus.RECEIVED}>Received (Đã nhận hàng)</SelectItem>
-                  <SelectItem value={ShippingStatus.CANCELLED}>Cancelled (Đã hủy)</SelectItem>
-                  <SelectItem value={ShippingStatus.RETURNED}>Returned (Đã trả lại)</SelectItem>
+                  <SelectItem value={ShippingStatus.PENDING}>Pending</SelectItem>
+                  <SelectItem value={ShippingStatus.PROCESSING}>Processing</SelectItem>
+                  <SelectItem value={ShippingStatus.IN_TRANSIT}>In Transit</SelectItem>
+                  <SelectItem value={ShippingStatus.SHIPPED}>Shipped</SelectItem>
+                  <SelectItem value={ShippingStatus.DELIVERED}>Delivered</SelectItem>
+                  <SelectItem value={ShippingStatus.RECEIVED}>Received</SelectItem>
+                  <SelectItem value={ShippingStatus.CANCELLED}>Cancelled</SelectItem>
+                  <SelectItem value={ShippingStatus.RETURNED}>Returned</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -823,27 +732,9 @@ export default function ShippingAdminPage() {
                 <p className="font-semibold mb-1">Warning:</p>
                 <p>You are about to delete a shipping record for:</p>
                 <ul className="list-disc list-inside mt-1 ml-2">
-                  <li>Order ID: {(() => {
-                                // First try to get ID from order object
-                                if (currentShipping.order) {
-                                  const orderId = currentShipping.order.id || currentShipping.order._id;
-                                  if (orderId) return orderId;
-                                }
-                                
-                                // Then try from orderId field if it exists
-                                if (currentShipping.orderId) {
-                                  return extractOrderId(currentShipping.orderId);
-                                }
-                                
-                                // Fallback
-                                return "Unknown";
-                              })()}</li>
+                  <li>Order ID: {currentShipping.order?.id || "Unknown"}</li>
                   <li>
-                    Recipient: {currentShipping.recipientName || 
-                               (currentShipping.customer?.name) ||
-                               (currentShipping.customer?.fullName) ||
-                               (currentShipping.order?.contactName) ||
-                               "Unknown"}
+                    Recipient: {currentShipping.customer?.email || "Unknown"}
                   </li>
                   <li>Status: {currentShipping.status || "Unknown"}</li>
                   <li>
@@ -1077,21 +968,8 @@ export default function ShippingAdminPage() {
                       size="sm" 
                       className="w-full mt-2"
                       onClick={() => {
-                        // First try to get ID from order object
-                        let orderId = '';
-                        if (currentShipping.order) {
-                          orderId = currentShipping.order.id || currentShipping.order._id || '';
-                        }
-                        
-                        // Fall back to orderId if needed
-                        if (!orderId && currentShipping.orderId) {
-                          if (typeof currentShipping.orderId === 'string') {
-                            orderId = currentShipping.orderId;
-                          } else if (typeof currentShipping.orderId === 'object' && currentShipping.orderId) {
-                            const orderIdObj = currentShipping.orderId as Record<string, any>;
-                            orderId = orderIdObj.id || orderIdObj._id || '';
-                          }
-                        }
+                        // Get order ID from nested order object (new API format)
+                        const orderId = currentShipping.order?.id;
                         
                         if (orderId) {
                           viewOrderDetails(orderId);
@@ -1099,7 +977,7 @@ export default function ShippingAdminPage() {
                           toast.error("Order ID not found");
                         }
                       }}
-                      disabled={!currentShipping.orderId && !currentShipping.order}
+                      disabled={!currentShipping.order?.id}
                     >
                       View Order Details
                     </Button>
@@ -1112,84 +990,25 @@ export default function ShippingAdminPage() {
                   </h3>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Name:</span>
+                      <span className="text-muted-foreground">Email:</span>
                       <span className="font-medium">
-                        {(() => {
-                          // Try all possible sources for recipient name
-                          if (currentShipping.recipientName) {
-                            return currentShipping.recipientName;
-                          }
-                          
-                          // Check customer object
-                          if (currentShipping.customer) {
-                            const customer = currentShipping.customer;
-                            if (customer.name) return customer.name;
-                            if (customer.fullName) return customer.fullName;
-                          }
-                          
-                          // Check order object
-                          if (currentShipping.order) {
-                            if (currentShipping.order.contactName) return currentShipping.order.contactName;
-                          }
-                          
-                          return "N/A";
-                        })()}
+                        {currentShipping.customer?.email || "Not provided"}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Phone:</span>
                       <span>
-                        {(() => {
-                          // Try all possible sources for recipient phone
-                          if (currentShipping.recipientPhone) {
-                            return currentShipping.recipientPhone;
-                          }
-                          
-                          // Check customer object
-                          if (currentShipping.customer) {
-                            const customer = currentShipping.customer;
-                            if (customer.phone) return customer.phone;
-                            if (customer.phoneNumber) return customer.phoneNumber;
-                          }
-                          
-                          // Check order object
-                          if (currentShipping.order) {
-                            if (currentShipping.order.contactPhone) return currentShipping.order.contactPhone;
-                          }
-                          
-                          return "N/A";
-                        })()}
-                      </span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-muted-foreground mb-1">Email:</span>
-                      <span className="text-right">
-                        {currentShipping.customer?.email || "Not provided"}
+                        {currentShipping.customer?.phone || 
+                         currentShipping.order?.contactPhone || 
+                         "Not provided"}
                       </span>
                     </div>
                     <div className="flex flex-col">
                       <span className="text-muted-foreground mb-1">Address:</span>
                       <span className="text-right">
-                        {(() => {
-                          // Try all possible sources for address
-                          if (currentShipping.shippingAddress) {
-                            return currentShipping.shippingAddress;
-                          }
-                          
-                          // Check order object
-                          if (currentShipping.order && currentShipping.order.shippingAddress) {
-                            return currentShipping.order.shippingAddress;
-                          }
-                          
-                          // Check customer object
-                          if (currentShipping.customer) {
-                            const customer = currentShipping.customer;
-                            if (customer.address) return customer.address;
-                            if (customer.shippingAddress) return customer.shippingAddress;
-                          }
-                          
-                          return "Address not provided";
-                        })()}
+                        {currentShipping.customer?.address || 
+                         currentShipping.order?.shippingAddress || 
+                         "Address not provided"}
                       </span>
                     </div>
                   </div>

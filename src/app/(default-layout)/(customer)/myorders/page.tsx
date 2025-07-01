@@ -42,7 +42,7 @@ import ShipmentTracking from "@/components/ShipmentTracking";
 import OrderShippingTracker from "@/components/OrderShippingTracker";
 import ConfirmReceiptDialog from "@/components/ConfirmReceiptDialog";
 import { StatusBadge } from "@/components/order/StatusBadge";
-import { shippingLogsService, ShippingLog } from "@/api/shippingLogsService";
+import { shippingLogsService, ShippingLog, ShippingStatus } from "@/api/shippingLogsService";
 
 // Interface for Order Item based on shipping log API response
 interface OrderItem {
@@ -287,7 +287,7 @@ export default function MyOrdersPage() {
     if (!expandedOrder) return;
 
     const shippingLog = shippingLogs.find((log) => log.id === expandedOrder);
-    if (!shippingLog || shippingLog.status?.toLowerCase() !== "delivered") return;
+    if (!shippingLog || !['delivered', 'received'].includes(shippingLog.status?.toLowerCase() || '')) return;
 
     const userId = user?.id;
 
@@ -397,10 +397,17 @@ export default function MyOrdersPage() {
         throw new Error("Shipping log not found");
       }
 
-      // Update the shipping log status using enum
+      // Call API to update shipping log status to "Received"
+      await shippingLogsService.updateStatus(selectedOrderToConfirm, {
+        status: ShippingStatus.RECEIVED,
+        notes: "Order receipt confirmed by customer",
+        actualDelivery: new Date().toISOString()
+      });
+
+      // Update local state to reflect the change
       setShippingLogs(logs => logs.map(log => 
         log.id === selectedOrderToConfirm 
-          ? {...log, status: "Received" as any} 
+          ? {...log, status: ShippingStatus.RECEIVED} 
           : log
       ));
       
@@ -418,6 +425,7 @@ export default function MyOrdersPage() {
   const pendingLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "pending");
   const approvedLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "approved");
   const deliveredLogs = shippingLogs.filter(log => log.status?.toLowerCase() === "delivered");
+  const receivedLogs = shippingLogs.filter(log => log.status?.toLowerCase() === "received");
   const refundedLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "refunded");
   const rejectedLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "rejected");
 
@@ -515,6 +523,9 @@ export default function MyOrdersPage() {
               <TabsTrigger value="delivered" className="text-green-700 flex-grow">
                 Delivered ({deliveredLogs.length})
               </TabsTrigger>
+              <TabsTrigger value="received" className="text-emerald-700 flex-grow">
+                Received ({receivedLogs.length})
+              </TabsTrigger>
               <TabsTrigger value="rejected" className="text-red-700 flex-grow">
                 Rejected ({rejectedLogs.length})
               </TabsTrigger>
@@ -554,6 +565,14 @@ export default function MyOrdersPage() {
                 <ShippingLogList shippingLogs={deliveredLogs} />
               ) : (
                 <EmptyState message="No delivered orders yet" />
+              )}
+            </TabsContent>
+
+            <TabsContent value="received" className="space-y-6">
+              {receivedLogs.length > 0 ? (
+                <ShippingLogList shippingLogs={receivedLogs} />
+              ) : (
+                <EmptyState message="No received orders yet" />
               )}
             </TabsContent>
 
@@ -774,7 +793,8 @@ export default function MyOrdersPage() {
               <div className="flex items-center gap-4">
                 <div className="hidden md:flex h-12 w-12 rounded-full bg-blue-50 items-center justify-center">
                   <span className="text-xl">
-                    {shippingLog.status?.toLowerCase() === 'delivered' ? '✅' :
+                    {shippingLog.status?.toLowerCase() === 'received' ? '✅' :
+                     shippingLog.status?.toLowerCase() === 'delivered' ? '📦' :
                      shippingLog.status?.toLowerCase() === 'shipped' ? '🚚' :
                      shippingLog.status?.toLowerCase() === 'processing' ? '📦' : '⏳'}
                   </span>
@@ -785,7 +805,9 @@ export default function MyOrdersPage() {
                     <Badge 
                       variant="outline" 
                       className={`ml-2 ${
-                        shippingLog.status?.toLowerCase() === 'delivered' 
+                        shippingLog.status?.toLowerCase() === 'received'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                          : shippingLog.status?.toLowerCase() === 'delivered' 
                           ? 'bg-green-100 text-green-800 border-green-200'
                           : shippingLog.status?.toLowerCase() === 'shipped'
                           ? 'bg-blue-100 text-blue-800 border-blue-200'
@@ -812,26 +834,27 @@ export default function MyOrdersPage() {
                         <span className="font-mono">{shippingLog.trackingNumber}</span>
                       </div>
                     )}
-                    {/* Show progress indicator based on status */}
-                    <div className="flex items-center gap-1 text-xs">
-                      <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
-                          style={{ 
-                            width: `${
-                              shippingLog.status?.toLowerCase() === 'delivered' ? 100 :
-                              shippingLog.status?.toLowerCase() === 'shipped' ? 75 :
-                              shippingLog.status?.toLowerCase() === 'processing' ? 50 : 25
-                            }%` 
-                          }}
-                        />
+                    {/* Show progress indicator based on status */}                      <div className="flex items-center gap-1 text-xs">
+                        <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
+                            style={{ 
+                              width: `${
+                                shippingLog.status?.toLowerCase() === 'received' ? 100 :
+                                shippingLog.status?.toLowerCase() === 'delivered' ? 90 :
+                                shippingLog.status?.toLowerCase() === 'shipped' ? 75 :
+                                shippingLog.status?.toLowerCase() === 'processing' ? 50 : 25
+                              }%` 
+                            }}
+                          />
+                        </div>
+                        <span>
+                          {shippingLog.status?.toLowerCase() === 'received' ? 100 :
+                           shippingLog.status?.toLowerCase() === 'delivered' ? 90 :
+                           shippingLog.status?.toLowerCase() === 'shipped' ? 75 :
+                           shippingLog.status?.toLowerCase() === 'processing' ? 50 : 25}%
+                        </span>
                       </div>
-                      <span>
-                        {shippingLog.status?.toLowerCase() === 'delivered' ? 100 :
-                         shippingLog.status?.toLowerCase() === 'shipped' ? 75 :
-                         shippingLog.status?.toLowerCase() === 'processing' ? 50 : 25}%
-                      </span>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -900,13 +923,30 @@ export default function MyOrdersPage() {
                   </div>
 
                   {/* Shipping Tracker */}
-                  {(['processing', 'shipped', 'delivered'].includes(shippingLog.status?.toLowerCase() || '')) && (
+                  {(['processing', 'shipped', 'delivered', 'received'].includes(shippingLog.status?.toLowerCase() || '')) && (
                     <div className="space-y-4 mb-6">
                       <OrderShippingTracker 
                         shippingLog={shippingLog} 
                         loading={false}
                         onRefresh={refreshShippingLogs}
                       />
+                      
+                      {/* Show received confirmation for received orders */}
+                      {shippingLog.status?.toLowerCase() === 'received' && (
+                        <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5 text-emerald-600" />
+                            <div>
+                              <h4 className="font-medium text-emerald-800">
+                                Order Received
+                              </h4>
+                              <p className="text-sm text-emerald-700 mt-1">
+                                Thank you for confirming receipt of your order!
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       
                       {/* Confirm Receipt button for delivered orders */}
                       {shippingLog.status?.toLowerCase() === 'delivered' && (
@@ -974,8 +1014,8 @@ export default function MyOrdersPage() {
                               <div className="font-semibold mt-1">
                                 {formatCurrency((item.price || 0) * (item.quantity || 0))}
                               </div>
-                              {/* Review section for delivered items */}
-                              {shippingLog.status?.toLowerCase() === "delivered" && (
+                              {/* Review section for delivered and received items */}
+                              {['delivered', 'received'].includes(shippingLog.status?.toLowerCase() || '') && (
                                 <div className="mt-4 flex flex-col items-end">
                                   {!productReviews[item.productId!] ? (
                                     <Button
