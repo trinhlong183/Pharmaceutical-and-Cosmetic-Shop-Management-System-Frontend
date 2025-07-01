@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { orderService, Order } from "@/api/orderService";
 import { userService, User } from "@/api/userService";
+import { orderService, Order as ApiOrder } from "@/api/orderService";
 import { reviewService } from "@/api/reviewService";
 import {
   Package,
@@ -22,6 +22,7 @@ import {
   Calendar,
   RefreshCw,
   Star,
+  CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,59 +37,98 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useUser } from "@/contexts/UserContext";
-import ReviewDialog from "@/components/reviewDialog";
-// Extend the OrderItem interface to match actual data structure
-interface ExtendedOrderItem {
-  id?: string;
-  orderId?: string;
+import ReviewDialog from "@/components/ReviewDialog";
+import ShipmentTracking from "@/components/ShipmentTracking";
+import OrderShippingTracker from "@/components/OrderShippingTracker";
+import ConfirmReceiptDialog from "@/components/ConfirmReceiptDialog";
+import { StatusBadge } from "@/components/order/StatusBadge";
+import { shippingLogsService, ShippingLog, ShippingStatus } from "@/api/shippingLogsService";
+
+// Interface for Order Item based on shipping log API response
+interface OrderItem {
+  id: string;
   productId: string;
-  productDetails?: {
-    productName?: string;
-    price?: number;
-    id?: string;
-  };
+  productName: string;
   quantity: number;
   price: number;
-  productName?: string;
+  subtotal: number;
   productImage?: string;
-  subtotal?: number;
+  brand?: string;
+  description?: string;
+  category?: string[];
 }
 
-// Extend the Order interface to match actual data structure
-interface ExtendedOrder
-  extends Omit<Order, "items" | "userId" | "processedBy"> {
-  _id?: string;
-  userId:
-    | string
-    | {
-        _id?: string;
-        id?: string;
-        name?: string;
-        email?: string;
-        phone?: string;
-        address?: string;
-      };
-  items: ExtendedOrderItem[];
-  processedBy?:
-    | string
-    | {
-        _id?: string;
-        id?: string;
-        name?: string;
-        email?: string;
-      };
-  shippingAddress?: string;
-  contactPhone?: string;
-  itemCount?: number;
-  totalQuantity?: number;
-  rejectionReason?: string; // Reason for rejection
-  refundReason?: string; // Reason for refund
-  refundedAt?: string; // When the refund was processed
-  notes?: string; // Additional notes
+// Interface for Order from orderService API
+interface Order {
+  id: string;
+  _id: string;
+  userId: any;
+  transactionId: any;
+  status: string;
+  totalAmount: number;
+  shippingAddress: string;
+  contactPhone: string;
+  createdAt: string;
+  updatedAt: string;
+  items?: OrderItem[];
+  rejectionReason?: string;
+  refundReason?: string;
+  processedBy?: string;
+  notes?: string;
+}
+
+// Interface for Order based on shipping log API response
+interface OrderFromShippingLog {
+  id: string;
+  status: string;
+  totalAmount: number;
+  shippingAddress: string;
+  contactPhone: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Interface for Customer based on shipping log API response
+interface CustomerInfo {
+  id: string;
+  email: string;
+  phone: string;
+  address: string;
+}
+
+// Interface for Transaction based on shipping log API response
+interface TransactionInfo {
+  id: string;
+  status: string;
+  paymentMethod: string;
+  createdAt: string;
+}
+
+// Extended Shipping Log interface based on API response
+interface ExtendedShippingLog {
+  id: string;
+  status: string; // "Processing", "Shipped", "Delivered", etc.
+  totalAmount: number;
+  createdAt: string;
+  updatedAt: string;
+  productSummary: string;
+  itemCount: number;
+  totalQuantity: number;
+  order: OrderFromShippingLog;
+  customer: CustomerInfo;
+  transaction: TransactionInfo;
+  items: OrderItem[];
+  // Additional optional fields
+  trackingNumber?: string;
+  carrier?: string;
+  currentLocation?: string;
+  estimatedDelivery?: string;
+  notes?: string;
 }
 
 export default function MyOrdersPage() {
-  const [orders, setOrders] = useState<ExtendedOrder[]>([]);
+  const [shippingLogs, setShippingLogs] = useState<ShippingLog[]>([]);
+  const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
@@ -102,6 +142,10 @@ export default function MyOrdersPage() {
     productId: string | null;
     review?: any;
   }>({ open: false, productId: null });
+  const [confirmingReceipt, setConfirmingReceipt] = useState<string | null>(null);
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [selectedOrderToConfirm, setSelectedOrderToConfirm] = useState<string | null>(null);
+  
   const router = useRouter();
   const { user } = useUser();
 
@@ -140,6 +184,38 @@ export default function MyOrdersPage() {
         )}...`;
   };
 
+  // Function to refresh shipping logs data
+  const refreshShippingLogs = async () => {
+    try {
+      console.log("Refreshing shipping logs...");
+      const data = await shippingLogsService.getAll();
+      console.log("Shipping logs data:", data);
+      
+      // Filter shipping logs for current user (assuming customer info is available)
+      const userShippingLogs = data.filter((log: ShippingLog) => 
+        log.customer?.email === user?.email
+      );
+      
+      setShippingLogs(userShippingLogs);
+    } catch (error) {
+      console.error("Error refreshing shipping logs:", error);
+      toast.error("Failed to refresh shipping data");
+    }
+  };
+
+  // Function to load user orders
+  const loadUserOrders = async () => {
+    try {
+      console.log("Loading user orders...");
+      const userOrders = await orderService.getCurrentUserOrders();
+      console.log("User orders:", userOrders);
+      setOrders(userOrders);
+    } catch (error) {
+      console.error("Error loading user orders:", error);
+      toast.error("Failed to load orders");
+    }
+  };
+
   useEffect(() => {
     // Check if user is authenticated
     const token = localStorage.getItem("accessToken");
@@ -149,14 +225,31 @@ export default function MyOrdersPage() {
       return;
     }
 
-    async function loadOrders() {
+    async function loadData() {
       try {
         setLoading(true);
-        const data = await orderService.getCurrentUserOrders();
-        // Cast data to ExtendedOrder type
-        setOrders(data as unknown as ExtendedOrder[]);
+        
+        // Load both orders and shipping logs in parallel
+        const [userOrders, shippingLogsData] = await Promise.all([
+          orderService.getCurrentUserOrders(),
+          shippingLogsService.getAll()
+        ]);
+        
+        console.log("User orders:", userOrders);
+        console.log("Raw shipping logs data:", shippingLogsData);
+        
+        // Set orders
+        setOrders(userOrders);
+        
+        // Filter shipping logs for current user based on customer email
+        const userShippingLogs = shippingLogsData.filter((log: ShippingLog) => 
+          log.customer?.email === user?.email
+        );
+        
+        console.log("Filtered shipping logs for user:", userShippingLogs);
+        setShippingLogs(userShippingLogs);
       } catch (err) {
-        console.error("Error loading orders:", err);
+        console.error("Error loading data:", err);
         if (
           err instanceof Error &&
           err.message.includes("Authentication token is missing")
@@ -171,8 +264,11 @@ export default function MyOrdersPage() {
       }
     }
 
-    loadOrders();
-  }, []);
+    // Only load if user is available
+    if (user?.email) {
+      loadData();
+    }
+  }, [user]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -182,74 +278,20 @@ export default function MyOrdersPage() {
     }
   }, [isAuthenticated, loading, router]);
 
-  // Fetch processor details when order is expanded
-  useEffect(() => {
-    if (!expandedOrder) return;
-
-    const currentOrder = orders.find((order) => order.id === expandedOrder);
-    if (!currentOrder || !currentOrder.processedBy) return;
-
-    // Extract processedBy ID
-    let processedById: string | undefined;
-
-    if (typeof currentOrder.processedBy === "string") {
-      processedById = currentOrder.processedBy;
-    } else if (currentOrder.processedBy._id) {
-      processedById = currentOrder.processedBy._id;
-    } else if (currentOrder.processedBy.id) {
-      processedById = currentOrder.processedBy.id;
-    }
-
-    // If we have an ID and we haven't fetched this user yet
-    if (processedById && !processedByUsers[processedById]) {
-      // Set a loading state for this user
-      setProcessedByUsers((prev) => ({
-        ...prev,
-        [processedById!]: {
-          _id: processedById!,
-          fullName: "Loading...",
-          email: "",
-        } as User,
-      }));
-
-      // Fetch user details
-      userService
-        .getUserById(processedById)
-        .then((userData) => {
-          setProcessedByUsers((prev) => ({
-            ...prev,
-            [processedById!]: userData,
-          }));
-        })
-        .catch((err) => {
-          console.error(`Failed to fetch user ${processedById}:`, err);
-          // Set an error state for this user
-          setProcessedByUsers((prev) => ({
-            ...prev,
-            [processedById!]: {
-              _id: processedById!,
-              fullName: `User ${processedById?.slice(0, 8)}...`,
-              email: "",
-            } as User,
-          }));
-        });
-    }
-  }, [expandedOrder, orders, processedByUsers]);
-
   // Lấy review của user cho từng sản phẩm khi mở chi tiết đơn hàng đã giao
   useEffect(() => {
     fetchReviews();
-  }, [expandedOrder, orders]);
+  }, [expandedOrder, shippingLogs]);
 
   const fetchReviews = async () => {
     if (!expandedOrder) return;
 
-    const order = orders.find((o) => o.id === expandedOrder);
-    if (!order || order.status.toLowerCase() !== "delivered") return;
+    const shippingLog = shippingLogs.find((log) => log.id === expandedOrder);
+    if (!shippingLog || !['delivered', 'received'].includes(shippingLog.status?.toLowerCase() || '')) return;
 
     const userId = user?.id;
 
-    for (const item of order.items) {
+    for (const item of shippingLog.items || []) {
       if (!item.productId || !userId) continue;
       if (!productReviews[item.productId]) {
         try {
@@ -262,7 +304,7 @@ export default function MyOrdersPage() {
           const myReview = reviewsArray.length > 0 ? reviewsArray[0] : null;
           setProductReviews((prev) => ({
             ...prev,
-            [item.productId]: myReview,
+            [item.productId!]: myReview,
           }));
         } catch (error) {
           console.error(
@@ -271,59 +313,10 @@ export default function MyOrdersPage() {
           );
           setProductReviews((prev) => ({
             ...prev,
-            [item.productId]: null,
+            [item.productId!]: null,
           }));
         }
       }
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "processing":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      case "approved":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "shipped":
-      case "shipping":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      case "delivered":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "rejected":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "refunded":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200";
-      case "cancelled":
-      case "canceled":
-        return "bg-gray-100 text-gray-800 border-gray-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-        return <Clock className="h-5 w-5" />;
-      case "processing":
-      case "approved":
-        return <Box className="h-5 w-5" />;
-      case "shipped":
-      case "shipping":
-        return <TruckIcon className="h-5 w-5" />;
-      case "delivered":
-        return <CheckCircle2 className="h-5 w-5" />;
-      case "rejected":
-        return <XCircle className="h-5 w-5 text-red-500" />;
-      case "refunded":
-        return <RefreshCw className="h-5 w-5 text-emerald-500" />;
-      case "cancelled":
-      case "canceled":
-        return <XCircle className="h-5 w-5 text-gray-500" />;
-      default:
-        return <Clock className="h-5 w-5" />;
     }
   };
 
@@ -347,33 +340,98 @@ export default function MyOrdersPage() {
     }).format(amount);
   };
 
-  const toggleOrderExpand = (orderId: string) => {
-    setExpandedOrder(expandedOrder === orderId ? null : orderId);
+  // Function to refresh all shipping logs
+  const refreshAllShippingLogs = async () => {
+    try {
+      setLoading(true);
+      
+      // Load both orders and shipping logs in parallel
+      const [userOrders, shippingLogsData] = await Promise.all([
+        orderService.getCurrentUserOrders(),
+        shippingLogsService.getAll()
+      ]);
+      
+      console.log("Refreshed user orders:", userOrders);
+      console.log("Refreshed shipping logs data:", shippingLogsData);
+      
+      // Set orders
+      setOrders(userOrders);
+      
+      // Filter shipping logs for current user based on customer email
+      const userShippingLogs = shippingLogsData.filter((log: ShippingLog) => 
+        log.customer?.email === user?.email
+      );
+      
+      console.log("Refreshed filtered shipping logs for user:", userShippingLogs);
+      setShippingLogs(userShippingLogs);
+      
+      toast.success("Data refreshed successfully!");
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      toast.error("Failed to refresh data");
+    } finally {
+      setLoading(false);
+    }
   };
-  // Filter orders by specific statuses
-  const strictlyPendingOrders = orders.filter(
-    (order) => order.status.toLowerCase() === "pending"
-  );
 
-  const activeOrders = orders.filter((order) =>
-    ["pending", "processing", "approved", "shipped", "shipping"].includes(
-      order.status.toLowerCase()
-    )
-  );
+  const toggleOrderExpand = (shippingLogId: string) => {
+    setExpandedOrder(expandedOrder === shippingLogId ? null : shippingLogId);
+  };
 
-  const completedOrders = orders.filter(
-    (order) => order.status.toLowerCase() === "delivered"
-  );
+  // Function to open confirmation dialog
+  const openConfirmReceiptDialog = (shippingLogId: string) => {
+    setSelectedOrderToConfirm(shippingLogId);
+    setReceiptDialogOpen(true);
+  };
+  
+  // Function to handle order receipt confirmation
+  const confirmReceipt = async () => {
+    if (!selectedOrderToConfirm) return;
+    
+    try {
+      setConfirmingReceipt(selectedOrderToConfirm);
+      
+      // Find the shipping log and update its status to "received"
+      const shippingLogToUpdate = shippingLogs.find(log => log.id === selectedOrderToConfirm);
+      if (!shippingLogToUpdate) {
+        throw new Error("Shipping log not found");
+      }
 
-  // Separate refunded orders from cancelled/rejected
-  const refundedOrders = orders.filter(
-    (order) => order.status.toLowerCase() === "refunded"
-  );
+      // Call API to update shipping log status to "Received"
+      await shippingLogsService.updateStatus(selectedOrderToConfirm, {
+        status: ShippingStatus.RECEIVED,
+        notes: "Order receipt confirmed by customer",
+        actualDelivery: new Date().toISOString()
+      });
 
-  // Only cancelled and rejected orders, not including refunded
-  const cancelledOrders = orders.filter((order) =>
-    ["cancelled", "canceled", "rejected"].includes(order.status.toLowerCase())
-  );
+      // Update local state to reflect the change
+      setShippingLogs(logs => logs.map(log => 
+        log.id === selectedOrderToConfirm 
+          ? {...log, status: ShippingStatus.RECEIVED} 
+          : log
+      ));
+      
+      toast.success("Thank you for confirming your order receipt!");
+      setReceiptDialogOpen(false);
+    } catch (error) {
+      console.error("Failed to confirm order receipt:", error);
+      toast.error("Failed to confirm receipt. Please try again.");
+    } finally {
+      setConfirmingReceipt(null);
+    }
+  };
+
+  // Filter shipping logs by status
+  const pendingLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "pending");
+  const approvedLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "approved");
+  const deliveredLogs = shippingLogs.filter(log => log.status?.toLowerCase() === "delivered");
+  const receivedLogs = shippingLogs.filter(log => log.status?.toLowerCase() === "received");
+  const refundedLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "refunded");
+  const rejectedLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "rejected");
+
+  // Get pending orders from orders API
+  const pendingOrders = orders.filter(order => order.status?.toLowerCase() === "pending");
+
   if (!isAuthenticated) {
     return null; // Will redirect to login
   }
@@ -394,6 +452,14 @@ export default function MyOrdersPage() {
               Continue Shopping
             </Button>
           </Link>
+          <Button 
+            variant="outline" 
+            onClick={refreshAllShippingLogs}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh Shipping Status
+          </Button>
         </div>
       </div>
 
@@ -422,7 +488,7 @@ export default function MyOrdersPage() {
             Try Again
           </Button>
         </div>
-      ) : orders.length === 0 ? (
+      ) : shippingLogs.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-gray-100">
           <div className="w-24 h-24 bg-blue-50 rounded-full mx-auto mb-6 flex items-center justify-center">
             <ShoppingBag className="h-12 w-12 text-blue-500" />
@@ -444,66 +510,83 @@ export default function MyOrdersPage() {
         <div className="space-y-8">
           {" "}
           <Tabs defaultValue="all" className="w-full">
-            <TabsList className="grid grid-cols-6 mb-6">
-              <TabsTrigger value="all">
-                All Orders ({orders.length})
+            <TabsList className="w-full flex flex-wrap gap-2 mb-6">
+              <TabsTrigger value="all" className="flex-grow">
+                All ({shippingLogs.length + pendingOrders.length})
               </TabsTrigger>
-              <TabsTrigger value="pending" className="text-yellow-700">
-                Pending ({strictlyPendingOrders.length})
+              <TabsTrigger value="pending" className="text-yellow-700 flex-grow">
+                Pending ({pendingLogs.length + pendingOrders.length})
               </TabsTrigger>
-              <TabsTrigger value="active">
-                Active ({activeOrders.length})
+              <TabsTrigger value="approved" className="text-blue-700 flex-grow">
+                Approved ({approvedLogs.length})
               </TabsTrigger>
-              <TabsTrigger value="completed">
-                Completed ({completedOrders.length})
+              <TabsTrigger value="delivered" className="text-green-700 flex-grow">
+                Delivered ({deliveredLogs.length})
               </TabsTrigger>
-              <TabsTrigger value="cancelled">
-                Cancelled/Rejected ({cancelledOrders.length})
+              <TabsTrigger value="received" className="text-emerald-700 flex-grow">
+                Received ({receivedLogs.length})
               </TabsTrigger>
-              <TabsTrigger value="refunded" className="text-emerald-700">
-                Refunded ({refundedOrders.length})
+              <TabsTrigger value="rejected" className="text-red-700 flex-grow">
+                Rejected ({rejectedLogs.length})
+              </TabsTrigger>
+              <TabsTrigger value="refunded" className="text-emerald-700 flex-grow">
+                Refunded ({refundedLogs.length})
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="space-y-6">
-              <OrderList orders={orders} />
+              <div className="space-y-6">
+                <ShippingLogList shippingLogs={shippingLogs} />
+                {pendingOrders.length > 0 && <PendingOrdersList orders={pendingOrders} />}
+              </div>
             </TabsContent>
 
             <TabsContent value="pending" className="space-y-6">
-              {strictlyPendingOrders.length > 0 ? (
-                <OrderList orders={strictlyPendingOrders} />
+              {pendingLogs.length > 0 || pendingOrders.length > 0 ? (
+                <div className="space-y-6">
+                  <ShippingLogList shippingLogs={pendingLogs} />
+                  {pendingOrders.length > 0 && <PendingOrdersList orders={pendingOrders} />}
+                </div>
               ) : (
                 <EmptyState message="No pending orders at the moment" />
               )}
             </TabsContent>
 
-            <TabsContent value="active" className="space-y-6">
-              {activeOrders.length > 0 ? (
-                <OrderList orders={activeOrders} />
+            <TabsContent value="approved" className="space-y-6">
+              {approvedLogs.length > 0 ? (
+                <ShippingLogList shippingLogs={approvedLogs} />
               ) : (
-                <EmptyState message="No active orders at the moment" />
+                <EmptyState message="No approved orders at the moment" />
               )}
             </TabsContent>
 
-            <TabsContent value="completed" className="space-y-6">
-              {completedOrders.length > 0 ? (
-                <OrderList orders={completedOrders} />
+            <TabsContent value="delivered" className="space-y-6">
+              {deliveredLogs.length > 0 ? (
+                <ShippingLogList shippingLogs={deliveredLogs} />
               ) : (
-                <EmptyState message="No completed orders yet" />
+                <EmptyState message="No delivered orders yet" />
               )}
             </TabsContent>
 
-            <TabsContent value="cancelled" className="space-y-6">
-              {cancelledOrders.length > 0 ? (
-                <OrderList orders={cancelledOrders} />
+            <TabsContent value="received" className="space-y-6">
+              {receivedLogs.length > 0 ? (
+                <ShippingLogList shippingLogs={receivedLogs} />
               ) : (
-                <EmptyState message="No cancelled orders" />
+                <EmptyState message="No received orders yet" />
               )}
             </TabsContent>
 
+            <TabsContent value="rejected" className="space-y-6">
+              {rejectedLogs.length > 0 ? (
+                <ShippingLogList shippingLogs={rejectedLogs} />
+              ) : (
+                <EmptyState message="No rejected orders" />
+              )}
+            </TabsContent>
+            
             <TabsContent value="refunded" className="space-y-6">
-              {refundedOrders.length > 0 ? (
-                <OrderList orders={refundedOrders} />
+              {refundedLogs.length > 0 ? (
+                <ShippingLogList shippingLogs={refundedLogs} />
               ) : (
                 <EmptyState message="No refunded orders" />
               )}
@@ -588,8 +671,75 @@ export default function MyOrdersPage() {
           }
         }}
       />
+
+      {/* Confirm Receipt Dialog */}
+      <ConfirmReceiptDialog
+        open={receiptDialogOpen}
+        onOpenChange={setReceiptDialogOpen}
+        onConfirm={confirmReceipt}
+        isLoading={!!confirmingReceipt}
+      />
     </div>
   );
+
+  function PendingOrdersList({ orders }: { orders: ApiOrder[] }) {
+    return (
+      <div className="space-y-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Pending Orders (Awaiting Processing)</h3>
+        {orders.map((order) => (
+          <Card
+            key={order.id}
+            className="overflow-hidden border hover:border-gray-200 transition-all duration-300 hover:shadow-md border-yellow-200"
+          >
+            <div className="bg-yellow-50 px-6 py-3 flex items-center gap-3 border-b border-yellow-100">
+              <Clock className="h-4 w-4 text-yellow-500" />
+              <div>
+                <p className="text-sm text-yellow-800 font-medium">
+                  This order is awaiting confirmation. We'll process it shortly.
+                </p>
+                <p className="text-xs text-yellow-700 mt-1">
+                  Submitted on: {formatDate(order.createdAt)}
+                </p>
+              </div>
+            </div>
+            <div className="px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="hidden md:flex h-12 w-12 rounded-full bg-yellow-50 items-center justify-center">
+                  <span className="text-xl">⏳</span>
+                </div>
+                <div>
+                  <div className="font-semibold text-lg flex items-center gap-2">
+                    Order #{order.id.slice(-6)}
+                    <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-200">
+                      Pending
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center text-sm text-gray-500 gap-3 mt-1">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {formatDate(order.createdAt)}
+                    </div>
+                    <div className="font-medium">
+                      {order.items?.length || 0} items
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4">
+                <div className="text-right">
+                  <div className="text-sm text-gray-500">Total Amount:</div>
+                  <div className="font-bold text-lg">
+                    {formatCurrency(order.totalAmount || 0)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   function EmptyState({ message }: { message: string }) {
     return (
@@ -600,21 +750,21 @@ export default function MyOrdersPage() {
     );
   }
 
-  function OrderList({ orders }: { orders: ExtendedOrder[] }) {
+  function ShippingLogList({ shippingLogs }: { shippingLogs: ShippingLog[] }) {
     return (
       <div className="space-y-6">
-        {orders.map((order) => (
+        {shippingLogs.map((shippingLog) => (
           <Card
-            key={order.id}
+            key={shippingLog.id}
             className={`overflow-hidden border hover:border-gray-200 transition-all duration-300 hover:shadow-md ${
-              order.status.toLowerCase() === "refunded"
+              shippingLog.order?.status?.toLowerCase() === "refunded"
                 ? "border-emerald-200"
-                : order.status.toLowerCase() === "rejected"
+                : shippingLog.order?.status?.toLowerCase() === "rejected"
                 ? "border-red-200"
                 : "border-gray-100"
             }`}
           >
-            {order.status.toLowerCase() === "pending" && (
+            {shippingLog.order?.status?.toLowerCase() === "pending" && (
               <div className="bg-yellow-50 px-6 py-3 flex items-center gap-3 border-b border-yellow-100">
                 <Clock className="h-4 w-4 text-yellow-500" />
                 <div>
@@ -623,12 +773,12 @@ export default function MyOrdersPage() {
                     shortly.
                   </p>
                   <p className="text-xs text-yellow-700 mt-1">
-                    Submitted on: {formatDate(order.createdAt)}
+                    Submitted on: {formatDate(shippingLog.order?.createdAt || shippingLog.createdAt || new Date().toISOString())}
                   </p>
                 </div>
               </div>
             )}
-            {order.status.toLowerCase() === "refunded" && (
+            {shippingLog.order?.status?.toLowerCase() === "refunded" && (
               <div className="bg-emerald-50 px-6 py-3 flex items-center gap-3 border-b border-emerald-100">
                 <RefreshCw className="h-4 w-4 text-emerald-500" />
                 <div>
@@ -636,41 +786,75 @@ export default function MyOrdersPage() {
                     This order has been refunded. Your payment has been
                     returned.
                   </p>
-                  {order.refundedAt && (
-                    <p className="text-xs text-emerald-700 mt-1">
-                      Refunded on: {formatDate(order.refundedAt)}
-                    </p>
-                  )}
                 </div>
               </div>
             )}
             <div className="px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="hidden md:flex h-12 w-12 rounded-full bg-blue-50 items-center justify-center">
-                  {getStatusIcon(order.status)}
+                  <span className="text-xl">
+                    {shippingLog.status?.toLowerCase() === 'received' ? '✅' :
+                     shippingLog.status?.toLowerCase() === 'delivered' ? '📦' :
+                     shippingLog.status?.toLowerCase() === 'shipped' ? '🚚' :
+                     shippingLog.status?.toLowerCase() === 'processing' ? '📦' : '⏳'}
+                  </span>
                 </div>
                 <div>
                   <div className="font-semibold text-lg flex items-center gap-2">
-                    Order #{order.id.slice(-6)}
-                    <Badge
-                      className={`${getStatusColor(
-                        order.status
-                      )} flex items-center gap-1 ml-2`}
+                    Order #{shippingLog.order?.id?.slice(-6) || shippingLog.id?.slice(-6)}
+                    <Badge 
+                      variant="outline" 
+                      className={`ml-2 ${
+                        shippingLog.status?.toLowerCase() === 'received'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                          : shippingLog.status?.toLowerCase() === 'delivered' 
+                          ? 'bg-green-100 text-green-800 border-green-200'
+                          : shippingLog.status?.toLowerCase() === 'shipped'
+                          ? 'bg-blue-100 text-blue-800 border-blue-200'
+                          : shippingLog.status?.toLowerCase() === 'processing'
+                          ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                          : 'bg-gray-100 text-gray-800 border-gray-200'
+                      }`}
                     >
-                      <span className="md:hidden">
-                        {getStatusIcon(order.status)}
-                      </span>
-                      <span>{order.status}</span>
+                      {shippingLog.status}
                     </Badge>
                   </div>
                   <div className="flex flex-wrap items-center text-sm text-gray-500 gap-3 mt-1">
                     <div className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5" />
-                      {formatDate(order.createdAt)}
+                      {formatDate(shippingLog.order?.createdAt || shippingLog.createdAt || new Date().toISOString())}
                     </div>
                     <div className="font-medium">
-                      {order.items.length} items
+                      {shippingLog.itemCount || shippingLog.items?.length || 0} items
                     </div>
+                    {/* Show tracking number if available */}
+                    {shippingLog.trackingNumber && (
+                      <div className="flex items-center gap-1 text-xs bg-gray-50 px-2 py-1 rounded">
+                        <Package className="h-3 w-3" />
+                        <span className="font-mono">{shippingLog.trackingNumber}</span>
+                      </div>
+                    )}
+                    {/* Show progress indicator based on status */}                      <div className="flex items-center gap-1 text-xs">
+                        <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
+                            style={{ 
+                              width: `${
+                                shippingLog.status?.toLowerCase() === 'received' ? 100 :
+                                shippingLog.status?.toLowerCase() === 'delivered' ? 90 :
+                                shippingLog.status?.toLowerCase() === 'shipped' ? 75 :
+                                shippingLog.status?.toLowerCase() === 'processing' ? 50 : 25
+                              }%` 
+                            }}
+                          />
+                        </div>
+                        <span>
+                          {shippingLog.status?.toLowerCase() === 'received' ? 100 :
+                           shippingLog.status?.toLowerCase() === 'delivered' ? 90 :
+                           shippingLog.status?.toLowerCase() === 'shipped' ? 75 :
+                           shippingLog.status?.toLowerCase() === 'processing' ? 50 : 25}%
+                        </span>
+                      </div>
                   </div>
                 </div>
               </div>
@@ -679,16 +863,16 @@ export default function MyOrdersPage() {
                 <div className="text-right">
                   <div className="text-sm text-gray-500">Total Amount:</div>
                   <div className="font-bold text-lg">
-                    {formatCurrency(order.totalAmount)}
+                    {formatCurrency(shippingLog.totalAmount || 0)}
                   </div>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   className="flex items-center gap-1"
-                  onClick={() => toggleOrderExpand(order.id)}
+                  onClick={() => toggleOrderExpand(shippingLog.id!)}
                 >
-                  {expandedOrder === order.id ? (
+                  {expandedOrder === shippingLog.id ? (
                     <>
                       Details <ChevronUp className="h-4 w-4" />
                     </>
@@ -701,9 +885,96 @@ export default function MyOrdersPage() {
               </div>
             </div>
 
-            {expandedOrder === order.id && (
+            {expandedOrder === shippingLog.id && (
               <CardContent className="p-0">
                 <div className="p-6 border-t border-gray-100 space-y-6">
+                  {/* Custom Timeline Section - Simple version without OrderTimeline component */}
+                  <div className="space-y-4">
+                    <h3 className="font-medium flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Order Progress
+                    </h3>
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium text-blue-900">Current Status:</span>
+                        <Badge className={`${
+                          shippingLog.status?.toLowerCase() === 'delivered' 
+                            ? 'bg-green-100 text-green-800 border-green-200'
+                            : shippingLog.status?.toLowerCase() === 'shipped'
+                            ? 'bg-blue-100 text-blue-800 border-blue-200'
+                            : shippingLog.status?.toLowerCase() === 'processing'
+                            ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                            : 'bg-gray-100 text-gray-800 border-gray-200'
+                        }`}>
+                          {shippingLog.status}
+                        </Badge>
+                      </div>
+                      {shippingLog.updatedAt && (
+                        <p className="text-sm text-blue-700">
+                          Last updated: {formatDate(shippingLog.updatedAt)}
+                        </p>
+                      )}
+                      {shippingLog.currentLocation && (
+                        <p className="text-sm text-blue-700 mt-1">
+                          Current location: {shippingLog.currentLocation}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Shipping Tracker */}
+                  {(['processing', 'shipped', 'delivered', 'received'].includes(shippingLog.status?.toLowerCase() || '')) && (
+                    <div className="space-y-4 mb-6">
+                      <OrderShippingTracker 
+                        shippingLog={shippingLog} 
+                        loading={false}
+                        onRefresh={refreshShippingLogs}
+                      />
+                      
+                      {/* Show received confirmation for received orders */}
+                      {shippingLog.status?.toLowerCase() === 'received' && (
+                        <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5 text-emerald-600" />
+                            <div>
+                              <h4 className="font-medium text-emerald-800">
+                                Order Received
+                              </h4>
+                              <p className="text-sm text-emerald-700 mt-1">
+                                Thank you for confirming receipt of your order!
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Confirm Receipt button for delivered orders */}
+                      {shippingLog.status?.toLowerCase() === 'delivered' && (
+                        <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-medium text-green-800 flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4" />
+                                Order Delivered
+                              </h4>
+                              <p className="text-sm text-green-700 mt-1">
+                                Please confirm that you've received your order in good condition.
+                              </p>
+                            </div>
+                            <Button 
+                              onClick={() => openConfirmReceiptDialog(shippingLog.id!)}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              disabled={!!confirmingReceipt}
+                            >
+                              <CheckCircle2 className="mr-2 h-4 w-4" />
+                              {confirmingReceipt === shippingLog.id ? 'Confirming...' : 'Confirm Receipt'}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   {/* Order Items Section */}
                   <div className="space-y-4">
                     <h3 className="font-medium flex items-center gap-2">
@@ -711,7 +982,7 @@ export default function MyOrdersPage() {
                       Order Items
                     </h3>
                     <div className="divide-y divide-gray-100">
-                      {order.items.map((item, idx) => (
+                      {(shippingLog.items || []).map((item, idx) => (
                         <div key={idx} className="py-4 first:pt-0 last:pb-0">
                           <div className="flex items-center gap-4">
                             <div className="h-16 w-16 bg-gray-100 rounded-lg shrink-0 overflow-hidden relative">
@@ -729,9 +1000,7 @@ export default function MyOrdersPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-medium truncate">
-                                Product:{" "}
-                                {item.productDetails?.productName ||
-                                  item.productName}
+                                Product: {item.productName}
                               </div>
                               <div className="text-sm text-gray-500 mt-1">
                                 Quantity: {item.quantity}
@@ -741,15 +1010,14 @@ export default function MyOrdersPage() {
                               <div className="text-sm text-gray-500">
                                 Unit Price:
                               </div>
-                              <div>{formatCurrency(item.price)}</div>
+                              <div>{formatCurrency(item.price || 0)}</div>
                               <div className="font-semibold mt-1">
-                                {formatCurrency(item.price * item.quantity)}
+                                {formatCurrency((item.price || 0) * (item.quantity || 0))}
                               </div>
-                              {/* Đánh giá sản phẩm nếu đã giao */}
-                              {order.status.toLowerCase() === "delivered" && (
+                              {/* Review section for delivered and received items */}
+                              {['delivered', 'received'].includes(shippingLog.status?.toLowerCase() || '') && (
                                 <div className="mt-4 flex flex-col items-end">
-                                  {!productReviews[item.productId] ? (
-                                    // Nếu chưa review, hiển thị nút tạo review như cũ
+                                  {!productReviews[item.productId!] ? (
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -757,7 +1025,7 @@ export default function MyOrdersPage() {
                                       onClick={() =>
                                         setReviewDialog({
                                           open: true,
-                                          productId: item.productId,
+                                          productId: item.productId!,
                                           review: undefined,
                                         })
                                       }
@@ -771,9 +1039,7 @@ export default function MyOrdersPage() {
                                         <span className="flex items-center gap-1">
                                           {Array.from(
                                             {
-                                              length:
-                                                productReviews[item.productId]
-                                                  ?.rating || 0,
+                                              length: productReviews[item.productId!]?.rating || 0,
                                             },
                                             (_, i) => (
                                               <Star
@@ -784,10 +1050,7 @@ export default function MyOrdersPage() {
                                           )}
                                         </span>
                                         <span>
-                                          {
-                                            productReviews[item.productId]
-                                              ?.content
-                                          }
+                                          {productReviews[item.productId!]?.content}
                                         </span>
                                         <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
                                           <button
@@ -797,11 +1060,8 @@ export default function MyOrdersPage() {
                                             onClick={() =>
                                               setReviewDialog({
                                                 open: true,
-                                                productId: item.productId,
-                                                review:
-                                                  productReviews[
-                                                    item.productId
-                                                  ],
+                                                productId: item.productId!,
+                                                review: productReviews[item.productId!],
                                               })
                                             }
                                           >
@@ -828,173 +1088,12 @@ export default function MyOrdersPage() {
                         </div>
                       ))}
                     </div>
-                  </div>{" "}
-                  {/* Pending Information - Show only if order is pending */}
-                  {order.status.toLowerCase() === "pending" && (
-                    <div className="border-t border-gray-100 pt-4 space-y-3">
-                      <h3 className="font-medium flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-yellow-500" />
-                        Order Status
-                      </h3>
-                      <div className="bg-yellow-50 rounded-lg p-4 text-yellow-800">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
-                            Awaiting Confirmation
-                          </Badge>
-                        </div>
+                  </div>
 
-                        <p className="text-sm mb-3">
-                          Your order has been received and is currently being
-                          reviewed. We'll notify you once it's confirmed and
-                          begins processing.
-                        </p>
-
-                        <div className="mt-3 text-xs text-yellow-700 flex items-center gap-1">
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 16 16"
-                            fill="none"
-                          >
-                            <path
-                              d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM8.8 12H7.2V10.4H8.8V12ZM8.8 8.8H7.2V4H8.8V8.8Z"
-                              fill="#ca8a04"
-                            />
-                          </svg>
-                          <span>
-                            Orders are typically confirmed within 24 hours
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="bg-blue-50 rounded-lg p-4 text-blue-800 text-sm">
-                        <div className="flex items-center gap-2 mb-2">
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 16 16"
-                            fill="none"
-                          >
-                            <path
-                              d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM8.8 12H7.2V10.4H8.8V12ZM8.8 8.8H7.2V4H8.8V8.8Z"
-                              fill="#2563EB"
-                            />
-                          </svg>
-                          <span className="font-medium">
-                            Need to modify your order?
-                          </span>
-                        </div>
-                        <p>
-                          You can still modify or cancel your order while it's
-                          pending. Contact our support team for assistance.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {/* Rejection Information - Show only if order is rejected */}
-                  {order.status.toLowerCase() === "rejected" &&
-                    order.rejectionReason && (
-                      <div className="border-t border-gray-100 pt-4 space-y-3">
-                        <h3 className="font-medium flex items-center gap-2">
-                          <XCircle className="h-4 w-4 text-red-500" />
-                          Rejection Information
-                        </h3>
-                        <div className="bg-red-50 rounded-lg p-4 text-red-800">
-                          <div className="font-medium mb-1">
-                            Rejection Reason:
-                          </div>
-                          <p className="text-sm">{order.rejectionReason}</p>
-                          {order.processedBy && (
-                            <div className="text-xs text-red-600 mt-2">
-                              Processed by:{" "}
-                              {getProcessorName(order.processedBy)}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  {/* Refund Information - Show only if order is refunded */}
-                  {order.status.toLowerCase() === "refunded" && (
-                    <div className="border-t border-gray-100 pt-4 space-y-3">
-                      <h3 className="font-medium flex items-center gap-2">
-                        <RefreshCw className="h-4 w-4 text-emerald-500" />
-                        Refund Information
-                      </h3>
-                      <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 text-emerald-800">
-                        <div className="flex items-center justify-between mb-3">
-                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
-                            Payment Refunded
-                          </Badge>
-                          {order.refundedAt && (
-                            <div className="text-xs text-emerald-700">
-                              Refunded on: {formatDate(order.refundedAt)}
-                            </div>
-                          )}
-                        </div>
-
-                        {order.refundReason && (
-                          <>
-                            <div className="font-medium mb-1">
-                              Refund Reason:
-                            </div>
-                            <p className="text-sm mb-3">{order.refundReason}</p>
-                          </>
-                        )}
-
-                        {order.rejectionReason && (
-                          <>
-                            <div className="font-medium mb-1">
-                              Original Rejection Reason:
-                            </div>
-                            <p className="text-sm">{order.rejectionReason}</p>
-                          </>
-                        )}
-
-                        {order.notes && (
-                          <>
-                            <div className="font-medium mb-1 mt-3">
-                              Additional Notes:
-                            </div>
-                            <p className="text-sm">{order.notes}</p>
-                          </>
-                        )}
-
-                        {order.processedBy && (
-                          <div className="text-xs text-emerald-600 mt-3 pt-3 border-t border-emerald-100">
-                            Processed by: {getProcessorName(order.processedBy)}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="bg-blue-50 rounded-lg p-4 text-blue-800 text-sm">
-                        <div className="flex items-center gap-2 mb-2">
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 16 16"
-                            fill="none"
-                          >
-                            <path
-                              d="M8 0C3.584 0 0 3.584 0 8C0 12.416 3.584 16 8 16C12.416 16 16 12.416 16 8C16 3.584 12.416 0 8 0ZM8.8 12H7.2V10.4H8.8V12ZM8.8 8.8H7.2V4H8.8V8.8Z"
-                              fill="#2563EB"
-                            />
-                          </svg>
-                          <span className="font-medium">
-                            Refund Information
-                          </span>
-                        </div>
-                        <p>
-                          Your payment has been successfully refunded. Please
-                          allow 3-5 business days for the refund to appear in
-                          your account.
-                        </p>
-                      </div>
-                    </div>
-                  )}
                   <div className="border-t border-gray-100 pt-4">
                     <div className="flex justify-between items-center py-2">
                       <span className="text-gray-500">Subtotal:</span>
-                      <span>{formatCurrency(order.totalAmount)}</span>
+                      <span>{formatCurrency(shippingLog.totalAmount || 0)}</span>
                     </div>
                     <div className="flex justify-between items-center py-2">
                       <span className="text-gray-500">Shipping:</span>
@@ -1002,7 +1101,7 @@ export default function MyOrdersPage() {
                     </div>
                     <div className="flex justify-between items-center py-2 font-semibold text-lg">
                       <span>Total:</span>
-                      <span>{formatCurrency(order.totalAmount)}</span>
+                      <span>{formatCurrency(shippingLog.totalAmount || 0)}</span>
                     </div>
                   </div>
                   <div className="bg-gray-50 -mx-6 -mb-6 p-6 flex justify-between items-center">
