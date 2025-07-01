@@ -16,94 +16,94 @@ export const StatusConfigurations: Record<string, UnifiedStatus> = {
   // Order-based statuses (when no shipping log exists)
   pending: {
     displayStatus: 'pending',
-    displayText: 'Chờ xác nhận',
+    displayText: 'Pending',
     color: 'text-yellow-800',
     bgColor: 'bg-yellow-100',
     icon: '⏳',
-    description: 'Đơn hàng đang chờ được xác nhận',
+    description: 'Order is awaiting confirmation',
     stage: 1
   },
   approved: {
     displayStatus: 'approved',
-    displayText: 'Đã xác nhận',
+    displayText: 'Approved',
     color: 'text-blue-800',
     bgColor: 'bg-blue-100',
     icon: '✅',
-    description: 'Đơn hàng đã được xác nhận và chuẩn bị xử lý',
+    description: 'Order has been approved and is ready for processing',
     stage: 2
   },
   rejected: {
     displayStatus: 'rejected',
-    displayText: 'Đã từ chối',
+    displayText: 'Rejected',
     color: 'text-red-800',
     bgColor: 'bg-red-100',
     icon: '❌',
-    description: 'Đơn hàng đã bị từ chối',
+    description: 'Order has been rejected',
     stage: 0
   },
   refunded: {
     displayStatus: 'refunded',
-    displayText: 'Đã hoàn tiền',
+    displayText: 'Refunded',
     color: 'text-emerald-800',
     bgColor: 'bg-emerald-100',
     icon: '💰',
-    description: 'Đã hoàn tiền cho đơn hàng',
+    description: 'Order has been refunded',
     stage: 0
   },
   cancelled: {
     displayStatus: 'cancelled',
-    displayText: 'Đã hủy',
+    displayText: 'Cancelled',
     color: 'text-gray-800',
     bgColor: 'bg-gray-100',
     icon: '🚫',
-    description: 'Đơn hàng đã bị hủy',
+    description: 'Order has been cancelled',
     stage: 0
   },
 
   // Shipping-based statuses (when shipping log exists)
   processing: {
     displayStatus: 'shipping',
-    displayText: 'Đang vận chuyển',
+    displayText: 'In Transit',
     color: 'text-blue-800',
     bgColor: 'bg-blue-100',
     icon: '📦',
-    description: 'Đơn hàng đang được chuẩn bị vận chuyển',
+    description: 'Order is being prepared for shipping',
     stage: 3
   },
   shipped: {
     displayStatus: 'shipping',
-    displayText: 'Đang vận chuyển',
+    displayText: 'In Transit',
     color: 'text-indigo-800',
     bgColor: 'bg-indigo-100',
     icon: '🚚',
-    description: 'Đơn hàng đang được vận chuyển',
+    description: 'Order is being shipped',
     stage: 4
   },
   in_transit: {
     displayStatus: 'shipping',
-    displayText: 'Đang vận chuyển',
+    displayText: 'In Transit',
     color: 'text-purple-800',
     bgColor: 'bg-purple-100',
     icon: '🚛',
-    description: 'Đơn hàng đang trên đường giao',
+    description: 'Order is on the way for delivery',
     stage: 5
   },
   delivered: {
     displayStatus: 'delivered',
-    displayText: 'Đã giao hàng',
+    displayText: 'Delivered',
     color: 'text-green-800',
     bgColor: 'bg-green-100',
     icon: '✅',
-    description: 'Đơn hàng đã được giao thành công',
+    description: 'Order has been delivered successfully',
     stage: 6
   },
   received: {
     displayStatus: 'delivered',
-    displayText: 'Đã giao hàng',
+    displayText: 'Delivered',
     color: 'text-emerald-800',
     bgColor: 'bg-emerald-100',
     icon: '🎉',
-    description: 'Khách hàng đã xác nhận nhận hàng',
+    description: 'Customer has confirmed receipt of order',
     stage: 7
   }
 };
@@ -112,38 +112,38 @@ export const StatusConfigurations: Record<string, UnifiedStatus> = {
 export const TimelineStages = [
   {
     stage: 1,
-    title: 'Đặt hàng',
-    description: 'Đơn hàng đã được tạo',
+    title: 'Order Placed',
+    description: 'Order has been created',
     icon: '📝'
   },
   {
     stage: 2,
-    title: 'Xác nhận',
-    description: 'Đơn hàng đã được xác nhận',
+    title: 'Confirmed',
+    description: 'Order has been confirmed',
     icon: '✅'
   },
   {
     stage: 3,
-    title: 'Chuẩn bị',
-    description: 'Đang chuẩn bị hàng hóa',
+    title: 'Preparing',
+    description: 'Preparing goods for shipment',
     icon: '📦'
   },
   {
     stage: 4,
-    title: 'Vận chuyển',
-    description: 'Hàng đang được vận chuyển',
+    title: 'Shipping',
+    description: 'Goods are being shipped',
     icon: '🚚'
   },
   {
     stage: 5,
-    title: 'Đang giao',
-    description: 'Shipper đang giao hàng',
+    title: 'Out for Delivery',
+    description: 'Shipper is delivering the order',
     icon: '🚛'
   },
   {
     stage: 6,
-    title: 'Hoàn thành',
-    description: 'Đã giao hàng thành công',
+    title: 'Completed',
+    description: 'Order delivered successfully',
     icon: '🎉'
   }
 ];
@@ -179,8 +179,14 @@ export const getUnifiedStatus = (
     };
   }
 
-  // If shipping log exists, use shipping status
+  // If shipping log exists, use shipping status (normalize to lowercase)
   const shippingStatus = shippingLog.status?.toLowerCase();
+  console.log('Shipping status processing:', {
+    originalStatus: shippingLog.status,
+    normalizedStatus: shippingStatus,
+    availableConfigs: Object.keys(StatusConfigurations)
+  });
+  
   const config = StatusConfigurations[shippingStatus || 'processing'];
   
   if (config) {
@@ -188,6 +194,7 @@ export const getUnifiedStatus = (
   }
 
   // Fallback for unknown shipping status
+  console.warn(`Unknown shipping status: ${shippingLog.status}, falling back to processing`);
   return StatusConfigurations.processing;
 };
 

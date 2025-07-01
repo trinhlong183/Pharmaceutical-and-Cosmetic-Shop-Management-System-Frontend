@@ -22,8 +22,23 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({
   createdAt,
   isCustomerView = false
 }) => {
+  console.log('OrderTimeline received:', {
+    orderStatus,
+    shippingLogStatus: shippingLog?.status,
+    hasShippingLog: !!shippingLog,
+    shippingLogData: shippingLog
+  });
+  
   const unifiedStatus = getUnifiedStatus(orderStatus, shippingLog, isCustomerView);
   const { currentStage, progress } = getTimelineProgress(orderStatus, shippingLog);
+  
+  // Enhanced debug logging for shipping status
+  console.log('Timeline computation:', {
+    unifiedStatus,
+    currentStage,
+    progress,
+    timelineStagesLength: TimelineStages.length
+  });
   
   return (
     <Card className="w-full">
@@ -33,12 +48,14 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({
             <span>{unifiedStatus.icon}</span>
             Order Timeline
           </CardTitle>
-          <Badge 
-            variant="outline" 
-            className={`${unifiedStatus.bgColor} ${unifiedStatus.color}`}
-          >
-            {unifiedStatus.displayText}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge 
+              variant="outline" 
+              className={`${unifiedStatus.bgColor} ${unifiedStatus.color}`}
+            >
+              {unifiedStatus.displayText}
+            </Badge>
+          </div>
         </div>
         <div className="text-sm text-muted-foreground">
           {unifiedStatus.description}
@@ -125,6 +142,27 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({
                             {new Date(createdAt).toLocaleDateString('vi-VN')}
                           </span>
                         )}
+                        
+                        {/* Show order confirmation time for stage 2 if approved */}
+                        {(isCompleted || isCurrent) && stage.stage === 2 && orderStatus.toLowerCase() === 'approved' && (
+                          <span className="text-gray-500 mt-1">
+                            Đã xác nhận
+                          </span>
+                        )}
+                        
+                        {/* Show shipping log update time for shipping stages */}
+                        {(isCompleted || isCurrent) && shippingLog && shippingLog.updatedAt && stage.stage >= 3 && (
+                          <span className="text-gray-500 mt-1">
+                            {new Date(shippingLog.updatedAt).toLocaleDateString('vi-VN')}
+                          </span>
+                        )}
+                        
+                        {/* Show current shipping status if available */}
+                        {isCurrent && shippingLog && shippingLog.status && stage.stage >= 3 && (
+                          <span className="text-blue-600 text-xs mt-1 bg-blue-50 px-2 py-1 rounded">
+                            {shippingLog.status}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -137,10 +175,27 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({
         {/* Additional shipping info for customers */}
         {isCustomerView && hasShippingInfo(shippingLog) && (
           <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h4 className="font-semibold text-blue-900 text-sm mb-2">
+            <h4 className="font-semibold text-blue-900 text-sm mb-2 flex items-center gap-2">
               📦 Thông tin vận chuyển
+              {shippingLog?.status?.toLowerCase() === 'delivered' && (
+                <span className="text-green-600 text-xs bg-green-100 px-2 py-1 rounded-full">
+                  ✅ Đã giao hàng
+                </span>
+              )}
             </h4>
             <div className="space-y-2 text-sm">
+              {shippingLog?.status && (
+                <div className="flex justify-between items-center">
+                  <span className="text-blue-700">Trạng thái vận chuyển:</span>
+                  <span className={`font-semibold px-2 py-1 rounded text-xs ${
+                    shippingLog.status.toLowerCase() === 'delivered' 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {shippingLog.status}
+                  </span>
+                </div>
+              )}
               {shippingLog?.trackingNumber && (
                 <div className="flex justify-between">
                   <span className="text-blue-700">Mã vận đơn:</span>
@@ -171,6 +226,27 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({
                   <span className="font-semibold text-blue-900">
                     {new Date(shippingLog.estimatedDelivery).toLocaleDateString('vi-VN')}
                   </span>
+                </div>
+              )}
+              {shippingLog?.updatedAt && (
+                <div className="flex justify-between">
+                  <span className="text-blue-700">Cập nhật lần cuối:</span>
+                  <span className="font-semibold text-blue-900">
+                    {new Date(shippingLog.updatedAt).toLocaleString('vi-VN')}
+                  </span>
+                </div>
+              )}
+              
+              {/* Show delivery confirmation if status is delivered */}
+              {shippingLog?.status?.toLowerCase() === 'delivered' && (
+                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-800">
+                    <span className="text-lg">🎉</span>
+                    <span className="font-semibold">Đã giao hàng thành công!</span>
+                  </div>
+                  <p className="text-green-700 text-xs mt-1">
+                    Đơn hàng của bạn đã được giao thành công. Cảm ơn bạn đã mua sắm tại cửa hàng của chúng tôi!
+                  </p>
                 </div>
               )}
             </div>

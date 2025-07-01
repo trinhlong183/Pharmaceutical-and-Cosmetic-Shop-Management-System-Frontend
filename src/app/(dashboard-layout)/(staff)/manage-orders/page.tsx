@@ -58,27 +58,37 @@ import {
   StatusConfigurations,
 } from "@/utils/statusUtils";
 
-// Define interfaces for our data structures
+// Define interfaces for our data structures - Updated to match new API response
 interface User {
-  id?: string;
-  _id?: string;
+  _id: string;
+  email: string;
+  phone: string;
+  address: string;
   name?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
+  fullName?: string;
+  [key: string]: any;
 }
 
 interface Transaction {
-  id?: string;
-  _id?: string;
-  orderId?: string;
-  status?: string;
-  paymentMethod?: string;
-  paymentDetails?: {
-    bankCode?: string;
-    [key: string]: any;
+  _id: string;
+  orderId: string;
+  status: string;
+  totalAmount: number;
+  paymentMethod: string;
+  paymentDetails: {
+    userId: string;
+    cartId: string;
+    ipAddr: string;
+    selectedProductIds: string[];
+    bankCode: string;
+    cardType: string;
+    transactionNo: string;
+    payDate: string;
+    responseCode: string;
   };
-  [key: string]: any;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
 }
 
 interface OrderItem {
@@ -90,18 +100,20 @@ interface OrderItem {
   [key: string]: any;
 }
 
+// Updated Order interface to match the new API response structure
 interface Order {
-  id?: string;
-  _id?: string;
-  userId: string | User;
-  items?: OrderItem[];
-  totalAmount: number;
+  _id: string;
+  id: string;
+  userId: User; // Now always populated as an object
+  transactionId: Transaction; // Now always populated as an object
   status: string;
+  totalAmount: number;
+  shippingAddress: string;
+  contactPhone: string;
   createdAt: string;
-  updatedAt?: string;
-  transactionId?: string | Transaction;
-  shippingAddress?: string;
-  contactPhone?: string;
+  updatedAt: string;
+  __v: number;
+  items?: OrderItem[];
   rejectionReason?: string;
   refundReason?: string;
   processedBy?: string;
@@ -162,12 +174,15 @@ const ManageOrdersPage = () => {
     try {
       const orders = await orderService.getAllOrders();
       console.log("Orders received:", orders);
-      setOrders(orders || []);
-      setFilteredOrders(orders || []);
+      
+      // Cast to our local Order type since the API returns populated objects
+      const typedOrders = orders as unknown as Order[];
+      setOrders(typedOrders);
+      setFilteredOrders(typedOrders);
 
-      // Fetch user information and shipping logs for each order
-      await fetchUserInfo(orders);
-      await fetchShippingLogs(orders);
+      // Since user data is now populated in the API response, we don't need to fetch it separately
+      // Only fetch shipping logs for each order
+      await fetchShippingLogs(typedOrders);
     } catch (error) {
       toast.error("Failed to fetch orders");
       console.error(error);
@@ -236,53 +251,12 @@ const ManageOrdersPage = () => {
     setFilteredOrders(filtered);
   };
 
-  const fetchUserInfo = async (orders: Order[]) => {
-    try {
-      const userIds = new Set<string>();
-
-      // Collect unique user IDs
-      orders.forEach((order) => {
-        let userId: string | undefined;
-
-        if (typeof order.userId === "object") {
-          userId = (order.userId as User)._id || (order.userId as User).id;
-        } else {
-          userId = order.userId as string;
-        }
-
-        if (userId) userIds.add(userId);
-      });
-
-      // Fetch user data for each unique user ID
-      const userMap: Record<string, User> = {};
-
-      for (const userId of userIds) {
-        try {
-          const userData = await userService.getUserById(userId);
-          userMap[userId] = userData as User;
-        } catch (error) {
-          console.error(`Failed to fetch user ${userId}:`, error);
-        }
-      }
-
-      setUsers(userMap);
-    } catch (error) {
-      console.error("Error fetching user info:", error);
-    }
-  };
-
-  // Get user name from userId
-  const getUserName = (userId: string | User | undefined) => {
+  // Get user name from userId - Updated for new API response structure
+  const getUserName = (userId: User) => {
     if (!userId) return "N/A";
-
-    // If userId is an object with user information directly
-    if (typeof userId === "object") {
-      return (userId as User).name || (userId as User).email || "N/A";
-    }
-
-    // Look up the user in our users map
-    const user = users[userId];
-    return user ? user.name || user.email : userId;
+    
+    // Since userId is now always a populated User object
+    return userId.name || userId.fullName || userId.email || "N/A";
   };
 
   const handleViewDetail = async (orderId: string) => {
@@ -290,26 +264,7 @@ const ManageOrdersPage = () => {
       const order = await orderService.getOrderById(orderId);
       console.log("Order details:", order);
 
-      // If the user info isn't already loaded, load it
-      let userId: string | undefined;
-
-      if (typeof order.userId === "object") {
-        userId = (order.userId as User)._id || (order.userId as User).id;
-      } else {
-        userId = order.userId as string;
-      }
-
-      if (userId && !users[userId]) {
-        try {
-          const userData = await userService.getUserById(userId);
-          setUsers((prev) => ({
-            ...prev,
-            [userId as string]: userData as User,
-          }));
-        } catch (error) {
-          console.error(`Failed to fetch user ${userId}:`, error);
-        }
-      }
+      // Since user data is now populated in the API response, we don't need to fetch it separately
 
       // Get shipping log for detailed view
       let shippingLog = shippingLogs[orderId];
@@ -328,7 +283,7 @@ const ManageOrdersPage = () => {
         }
       }
 
-      setDetailOrder(order as Order);
+      setDetailOrder(order as unknown as Order);
       setDetailShippingLog(shippingLog || null);
       setOpenDetails(true);
     } catch (error) {
@@ -343,7 +298,7 @@ const ManageOrdersPage = () => {
   ) => {
     if (!orderId) return;
     
-    // Find current order and check if status change is allowed per workflow
+    // Find current order
     const currentOrder = orders.find(order => 
       (order.id === orderId || order._id === orderId)
     );
@@ -353,10 +308,6 @@ const ManageOrdersPage = () => {
       return;
     }
 
-    const currentShippingLog = shippingLogs[orderId];
-    const isShippingUpdate = hasShippingInfo(currentShippingLog) && 
-      ['processing', 'shipped', 'in_transit', 'delivered', 'received'].includes(newStatus);
-    
     // If new status is "rejected", show dialog requesting reason
     if (newStatus === "rejected") {
       setProcessingOrderId(orderId);
@@ -366,87 +317,49 @@ const ManageOrdersPage = () => {
 
     setStatusUpdating(true);
     try {
-      if (isShippingUpdate) {
-        // Update shipping status
-        const updatedShippingLog = await shippingLogsService.updateStatus(
-          currentShippingLog.id || currentShippingLog._id || '',
-          { status: newStatus as any }
-        );
-        
-        // Update local shipping logs state
-        setShippingLogs(prev => ({
-          ...prev,
-          [orderId]: updatedShippingLog
-        }));
-
-        // Update detail shipping log if open
-        if (detailShippingLog && 
-          (detailShippingLog.id === currentShippingLog.id || 
-           detailShippingLog._id === currentShippingLog._id)) {
-          setDetailShippingLog(updatedShippingLog);
-        }
-
-        toast.success(`Shipping status updated to ${newStatus}`);
-      } else {
-        // Handle order status updates
-        let updatedOrder;
-        
-        if (currentOrder.status === "pending" && newStatus === "approved") {
-          // Use processOrder API endpoint for approvals
-          updatedOrder = await orderService.processOrder(orderId);
+      // Always use updateOrderStatus API for all status changes
+      const updatedOrder = await orderService.updateOrderStatus(orderId, newStatus);
+      toast.success(`Order status updated to ${newStatus}`);
+      
+      // If status is changed to "approved", automatically create shipping log
+      if (newStatus === "approved") {
+        try {
+          const shippingLog = await shippingLogsService.createFromApprovedOrder(orderId);
+          console.log("Shipping log created automatically:", shippingLog);
           
-          // Create shipping log automatically for approved order
-          try {
-            console.log(`Creating shipping log for approved order: ${orderId}`);
-            const shippingLog = await shippingLogsService.createFromApprovedOrder(orderId);
-            
-            // Update local shipping logs state
-            setShippingLogs(prev => ({
-              ...prev,
-              [orderId]: shippingLog
-            }));
-            
-            console.log("Shipping log created successfully:", shippingLog);
-            toast.success("Order approved and shipping log created");
-          } catch (shippingError) {
-            console.error("Error creating shipping log:", shippingError);
-            toast.error("Order approved but failed to create shipping log");
-            toast("You may need to manually create a shipping log for this order", {
-              duration: 5000
-            });
-          }
-        } else {
-          // Standard order status update
-          updatedOrder = await orderService.updateOrderStatus(orderId, newStatus);
-          toast.success(`Order status updated to ${newStatus}`);
-        }
-        
-        // Update local orders state
-        setOrders(
-          orders.map((order) =>
-            (order.id && order.id === orderId) ||
-            (order._id && order._id === orderId)
-              ? { ...order, status: newStatus }
-              : order
-          )
-        );
-
-        // Update the order details dialog if open
-        if (
-          detailOrder &&
-          ((detailOrder.id && detailOrder.id === orderId) ||
-            (detailOrder._id && detailOrder._id === orderId))
-        ) {
-          setDetailOrder({ ...detailOrder, status: newStatus });
+          // Update shipping logs state
+          setShippingLogs(prev => ({
+            ...prev,
+            [orderId]: shippingLog
+          }));
+          
+          toast.success("Order approved and shipping log created successfully!");
+        } catch (shippingError) {
+          console.error("Failed to create shipping log:", shippingError);
+          toast.warning("Order approved but failed to create shipping log. You may need to create it manually.");
         }
       }
       
-      // Special handling for delivered status
-      if (newStatus === "delivered") {
-        toast.success("Customer will be notified to confirm receipt", { duration: 5000 });
+      // Update local orders state
+      setOrders(
+        orders.map((order) =>
+          (order.id && order.id === orderId) ||
+          (order._id && order._id === orderId)
+            ? { ...order, status: newStatus }
+            : order
+        )
+      );
+
+      // Update the order details dialog if open
+      if (
+        detailOrder &&
+        ((detailOrder.id && detailOrder.id === orderId) ||
+          (detailOrder._id && detailOrder._id === orderId))
+      ) {
+        setDetailOrder({ ...detailOrder, status: newStatus });
       }
     } catch (error) {
-      toast.error(`Failed to update ${isShippingUpdate ? 'shipping' : 'order'} status`);
+      toast.error("Failed to update order status");
       console.error("Error updating status:", error);
     } finally {
       setStatusUpdating(false);
@@ -455,25 +368,44 @@ const ManageOrdersPage = () => {
 
   // New unified status badge function
   const getStatusBadge = (orderId: string, orderStatus: string) => {
-    const shippingLog = shippingLogs[orderId];
-    const unifiedStatus = getUnifiedStatus(orderStatus, shippingLog, false);
+    // Simplified to only show order status directly
+    const statusConfig = StatusConfigurations[orderStatus.toLowerCase()] || {
+      displayText: orderStatus,
+      color: 'text-gray-800',
+      bgColor: 'bg-gray-100',
+      icon: '📋',
+      description: `Order status: ${orderStatus}`
+    };
     
     return (
       <Badge
         variant="outline"
-        className={`${unifiedStatus.bgColor} ${unifiedStatus.color} flex items-center`}
-        title={unifiedStatus.description}
+        className={`${statusConfig.bgColor} ${statusConfig.color} flex items-center`}
+        title={statusConfig.description}
       >
-        <span className="mr-1">{unifiedStatus.icon}</span>
-        <span>{unifiedStatus.displayText}</span>
+        <span className="mr-1">{statusConfig.icon}</span>
+        <span>{statusConfig.displayText}</span>
       </Badge>
     );
   };
   
-  // Function to get available status options based on current status and workflow
+  // Function to get available status options - Simplified to only allow 3 status changes
   const getAvailableStatuses = (orderId: string, currentStatus: string): string[] => {
-    const shippingLog = shippingLogs[orderId];
-    return getAvailableStatusTransitions(currentStatus, shippingLog);
+    // Only allow these 3 status transitions for staff
+    switch (currentStatus.toLowerCase()) {
+      case 'pending':
+        return ['pending', 'approved', 'rejected'];
+      case 'approved':
+        return ['approved', 'rejected'];
+      case 'rejected':
+        return ['rejected'];
+      case 'refunded':
+        return ['refunded'];
+      case 'delivered':
+        return ['delivered'];
+      default:
+        return [currentStatus]; // Keep current status if not recognized
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -635,31 +567,6 @@ const ManageOrdersPage = () => {
       : productId;
   };
 
-  // Function to manually create a shipping log from an approved order
-  const handleManualShippingLogCreation = async (orderId: string) => {
-    try {
-      setLoading(true);
-      
-      console.log(`Manually creating shipping log for order: ${orderId}`);
-      const shippingLog = await shippingLogsService.createFromApprovedOrder(orderId);
-      
-      console.log("Manual shipping log creation successful:", shippingLog);
-      toast.success("Shipping log created successfully");
-      
-      // Refresh orders to show updated status
-      fetchOrders();
-    } catch (error) {
-      console.error("Manual shipping log creation failed:", error);
-      if (error instanceof Error) {
-        toast.error(`Failed to create shipping log: ${error.message}`);
-      } else {
-        toast.error("Failed to create shipping log due to an unknown error");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="container mx-auto py-6 space-y-6" suppressHydrationWarning>
       <div className="flex justify-between items-center">
@@ -688,10 +595,10 @@ const ManageOrdersPage = () => {
       <Card className="bg-white">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Package2 className="h-4 w-4" /> Order Processing Workflow
+            <Package2 className="h-4 w-4" /> Simplified Order Processing Workflow
           </CardTitle>
           <CardDescription>
-            Follow this workflow to ensure proper order processing and shipping
+            Staff can manage 3 status changes: Pending → Approved/Rejected. Orders track 5 statuses total.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -716,52 +623,16 @@ const ManageOrdersPage = () => {
                   <CheckCircle2 className="h-5 w-5 text-blue-700" />
                 </div>
                 <span className="text-xs font-medium mt-1">Approved</span>
-                <span className="text-xs text-muted-foreground">Auto-creates shipping log</span>
+                <span className="text-xs text-muted-foreground">Ready for shipping</span>
               </div>
               
-              {/* Step 3: Processing */}
-              <div className="flex flex-col items-center z-10">
-                <div className="w-10 h-10 rounded-full bg-purple-100 border-2 border-purple-300 flex items-center justify-center">
-                  <Package2 className="h-5 w-5 text-purple-700" />
-                </div>
-                <span className="text-xs font-medium mt-1">Processing</span>
-                <span className="text-xs text-muted-foreground">Packaging</span>
-              </div>
-              
-              {/* Step 4: Shipped */}
-              <div className="flex flex-col items-center z-10">
-                <div className="w-10 h-10 rounded-full bg-indigo-100 border-2 border-indigo-300 flex items-center justify-center">
-                  <Package2 className="h-5 w-5 text-indigo-700" />
-                </div>
-                <span className="text-xs font-medium mt-1">Shipped</span>
-                <span className="text-xs text-muted-foreground">Ready for delivery</span>
-              </div>
-              
-              {/* Step 5: In Transit */}
-              <div className="flex flex-col items-center z-10">
-                <div className="w-10 h-10 rounded-full bg-sky-100 border-2 border-sky-300 flex items-center justify-center">
-                  <TruckIcon className="h-5 w-5 text-sky-700" />
-                </div>
-                <span className="text-xs font-medium mt-1">In Transit</span>
-                <span className="text-xs text-muted-foreground">On the way</span>
-              </div>
-              
-              {/* Step 6: Delivered */}
+              {/* Step 3: Delivered */}
               <div className="flex flex-col items-center z-10">
                 <div className="w-10 h-10 rounded-full bg-green-100 border-2 border-green-300 flex items-center justify-center">
                   <CheckCircle2 className="h-5 w-5 text-green-700" />
                 </div>
                 <span className="text-xs font-medium mt-1">Delivered</span>
-                <span className="text-xs text-muted-foreground">Awaiting confirmation</span>
-              </div>
-              
-              {/* Step 7: Received */}
-              <div className="flex flex-col items-center z-10">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 border-2 border-emerald-300 flex items-center justify-center">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-700" />
-                </div>
-                <span className="text-xs font-medium mt-1">Received</span>
-                <span className="text-xs text-muted-foreground">Customer confirmed</span>
+                <span className="text-xs text-muted-foreground">Order completed</span>
               </div>
             </div>
           </div>
@@ -789,13 +660,10 @@ const ManageOrdersPage = () => {
         />
       </div>
       <Tabs defaultValue="all" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="all">All Orders</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="processing">Processing</TabsTrigger>
-          <TabsTrigger value="shipped">Shipped</TabsTrigger>
-          <TabsTrigger value="in_transit">In Transit</TabsTrigger>
           <TabsTrigger value="delivered">Delivered</TabsTrigger>
           <TabsTrigger value="rejected">Rejected</TabsTrigger>
           <TabsTrigger value="refunded">Refunded</TabsTrigger>
@@ -855,20 +723,6 @@ const ManageOrdersPage = () => {
                                     <Eye className="h-3.5 w-3.5" />
                                     Details
                                   </Button>
-                                  
-                                  {/* Manual shipping log creation button for approved orders */}
-                                  {order.status === 'approved' && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => orderId && handleManualShippingLogCreation(orderId)}
-                                      className="flex items-center gap-1 bg-blue-100 text-blue-800 hover:bg-blue-200"
-                                      disabled={loading}
-                                    >
-                                      <TruckIcon className="h-3.5 w-3.5" />
-                                      Create Shipping
-                                    </Button>
-                                  )}
                                   
                                   {order.status === 'rejected' && (
                                     <Button
@@ -1074,70 +928,38 @@ const ManageOrdersPage = () => {
                           {getUserName(detailOrder.userId)}
                         </span>
                       </div>
-                      {typeof detailOrder.userId === "object" ? (
-                        <>
-                          <div className="flex flex-col gap-1 min-w-0">
-                            <span className="text-muted-foreground font-medium text-xs">
-                              Email:
-                            </span>
-                            <span className="text-blue-600 hover:underline text-sm truncate">
-                              {detailOrder.userId.email || "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex flex-col gap-1 min-w-0">
-                            <span className="text-muted-foreground font-medium text-xs">
-                              Phone:
-                            </span>
-                            <span className="font-mono text-sm truncate">
-                              {detailOrder.userId.phone || "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex flex-col gap-1 min-w-0">
-                            <span className="text-muted-foreground font-medium text-xs">
-                              Address:
-                            </span>
-                            <span className="text-sm truncate">
-                              {detailOrder.userId.address || "N/A"}
-                            </span>
-                          </div>
-                        </>
-                      ) : users[detailOrder.userId] ? (
-                        <>
-                          <div className="flex flex-col gap-1 min-w-0">
-                            <span className="text-muted-foreground font-medium text-xs">
-                              Email:
-                            </span>
-                            <span className="text-blue-600 hover:underline text-sm truncate">
-                              {users[detailOrder.userId].email || "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex flex-col gap-1 min-w-0">
-                            <span className="text-muted-foreground font-medium text-xs">
-                              Phone:
-                            </span>
-                            <span className="font-mono text-sm truncate">
-                              {users[detailOrder.userId].phone || "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex flex-col gap-1 min-w-0">
-                            <span className="text-muted-foreground font-medium text-xs">
-                              Address:
-                            </span>
-                            <span className="text-sm truncate">
-                              {users[detailOrder.userId].address || "N/A"}
-                            </span>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex flex-col gap-1 min-w-0">
-                          <span className="text-muted-foreground font-medium text-xs">
-                            User ID:
-                          </span>
-                          <span className="font-mono text-xs bg-gray-200 px-2 py-1 rounded truncate">
-                            {detailOrder.userId || "N/A"}
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-muted-foreground font-medium text-xs">
+                          Email:
+                        </span>
+                        <span className="text-blue-600 hover:underline text-sm truncate">
+                          {detailOrder.userId.email || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-muted-foreground font-medium text-xs">
+                          Phone:
+                        </span>
+                        <span className="font-mono text-sm truncate">
+                          {detailOrder.userId.phone || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-muted-foreground font-medium text-xs">
+                          Address:
+                        </span>
+                        <span className="text-sm truncate">
+                          {detailOrder.userId.address || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-muted-foreground font-medium text-xs">
+                          Customer ID:
+                        </span>
+                        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded truncate">
+                          {detailOrder.userId._id?.slice(0, 8) || "N/A"}
+                        </span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1210,60 +1032,54 @@ const ManageOrdersPage = () => {
                             Transaction ID:
                           </span>
                           <span className="font-mono text-xs bg-gray-200 px-2 py-1 rounded truncate">
-                            {typeof detailOrder.transactionId === "object"
-                              ? (
-                                  detailOrder.transactionId._id ||
-                                  detailOrder.transactionId.id
-                                )?.slice(0, 8)
-                              : detailOrder.transactionId?.slice(0, 8)}
+                            {detailOrder.transactionId._id?.slice(0, 8) || "N/A"}
                           </span>
                         </div>
 
-                        {typeof detailOrder.transactionId === "object" && (
-                          <>
-                            <div className="flex flex-col gap-1 min-w-0">
-                              <span className="text-muted-foreground font-medium text-xs">
-                                Payment Method:
-                              </span>
-                              <span className="font-semibold uppercase text-sm truncate">
-                                {detailOrder.transactionId.paymentMethod ||
-                                  "N/A"}
-                              </span>
-                            </div>
-                            <div className="flex flex-col gap-1 min-w-0">
-                              <span className="text-muted-foreground font-medium text-xs">
-                                Status:
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className={`text-xs font-semibold w-fit ${
-                                  detailOrder.transactionId.status === "success"
-                                    ? "bg-green-100 text-green-800 border-green-300"
-                                    : detailOrder.transactionId.status ===
-                                      "pending"
-                                    ? "bg-yellow-100 text-yellow-800 border-yellow-300"
-                                    : "bg-red-100 text-red-800 border-red-300"
-                                }`}
-                              >
-                                {detailOrder.transactionId.status}
-                              </Badge>
-                            </div>
-                            {detailOrder.transactionId.paymentDetails &&
-                              detailOrder.transactionId.paymentDetails
-                                .bankCode && (
-                                <div className="flex flex-col gap-1 min-w-0">
-                                  <span className="text-muted-foreground font-medium text-xs">
-                                    Bank Code:
-                                  </span>
-                                  <span className="font-semibold text-blue-700 text-sm bg-blue-50 px-2 py-1 rounded border border-blue-200 truncate">
-                                    {
-                                      detailOrder.transactionId.paymentDetails
-                                        .bankCode
-                                    }
-                                  </span>
-                                </div>
-                              )}
-                          </>
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="text-muted-foreground font-medium text-xs">
+                            Payment Method:
+                          </span>
+                          <span className="font-semibold uppercase text-sm truncate">
+                            {detailOrder.transactionId.paymentMethod || "N/A"}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="text-muted-foreground font-medium text-xs">
+                            Status:
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs font-semibold w-fit ${
+                              detailOrder.transactionId.status === "success"
+                                ? "bg-green-100 text-green-800 border-green-300"
+                                : detailOrder.transactionId.status === "pending"
+                                ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+                                : "bg-red-100 text-red-800 border-red-300"
+                            }`}
+                          >
+                            {detailOrder.transactionId.status}
+                          </Badge>
+                        </div>
+                        {detailOrder.transactionId.paymentDetails?.bankCode && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Bank Code:
+                            </span>
+                            <span className="font-semibold text-blue-700 text-sm bg-blue-50 px-2 py-1 rounded border border-blue-200 truncate">
+                              {detailOrder.transactionId.paymentDetails.bankCode}
+                            </span>
+                          </div>
+                        )}
+                        {detailOrder.transactionId.paymentDetails?.transactionNo && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Transaction No:
+                            </span>
+                            <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded truncate">
+                              {detailOrder.transactionId.paymentDetails.transactionNo}
+                            </span>
+                          </div>
                         )}
                       </div>
                     </CardContent>
