@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       path: "/manage-products",
       icon: <Package size={20} />,
     },
-        {
+    {
       label: "Orders",
       path: "/manage-orders",
       icon: <ShoppingCart size={20} />,
@@ -110,10 +110,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white shadow-sm p-4 flex justify-between items-center">
-          <h2 className="text-lg font-medium">
-            {user?.role === "admin" ? "Admin Dashboard" : "Staff Dashboard"}
-          </h2>
+        <header className="bg-white shadow-sm p-4 flex justify-end items-center">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">
               Welcome, {user?.role === "admin" ? "Admin" : "Staff"}

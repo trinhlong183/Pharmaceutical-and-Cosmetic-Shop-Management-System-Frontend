@@ -222,7 +222,7 @@ function InventoryRequest() {
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="completed">Approved</SelectItem>
                     <SelectItem value="denied">Denied</SelectItem>
                   </SelectContent>
                 </Select>
