@@ -15,6 +15,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -31,15 +32,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
+import {
+  Search,
+  Eye,
+  RefreshCw,
+  Loader2,
+  Package2,
+  CheckCircle2,
+  TruckIcon,
+  XCircle,
+} from "lucide-react";
 import { orderService } from "@/api/orderService";
 import { userService } from "@/api/userService";
-import { shippingLogsService } from "@/api/shippingLogsService";
-import { toast } from "react-hot-toast";
-import { Loader2, Search, Filter, RefreshCw, Eye, Package2, Truck as TruckIcon, CheckCircle2, XCircle } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
+import { shippingLogsService, ShippingLog } from "@/api/shippingLogsService";
+import {
+  getUnifiedStatus,
+  getAvailableStatusTransitions,
+  formatStatusForDisplay,
+  hasShippingInfo,
+  StatusConfigurations,
+} from "@/utils/statusUtils";
 
 // Define interfaces for our data structures
 interface User {
@@ -92,76 +109,14 @@ interface Order {
   [key: string]: any;
 }
 
-// Update the constants to include status color and icon information for better visualization
-const StatusConfig = {
-  pending: {
-    bg: "bg-yellow-100 text-yellow-800",
-    icon: <Package2 className="h-3 w-3 mr-1" />,
-    description: "Waiting for approval",
-  },
-  approved: {
-    bg: "bg-blue-100 text-blue-800",
-    icon: <CheckCircle2 className="h-3 w-3 mr-1" />,
-    description: "Order has been approved",
-  },
-  processing: { 
-    bg: "bg-blue-100 text-blue-800", 
-    icon: <Package2 className="h-3 w-3 mr-1" />,
-    description: "Order is being processed and prepared"
-  },
-  shipped: { 
-    bg: "bg-indigo-100 text-indigo-800", 
-    icon: <Package2 className="h-3 w-3 mr-1" />,
-    description: "Order has been shipped"
-  },
-  in_transit: { 
-    bg: "bg-purple-100 text-purple-800", 
-    icon: <TruckIcon className="h-3 w-3 mr-1" />,
-    description: "Order is in transit"
-  },
-  shipping: { 
-    bg: "bg-indigo-100 text-indigo-800", 
-    icon: <TruckIcon className="h-3 w-3 mr-1" />,
-    description: "Order is being shipped"
-  },
-  delivered: {
-    bg: "bg-green-100 text-green-800",
-    icon: <CheckCircle2 className="h-3 w-3 mr-1" />,
-    description: "Order has been delivered",
-  },
-  received: { 
-    bg: "bg-emerald-100 text-emerald-800", 
-    icon: <CheckCircle2 className="h-3 w-3 mr-1" />,
-    description: "Order has been received by customer"
-  },
-  rejected: { 
-    bg: "bg-red-100 text-red-800", 
-    icon: <XCircle className="h-3 w-3 mr-1" />,
-    description: "Order has been rejected"
-  },
-  refunded: { 
-    bg: "bg-emerald-100 text-emerald-800", 
-    icon: <RefreshCw className="h-3 w-3 mr-1" />,
-    description: "Payment has been refunded"
-  },
-  canceled: { 
-    bg: "bg-gray-100 text-gray-800", 
-    icon: <XCircle className="h-3 w-3 mr-1" />,
-    description: "Order has been canceled"
-  },
-  cancelled: { 
-    bg: "bg-gray-100 text-gray-800", 
-    icon: <XCircle className="h-3 w-3 mr-1" />,
-    description: "Order has been cancelled"
-  },
-};
-
 const ManageOrdersPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<Record<string, User>>({});
+  const [shippingLogs, setShippingLogs] = useState<Record<string, ShippingLog>>({});
   const [loading, setLoading] = useState(true);
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
+  const [detailShippingLog, setDetailShippingLog] = useState<ShippingLog | null>(null);
   const [openDetails, setOpenDetails] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [openRejectDialog, setOpenRejectDialog] = useState(false);
@@ -210,8 +165,9 @@ const ManageOrdersPage = () => {
       setOrders(orders || []);
       setFilteredOrders(orders || []);
 
-      // Fetch user information for each order
+      // Fetch user information and shipping logs for each order
       await fetchUserInfo(orders);
+      await fetchShippingLogs(orders);
     } catch (error) {
       toast.error("Failed to fetch orders");
       console.error(error);
@@ -219,6 +175,33 @@ const ManageOrdersPage = () => {
       setFilteredOrders([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchShippingLogs = async (orders: Order[]) => {
+    try {
+      const shippingLogsMap: Record<string, ShippingLog> = {};
+
+      // Fetch shipping logs for each order
+      for (const order of orders) {
+        const orderId = order.id || order._id;
+        if (orderId) {
+          try {
+            const logs = await shippingLogsService.getByOrderId(orderId);
+            if (logs && logs.length > 0) {
+              // Use the most recent shipping log
+              shippingLogsMap[orderId] = logs[logs.length - 1];
+            }
+          } catch (error) {
+            console.log(`No shipping log found for order ${orderId}`);
+            // This is expected for orders without shipping logs
+          }
+        }
+      }
+
+      setShippingLogs(shippingLogsMap);
+    } catch (error) {
+      console.error("Error fetching shipping logs:", error);
     }
   };
 
@@ -328,7 +311,25 @@ const ManageOrdersPage = () => {
         }
       }
 
+      // Get shipping log for detailed view
+      let shippingLog = shippingLogs[orderId];
+      if (!shippingLog) {
+        try {
+          const logs = await shippingLogsService.getByOrderId(orderId);
+          if (logs && logs.length > 0) {
+            shippingLog = logs[logs.length - 1];
+            setShippingLogs(prev => ({
+              ...prev,
+              [orderId]: shippingLog
+            }));
+          }
+        } catch (error) {
+          console.log(`No shipping log found for order ${orderId}`);
+        }
+      }
+
       setDetailOrder(order as Order);
+      setDetailShippingLog(shippingLog || null);
       setOpenDetails(true);
     } catch (error) {
       toast.error("Failed to get order details");
@@ -351,6 +352,10 @@ const ManageOrdersPage = () => {
       toast.error("Order not found");
       return;
     }
+
+    const currentShippingLog = shippingLogs[orderId];
+    const isShippingUpdate = hasShippingInfo(currentShippingLog) && 
+      ['processing', 'shipped', 'in_transit', 'delivered', 'received'].includes(newStatus);
     
     // If new status is "rejected", show dialog requesting reason
     if (newStatus === "rejected") {
@@ -361,122 +366,114 @@ const ManageOrdersPage = () => {
 
     setStatusUpdating(true);
     try {
-      let updatedOrder;
-      
-      // Different handling based on workflow
-      if (currentOrder.status === "pending" && newStatus === "approved") {
-        // Use processOrder API endpoint for approvals
-        updatedOrder = await orderService.processOrder(orderId);
+      if (isShippingUpdate) {
+        // Update shipping status
+        const updatedShippingLog = await shippingLogsService.updateStatus(
+          currentShippingLog.id || currentShippingLog._id || '',
+          { status: newStatus as any }
+        );
         
-        // Create shipping log automatically for approved order
-        try {
-          // Add more detailed debugging logs
-          console.log(`Creating shipping log for approved order: ${orderId}`);
-          
-          const shippingLog = await shippingLogsService.createFromApprovedOrder(orderId);
-          
-          console.log("Shipping log created successfully:", shippingLog);
-          toast.success("Order approved and shipping log created");
-        } catch (shippingError) {
-          console.error("Error creating shipping log:", shippingError);
-          
-          // More detailed error handling with specific error information
-          if (shippingError instanceof Error) {
-            const errorMessage = shippingError.message || "Unknown error";
-            console.error(`Shipping log creation failed with message: ${errorMessage}`);
-            toast.error(`Order approved but failed to create shipping log: ${errorMessage}`);
-          } else {
-            console.error("Unexpected error type:", typeof shippingError);
-            toast.error("Order approved but failed to create shipping log due to an unknown error");
-          }
-          
-          // Add notification that manual creation may be needed
-          toast("You may need to manually create a shipping log for this order", {
-            duration: 5000
-          });
-        }
-      } else {
-        // Standard status update for other transitions
-        updatedOrder = await orderService.updateOrderStatus(orderId, newStatus);
-        toast.success(`Order status updated to ${newStatus}`);
-      }
-      
-      // Update local state to reflect the change
-      setOrders(
-        orders.map((order) =>
-          (order.id && order.id === orderId) ||
-          (order._id && order._id === orderId)
-            ? { ...order, status: newStatus }
-            : order
-        )
-      );
+        // Update local shipping logs state
+        setShippingLogs(prev => ({
+          ...prev,
+          [orderId]: updatedShippingLog
+        }));
 
-      // Update the order details dialog if open
-      if (
-        detailOrder &&
-        ((detailOrder.id && detailOrder.id === orderId) ||
-          (detailOrder._id && detailOrder._id === orderId))
-      ) {
-        setDetailOrder({ ...detailOrder, status: newStatus });
+        // Update detail shipping log if open
+        if (detailShippingLog && 
+          (detailShippingLog.id === currentShippingLog.id || 
+           detailShippingLog._id === currentShippingLog._id)) {
+          setDetailShippingLog(updatedShippingLog);
+        }
+
+        toast.success(`Shipping status updated to ${newStatus}`);
+      } else {
+        // Handle order status updates
+        let updatedOrder;
+        
+        if (currentOrder.status === "pending" && newStatus === "approved") {
+          // Use processOrder API endpoint for approvals
+          updatedOrder = await orderService.processOrder(orderId);
+          
+          // Create shipping log automatically for approved order
+          try {
+            console.log(`Creating shipping log for approved order: ${orderId}`);
+            const shippingLog = await shippingLogsService.createFromApprovedOrder(orderId);
+            
+            // Update local shipping logs state
+            setShippingLogs(prev => ({
+              ...prev,
+              [orderId]: shippingLog
+            }));
+            
+            console.log("Shipping log created successfully:", shippingLog);
+            toast.success("Order approved and shipping log created");
+          } catch (shippingError) {
+            console.error("Error creating shipping log:", shippingError);
+            toast.error("Order approved but failed to create shipping log");
+            toast("You may need to manually create a shipping log for this order", {
+              duration: 5000
+            });
+          }
+        } else {
+          // Standard order status update
+          updatedOrder = await orderService.updateOrderStatus(orderId, newStatus);
+          toast.success(`Order status updated to ${newStatus}`);
+        }
+        
+        // Update local orders state
+        setOrders(
+          orders.map((order) =>
+            (order.id && order.id === orderId) ||
+            (order._id && order._id === orderId)
+              ? { ...order, status: newStatus }
+              : order
+          )
+        );
+
+        // Update the order details dialog if open
+        if (
+          detailOrder &&
+          ((detailOrder.id && detailOrder.id === orderId) ||
+            (detailOrder._id && detailOrder._id === orderId))
+        ) {
+          setDetailOrder({ ...detailOrder, status: newStatus });
+        }
       }
       
-      // If status changed to "delivered", show message about customer confirmation
+      // Special handling for delivered status
       if (newStatus === "delivered") {
         toast.success("Customer will be notified to confirm receipt", { duration: 5000 });
       }
     } catch (error) {
-      toast.error("Failed to update order status");
+      toast.error(`Failed to update ${isShippingUpdate ? 'shipping' : 'order'} status`);
       console.error("Error updating status:", error);
     } finally {
       setStatusUpdating(false);
     }
   };
-  const getStatusBadge = (status: string) => {
-    const config = StatusConfig[status as keyof typeof StatusConfig] || {
-      bg: "bg-gray-100 text-gray-800",
-      icon: null,
-      description: "Unknown status",
-    };
 
+  // New unified status badge function
+  const getStatusBadge = (orderId: string, orderStatus: string) => {
+    const shippingLog = shippingLogs[orderId];
+    const unifiedStatus = getUnifiedStatus(orderStatus, shippingLog, false);
+    
     return (
       <Badge
         variant="outline"
-        className={`${config.bg} flex items-center`}
-        title={config.description}
+        className={`${unifiedStatus.bgColor} ${unifiedStatus.color} flex items-center`}
+        title={unifiedStatus.description}
       >
-        {config.icon}
-        <span className="capitalize">{status}</span>
+        <span className="mr-1">{unifiedStatus.icon}</span>
+        <span>{unifiedStatus.displayText}</span>
       </Badge>
     );
   };
   
   // Function to get available status options based on current status and workflow
-  const getAvailableStatuses = (currentStatus: string): string[] => {
-    switch(currentStatus) {
-      case 'pending':
-        return ['pending', 'approved', 'rejected']; // Initial state can be approved or rejected
-      case 'approved':
-        return ['approved', 'processing']; // Approved order moves to processing
-      case 'processing':
-        return ['processing', 'shipped']; // Processing order moves to shipped
-      case 'shipped':
-        return ['shipped', 'in_transit']; // Shipped order moves to in transit
-      case 'in_transit':
-        return ['in_transit', 'delivered']; // In transit order moves to delivered
-      case 'delivered':
-        return ['delivered', 'received']; // Delivered can be marked as received (usually by customer)
-      case 'received':
-        return ['received']; // Final state
-      case 'rejected':
-        return ['rejected', 'refunded']; // Can only be refunded after rejection
-      case 'refunded':
-        return ['refunded']; // Final state
-      case 'cancelled':
-      case 'canceled':
-        return ['cancelled', 'canceled']; // Final state
-      default:
-        return ['pending', 'approved', 'rejected'];
-    }
+  const getAvailableStatuses = (orderId: string, currentStatus: string): string[] => {
+    const shippingLog = shippingLogs[orderId];
+    return getAvailableStatusTransitions(currentStatus, shippingLog);
   };
 
   const formatDate = (dateString: string) => {
@@ -843,7 +840,7 @@ const ManageOrdersPage = () => {
                                 {formatPrice(order.totalAmount)}
                               </TableCell>
                               <TableCell>
-                                {getStatusBadge(order.status)}
+                                {getStatusBadge(orderId, order.status)}
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end items-center gap-2">
@@ -912,7 +909,7 @@ const ManageOrdersPage = () => {
                                       <SelectValue placeholder="Status" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {getAvailableStatuses(order.status).map(
+                                      {getAvailableStatuses(orderId, order.status).map(
                                         (status) => (
                                           <SelectItem
                                             key={status}
@@ -965,7 +962,10 @@ const ManageOrdersPage = () => {
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-3">
-                {detailOrder && getStatusBadge(detailOrder.status)}
+                {detailOrder && getStatusBadge(
+                  detailOrder.id || detailOrder._id || '', 
+                  detailOrder.status
+                )}
               </div>
             </div>
           </DialogHeader>
@@ -1007,6 +1007,14 @@ const ManageOrdersPage = () => {
                       </div>
                       <div className="text-xs text-muted-foreground font-medium mt-1">
                         Items
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm md:text-base font-semibold truncate">
+                        {detailShippingLog ? 'Has Shipping' : 'Order Only'}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-medium mt-1">
+                        Status Type
                       </div>
                     </div>
                   </div>
@@ -1396,6 +1404,92 @@ const ManageOrdersPage = () => {
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Shipping Information Card */}
+                {detailShippingLog && (
+                  <Card className="w-full">
+                    <CardHeader className="pb-3 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-t-lg">
+                      <CardTitle className="text-base font-semibold text-orange-900 flex items-center gap-2">
+                        <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs">🚚</span>
+                        </div>
+                        Shipping Information
+                        <Badge variant="secondary" className="ml-auto text-xs">
+                          {getUnifiedStatus(detailOrder.status, detailShippingLog).displayText}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                        {detailShippingLog.trackingNumber && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Tracking Number:
+                            </span>
+                            <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded truncate">
+                              {detailShippingLog.trackingNumber}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {detailShippingLog.carrier && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Carrier:
+                            </span>
+                            <span className="font-semibold text-sm truncate">
+                              {detailShippingLog.carrier}
+                            </span>
+                          </div>
+                        )}
+
+                        {detailShippingLog.currentLocation && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Current Location:
+                            </span>
+                            <span className="text-sm truncate">
+                              {detailShippingLog.currentLocation}
+                            </span>
+                          </div>
+                        )}
+
+                        {detailShippingLog.estimatedDelivery && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Estimated Delivery:
+                            </span>
+                            <span className="text-sm font-medium truncate">
+                              {formatDate(detailShippingLog.estimatedDelivery)}
+                            </span>
+                          </div>
+                        )}
+
+                        {detailShippingLog.actualDelivery && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Actual Delivery:
+                            </span>
+                            <span className="text-sm font-medium text-green-600 truncate">
+                              {formatDate(detailShippingLog.actualDelivery)}
+                            </span>
+                          </div>
+                        )}
+
+                        {detailShippingLog.notes && (
+                          <div className="flex flex-col gap-1 min-w-0 col-span-2">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Shipping Notes:
+                            </span>
+                            <span className="text-sm bg-blue-50 p-2 rounded border">
+                              {detailShippingLog.notes}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </div>
           )}
@@ -1426,15 +1520,13 @@ const ManageOrdersPage = () => {
                       <SelectValue placeholder="Update Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      {getAvailableStatuses(detailOrder.status).map(
+                      {getAvailableStatuses(
+                        detailOrder.id || detailOrder._id || '',
+                        detailOrder.status
+                      ).map(
                         (status) => (
                           <SelectItem key={status} value={status}>
                             <div className="flex items-center gap-2">
-                              {
-                                StatusConfig[
-                                  status as keyof typeof StatusConfig
-                                ]?.icon
-                              }
                               <span className="capitalize font-medium">
                                 {status}
                               </span>

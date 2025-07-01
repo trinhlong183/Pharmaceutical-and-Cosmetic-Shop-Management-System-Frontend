@@ -107,8 +107,19 @@ export default function ShipmentTracking({ orderId }: ShipmentTrackingProps) {
     }
   };
 
-  const getStatusInfo = (status: string) => {
-    switch (status.toLowerCase()) {
+  const getStatusInfo = (status: string | undefined) => {
+    if (!status || typeof status !== 'string') {
+      return {
+        icon: <Clock className="h-5 w-5 text-gray-500" />,
+        title: "Unknown",
+        description: "Status information not available",
+        color: "text-gray-500",
+        badge: "bg-gray-100 text-gray-800 border-gray-200"
+      };
+    }
+    
+    const normalizedStatus = status.toLowerCase();
+    switch (normalizedStatus) {
       case ShippingStatus.PENDING:
         return {
           icon: <Clock className="h-5 w-5 text-yellow-500" />,
@@ -198,14 +209,19 @@ export default function ShipmentTracking({ orderId }: ShipmentTrackingProps) {
 
   // Determine the current step index
   const getCurrentStepIndex = () => {
-    if (!shippingLog) return -1;
+    if (!shippingLog || !shippingLog.status) return -1;
     
     // Handle special cases first
     if ([ShippingStatus.RETURNED, ShippingStatus.CANCELLED].includes(shippingLog.status as ShippingStatus)) {
       return -2; // Special status that doesn't fit in the normal flow
     }
     
-    return steps.findIndex(step => step.toLowerCase() === shippingLog.status.toLowerCase());
+    // Safely check if status exists before calling toLowerCase
+    const status = shippingLog.status;
+    if (typeof status !== 'string' || !status.trim()) return -1;
+    
+    const normalizedStatus = status.toLowerCase();
+    return steps.findIndex(step => step.toLowerCase() === normalizedStatus);
   };
 
   const currentStepIndex = getCurrentStepIndex();
@@ -268,7 +284,7 @@ export default function ShipmentTracking({ orderId }: ShipmentTrackingProps) {
     );
   }
 
-  const statusInfo = getStatusInfo(shippingLog.status);
+  const statusInfo = getStatusInfo(shippingLog?.status);
 
   return (
     <Card className="w-full">

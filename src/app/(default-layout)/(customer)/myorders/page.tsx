@@ -40,6 +40,10 @@ import { useUser } from "@/contexts/UserContext";
 import ReviewDialog from "@/components/ReviewDialog";
 import ShipmentTracking from "@/components/ShipmentTracking";
 import ConfirmReceiptDialog from "@/components/ConfirmReceiptDialog";
+import { StatusBadge } from "@/components/order/StatusBadge";
+import { OrderTimeline } from "@/components/order/OrderTimeline";
+import { useOrdersWithShipping } from "@/hooks/useOrderStatus";
+import { shippingLogsService, ShippingLog } from "@/api/shippingLogsService";
 
 // Extend the OrderItem interface to match actual data structure
 interface ExtendedOrderItem {
@@ -112,6 +116,9 @@ export default function MyOrdersPage() {
   
   const router = useRouter();
   const { user } = useUser();
+
+  // Use the unified status hook for managing orders with shipping
+  const { getOrderStatus, isLoading: shippingLoading } = useOrdersWithShipping(orders, true);
 
   // Helper function to get processor name from either object or ID
   const getProcessorName = (
@@ -286,70 +293,6 @@ export default function MyOrdersPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "processing":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      case "approved":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "shipped":
-      case "shipping":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      case "in transit":
-      case "in_transit":
-        return "bg-indigo-100 text-indigo-800 border-indigo-200";
-      case "delivered":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "received":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200";
-      case "rejected":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "refunded":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200";
-      case "cancelled":
-      case "canceled":
-        return "bg-gray-100 text-gray-800 border-gray-200";
-      case "returned":
-        return "bg-amber-100 text-amber-800 border-amber-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-        return <Clock className="h-5 w-5" />;
-      case "processing":
-        return <RefreshCw className="h-5 w-5 text-blue-500" />;
-      case "approved":
-        return <Box className="h-5 w-5" />;
-      case "shipped":
-      case "shipping":
-        return <TruckIcon className="h-5 w-5" />;
-      case "in transit":
-      case "in_transit":
-        return <TruckIcon className="h-5 w-5 text-indigo-500" />;
-      case "delivered":
-        return <CheckCircle2 className="h-5 w-5" />;
-      case "received":
-        return <CheckCircle className="h-5 w-5 text-emerald-500" />;
-      case "rejected":
-        return <XCircle className="h-5 w-5 text-red-500" />;
-      case "refunded":
-        return <RefreshCw className="h-5 w-5 text-emerald-500" />;
-      case "cancelled":
-      case "canceled":
-        return <XCircle className="h-5 w-5 text-gray-500" />;
-      case "returned":
-        return <ArrowRight className="h-5 w-5 rotate-180 text-amber-500" />;
-      default:
-        return <Clock className="h-5 w-5" />;
-    }
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat("vi-VN", {
@@ -405,59 +348,32 @@ export default function MyOrdersPage() {
     }
   };
 
-  // Filter orders by specific statuses
-  const strictlyPendingOrders = orders.filter(
-    (order) => order.status.toLowerCase() === "pending"
-  );
+  // Filter orders by unified status for better customer experience
+  const getFilteredOrdersByUnifiedStatus = (targetDisplayStatus: string) => {
+    return orders.filter(order => {
+      const { unifiedStatus } = getOrderStatus(order);
+      return unifiedStatus.displayStatus === targetDisplayStatus;
+    });
+  };
 
-  const processingOrders = orders.filter(
-    (order) => order.status.toLowerCase() === "processing"
+  // Customer-friendly grouped orders
+  const pendingOrders = orders.filter(order => order.status.toLowerCase() === "pending");
+  const processingOrders = getFilteredOrdersByUnifiedStatus("shipping"); // All shipping statuses
+  const approvedOrders = orders.filter(order => order.status.toLowerCase() === "approved");
+  const shippingOrders = orders.filter(order => 
+    ["shipped", "shipping", "processing", "in_transit"].includes(order.status.toLowerCase())
   );
-
-  const approvedOrders = orders.filter(
-    (order) => order.status.toLowerCase() === "approved"
+  const inTransitOrders = orders.filter(order => 
+    order.status.toLowerCase() === "in_transit" || order.status.toLowerCase() === "in transit"
   );
-  
-  const shippingOrders = orders.filter(
-    (order) => 
-      order.status.toLowerCase() === "shipped" || 
-      order.status.toLowerCase() === "shipping"
+  const deliveredOrders = getFilteredOrdersByUnifiedStatus("delivered"); // Delivered and received
+  const receivedOrders = orders.filter(order => order.status.toLowerCase() === "received");
+  const returnedOrders = orders.filter(order => order.status.toLowerCase() === "returned");
+  const refundedOrders = orders.filter(order => order.status.toLowerCase() === "refunded");
+  const cancelledOrders = orders.filter(order =>
+    ["cancelled", "canceled"].includes(order.status.toLowerCase())
   );
-  
-  const inTransitOrders = orders.filter(
-    (order) => 
-      order.status.toLowerCase() === "in transit" || 
-      order.status.toLowerCase() === "in_transit"
-  );
-
-  const deliveredOrders = orders.filter(
-    (order) => order.status.toLowerCase() === "delivered"
-  );
-  
-  const receivedOrders = orders.filter(
-    (order) => order.status.toLowerCase() === "received"
-  );
-  
-  const returnedOrders = orders.filter(
-    (order) => order.status.toLowerCase() === "returned"
-  );
-
-  // Separate refunded orders from cancelled/rejected
-  const refundedOrders = orders.filter(
-    (order) => order.status.toLowerCase() === "refunded"
-  );
-
-  // Only cancelled orders
-  const cancelledOrders = orders.filter(
-    (order) =>
-      order.status.toLowerCase() === "cancelled" ||
-      order.status.toLowerCase() === "canceled"
-  );
-
-  // Only rejected orders
-  const rejectedOrders = orders.filter(
-    (order) => order.status.toLowerCase() === "rejected"
-  );
+  const rejectedOrders = orders.filter(order => order.status.toLowerCase() === "rejected");
 
   if (!isAuthenticated) {
     return null; // Will redirect to login
@@ -534,7 +450,7 @@ export default function MyOrdersPage() {
                 All ({orders.length})
               </TabsTrigger>
               <TabsTrigger value="pending" className="text-yellow-700 flex-grow">
-                Pending ({strictlyPendingOrders.length})
+                Pending ({pendingOrders.length})
               </TabsTrigger>
               <TabsTrigger value="processing" className="text-blue-700 flex-grow">
                 Processing ({processingOrders.length})
@@ -573,8 +489,8 @@ export default function MyOrdersPage() {
             </TabsContent>
 
             <TabsContent value="pending" className="space-y-6">
-              {strictlyPendingOrders.length > 0 ? (
-                <OrderList orders={strictlyPendingOrders} />
+              {pendingOrders.length > 0 ? (
+                <OrderList orders={pendingOrders} />
               ) : (
                 <EmptyState message="No pending orders at the moment" />
               )}
@@ -805,33 +721,47 @@ export default function MyOrdersPage() {
             )}
             <div className="px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="hidden md:flex h-12 w-12 rounded-full bg-blue-50 items-center justify-center">
-                  {getStatusIcon(order.status)}
-                </div>
-                <div>
-                  <div className="font-semibold text-lg flex items-center gap-2">
-                    Order #{order.id.slice(-6)}
-                    <Badge
-                      className={`${getStatusColor(
-                        order.status
-                      )} flex items-center gap-1 ml-2`}
-                    >
-                      <span className="md:hidden">
-                        {getStatusIcon(order.status)}
-                      </span>
-                      <span>{order.status}</span>
-                    </Badge>
-                  </div>
-                  <div className="flex flex-wrap items-center text-sm text-gray-500 gap-3 mt-1">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" />
-                      {formatDate(order.createdAt)}
-                    </div>
-                    <div className="font-medium">
-                      {order.items.length} items
-                    </div>
-                  </div>
-                </div>
+                {(() => {
+                  const { unifiedStatus, shippingLog } = getOrderStatus(order);
+                  return (
+                    <>
+                      <div className="hidden md:flex h-12 w-12 rounded-full bg-blue-50 items-center justify-center">
+                        <span className="text-xl">{unifiedStatus.icon}</span>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-lg flex items-center gap-2">
+                          Order #{order.id.slice(-6)}
+                          <StatusBadge 
+                            orderStatus={order.status} 
+                            shippingLog={shippingLog}
+                            isCustomerView={true}
+                            variant="customer"
+                            className="ml-2"
+                          />
+                        </div>
+                        <div className="flex flex-wrap items-center text-sm text-gray-500 gap-3 mt-1">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3.5 w-3.5" />
+                            {formatDate(order.createdAt)}
+                          </div>
+                          <div className="font-medium">
+                            {order.items.length} items
+                          </div>
+                          {/* Show progress indicator */}
+                          <div className="flex items-center gap-1 text-xs">
+                            <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
+                                style={{ width: `${(unifiedStatus.stage / 7) * 100}%` }}
+                              />
+                            </div>
+                            <span>{Math.round((unifiedStatus.stage / 7) * 100)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4">
@@ -863,7 +793,20 @@ export default function MyOrdersPage() {
             {expandedOrder === order.id && (
               <CardContent className="p-0">
                 <div className="p-6 border-t border-gray-100 space-y-6">
-                  {/* Shipment Tracking Section for orders that are in shipment process */}
+                  {/* Order Timeline Section */}
+                  {(() => {
+                    const { shippingLog } = getOrderStatus(order);
+                    return (
+                      <OrderTimeline
+                        orderStatus={order.status}
+                        shippingLog={shippingLog}
+                        createdAt={order.createdAt}
+                        isCustomerView={true}
+                      />
+                    );
+                  })()}
+
+                  {/* Shipment Tracking for applicable orders */}
                   {['approved', 'processing', 'shipped', 'shipping', 'in_transit', 'delivered'].includes(order.status.toLowerCase()) && (
                     <div className="space-y-4 mb-6 border-b border-gray-100 pb-6">
                       <h3 className="font-medium flex items-center gap-2">
@@ -874,7 +817,16 @@ export default function MyOrdersPage() {
                       {(() => {
                         const orderId = order.id || order._id || '';
                         if (orderId && typeof orderId === 'string' && orderId.trim() !== '') {
-                          return <ShipmentTracking orderId={orderId} />;
+                          try {
+                            return <ShipmentTracking orderId={orderId} />;
+                          } catch (error) {
+                            console.error('Error rendering ShipmentTracking:', error);
+                            return (
+                              <div className="text-red-600 bg-red-50 p-4 rounded-md text-sm">
+                                Unable to load tracking information: {error instanceof Error ? error.message : 'Unknown error'}
+                              </div>
+                            );
+                          }
                         } else {
                           return (
                             <div className="text-yellow-600 bg-yellow-50 p-4 rounded-md text-sm">
@@ -885,29 +837,32 @@ export default function MyOrdersPage() {
                       })()}
                       
                       
-                      {/* Confirm Receipt button only for delivered orders */}
-                      {order.status.toLowerCase() === "delivered" && (
-                        <div className="mt-4 bg-green-50 rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="font-medium text-green-800 flex items-center gap-2">
-                                <CheckCircle className="h-4 w-4" />
-                                Order Delivered
-                              </h4>
-                              <p className="text-sm text-green-700 mt-1">
-                                Please confirm that you've received your order in good condition.
-                              </p>
+                      {/* Confirm Receipt button - check unified status */}
+                      {(() => {
+                        const { unifiedStatus } = getOrderStatus(order);
+                        return unifiedStatus.displayStatus === "delivered" && order.status.toLowerCase() === "delivered" && (
+                          <div className="mt-4 bg-green-50 rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="font-medium text-green-800 flex items-center gap-2">
+                                  <CheckCircle className="h-4 w-4" />
+                                  Order Delivered
+                                </h4>
+                                <p className="text-sm text-green-700 mt-1">
+                                  Please confirm that you've received your order in good condition.
+                                </p>
+                              </div>
+                              <Button 
+                                onClick={() => openConfirmReceiptDialog(order.id || order._id || '')}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                                Confirm Receipt
+                              </Button>
                             </div>
-                            <Button 
-                              onClick={() => openConfirmReceiptDialog(order.id || order._id || '')}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              <CheckCircle2 className="mr-2 h-4 w-4" />
-                              Confirm Receipt
-                            </Button>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   )}
                   
@@ -952,84 +907,87 @@ export default function MyOrdersPage() {
                               <div className="font-semibold mt-1">
                                 {formatCurrency(item.price * item.quantity)}
                               </div>
-                              {/* Đánh giá sản phẩm nếu đã giao */}
-                              {order.status.toLowerCase() === "delivered" && (
-                                <div className="mt-4 flex flex-col items-end">
-                                  {!productReviews[item.productId] ? (
-                                    // Nếu chưa review, hiển thị nút tạo review như cũ
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="flex items-center gap-1"
-                                      onClick={() =>
-                                        setReviewDialog({
-                                          open: true,
-                                          productId: item.productId,
-                                          review: undefined,
-                                        })
-                                      }
-                                    >
-                                      <Star className="h-4 w-4 text-yellow-500" />
-                                      Review
-                                    </Button>
-                                  ) : (
-                                    <div className="group relative w-full flex flex-col items-end">
-                                      <div className="mt-1 text-xs text-gray-600 text-left w-full flex items-center justify-end gap-2">
-                                        <span className="flex items-center gap-1">
-                                          {Array.from(
+                              {/* Đánh giá sản phẩm nếu đã giao - check unified status */}
+                              {(() => {
+                                const { unifiedStatus } = getOrderStatus(order);
+                                return unifiedStatus.displayStatus === "delivered" && (
+                                  <div className="mt-4 flex flex-col items-end">
+                                    {!productReviews[item.productId] ? (
+                                      // Nếu chưa review, hiển thị nút tạo review như cũ
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex items-center gap-1"
+                                        onClick={() =>
+                                          setReviewDialog({
+                                            open: true,
+                                            productId: item.productId,
+                                            review: undefined,
+                                          })
+                                        }
+                                      >
+                                        <Star className="h-4 w-4 text-yellow-500" />
+                                        Review
+                                      </Button>
+                                    ) : (
+                                      <div className="group relative w-full flex flex-col items-end">
+                                        <div className="mt-1 text-xs text-gray-600 text-left w-full flex items-center justify-end gap-2">
+                                          <span className="flex items-center gap-1">
+                                            {Array.from(
+                                              {
+                                                length:
+                                                  productReviews[item.productId]
+                                                    ?.rating || 0,
+                                              },
+                                              (_, i) => (
+                                                <Star
+                                                  key={i}
+                                                  className="h-3 w-3 text-yellow-400 fill-yellow-400"
+                                                />
+                                              )
+                                            )}
+                                          </span>
+                                          <span>
                                             {
-                                              length:
-                                                productReviews[item.productId]
-                                                  ?.rating || 0,
-                                            },
-                                            (_, i) => (
-                                              <Star
-                                                key={i}
-                                                className="h-3 w-3 text-yellow-400 fill-yellow-400"
-                                              />
-                                            )
-                                          )}
-                                        </span>
-                                        <span>
-                                          {
-                                            productReviews[item.productId]
-                                              ?.content
-                                          }
-                                        </span>
-                                        <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
-                                          <button
-                                            type="button"
-                                            className="p-1 rounded hover:bg-gray-100"
-                                            title="Edit review"
-                                            onClick={() =>
-                                              setReviewDialog({
-                                                open: true,
-                                                productId: item.productId,
-                                                review:
-                                                  productReviews[
-                                                    item.productId
-                                                  ],
-                                              })
+                                              productReviews[item.productId]
+                                                ?.content
                                             }
-                                          >
-                                            <svg
-                                              width="16"
-                                              height="16"
-                                              fill="none"
-                                              viewBox="0 0 20 20"
+                                          </span>
+                                          <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                                            <button
+                                              type="button"
+                                              className="p-1 rounded hover:bg-gray-100"
+                                              title="Edit review"
+                                              onClick={() =>
+                                                setReviewDialog({
+                                                  open: true,
+                                                  productId: item.productId,
+                                                  review:
+                                                    productReviews[
+                                                      item.productId
+                                                    ],
+                                                })
+                                              }
                                             >
-                                              <path
-                                                d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5zM17.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                                                fill="#f59e42"
-                                              />
-                                            </svg>
-                                          </button>
-                                        </span>
+                                              <svg
+                                                width="16"
+                                                height="16"
+                                                fill="none"
+                                                viewBox="0 0 20 20"
+                                              >
+                                                <path
+                                                  d="M4 13.5V16h2.5l7.06-7.06-2.5-2.5L4 13.5zM17.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                                                  fill="#f59e42"
+                                                />
+                                              </svg>
+                                            </button>
+                                          </span>
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>
