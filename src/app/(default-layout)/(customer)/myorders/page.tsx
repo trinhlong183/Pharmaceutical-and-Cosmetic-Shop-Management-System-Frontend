@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { useUser } from "@/contexts/UserContext";
 import ReviewDialog from "@/components/reviewDialog";
+import { formatCurrency } from "@/lib/utils";
 // Extend the OrderItem interface to match actual data structure
 interface ExtendedOrderItem {
   id?: string;
@@ -338,14 +339,7 @@ export default function MyOrdersPage() {
     }).format(date);
   };
 
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+
 
   const toggleOrderExpand = (orderId: string) => {
     setExpandedOrder(expandedOrder === orderId ? null : orderId);

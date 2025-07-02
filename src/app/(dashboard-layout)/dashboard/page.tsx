@@ -2,7 +2,7 @@
 import React from "react";
 import { useUser } from "@/contexts/UserContext";
 import DashboardStaff from "../(staff)/dashboard-staff";
-import DashboardAdmin from "../(admin)/dashboard-admin";
+import AdminDashboard from "../(admin)/dashboard-admin";
 import { Role } from "@/constants/type";
 import RoleRoute from "@/components/auth/RoleRoute";
 
@@ -14,7 +14,7 @@ function Dashboard() {
   if (user.role === "admin") {
     return (
       <RoleRoute allowedRoles={[Role.ADMIN]}>
-        <DashboardAdmin />
+        <AdminDashboard />
       </RoleRoute>
     );
   }

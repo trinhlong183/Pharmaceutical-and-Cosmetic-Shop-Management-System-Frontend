@@ -46,6 +46,7 @@ import ProductForm from "@/app/(dashboard-layout)/(staff)/manage-products/Produc
 import { PlusIcon, SearchIcon } from "lucide-react";
 import Image from "next/image";
 import { useUser } from "@/contexts/UserContext";
+import { formatCurrency } from "@/lib/utils";
 
 export default function ManageProductsPage() {
   const router = useRouter();
@@ -166,14 +167,7 @@ export default function ManageProductsPage() {
     }
   };
 
-  // Format currency
-  const formatCurrency = (price: number) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      minimumFractionDigits: 0,
-    }).format(price);
-  };
+ 
 
   return (
     <RoleRoute allowedRoles={[Role.STAFF, Role.ADMIN]}>

@@ -37,3 +37,12 @@ export const handleErrorApi = ({
 export const normalizePath = (path: string) => {
   return path.startsWith("/") ? path.slice(1) : path;
 };
+
+// Format currency
+export const formatCurrency = (price: number) => {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    minimumFractionDigits: 0,
+  }).format(price);
+};
