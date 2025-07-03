@@ -34,8 +34,9 @@ interface CreateInventoryFormProps {
 }
 
 const defaultForm: Omit<CreateInventoryLogBodyType, "userId"> = {
-  batch: "",
-  products: [{ productId: "", quantity: 0, price: 0, expiryDate: "" }],
+  products: [
+    { productId: "", quantity: 0, price: 0, expiryDate: "", batch: "" },
+  ],
   action: action.IMPORT,
 };
 
@@ -141,6 +142,7 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
         quantity: 1,
         price: 0,
         expiryDate: "",
+        batch: "",
       };
       setForm({ ...form, products });
     } else {
@@ -153,6 +155,7 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
             quantity: 1,
             price: 0,
             expiryDate: "",
+            batch: "",
           },
         ],
       });
@@ -172,7 +175,8 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
       name === "productId" ||
       name === "quantity" ||
       name === "price" ||
-      name === "expiryDate"
+      name === "expiryDate" ||
+      name === "batch"
     ) {
       const products = [...form.products];
       if (idx !== undefined) {
@@ -200,7 +204,7 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
       ...form,
       products: [
         ...form.products,
-        { productId: "", quantity: 0, price: 0, expiryDate: "" },
+        { productId: "", quantity: 0, price: 0, expiryDate: "", batch: "" },
       ],
     });
   };
@@ -221,15 +225,24 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
       return;
     }
 
-    // Convert expiryDate to ISO format
+    // Convert expiryDate to ISO format for import, remove for export
     const formWithISODates = {
       ...form,
-      products: form.products.map((product) => ({
-        ...product,
-        expiryDate: product.expiryDate
-          ? new Date(product.expiryDate + "T23:59:59.000Z").toISOString()
-          : "",
-      })),
+      products: form.products.map((product) => {
+        if (form.action === "import") {
+          return {
+            ...product,
+            expiryDate: product.expiryDate
+              ? new Date(product.expiryDate + "T23:59:59.000Z").toISOString()
+              : undefined,
+          };
+        } else {
+          // export: do not send expiryDate at all
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { expiryDate, ...rest } = product;
+          return rest;
+        }
+      }),
     };
 
     await onSubmit(formWithISODates);
@@ -245,31 +258,59 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label className="mb-2">Batch</Label>
-        <Input
-          name="batch"
-          placeholder="Batch"
-          value={form.batch}
-          onChange={handleFormChange}
-          required
-        />
-      </div>
-      <div>
-        <Label className="mb-2">Action</Label>
+    <form onSubmit={handleSubmit} className="space-y-3 flex flex-col h-full">
+      <div className="space-y-3">
+        <Label className="text-base font-semibold">Action Type</Label>
         <Select value={form.action} onValueChange={handleActionChange}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[160px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="import">Import</SelectItem>
-            <SelectItem value="export">Export</SelectItem>
+            <SelectItem value="import"> Import</SelectItem>
+            <SelectItem value="export"> Export</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Action-specific guidance */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start gap-2">
+            <div className="text-blue-600 text-lg">💡</div>
+            <div className="text-sm text-blue-800">
+              <div className="font-semibold mb-2">
+                {form.action === "import"
+                  ? "Import Guidelines:"
+                  : "Export Guidelines:"}
+              </div>
+              {form.action === "import" ? (
+                <ul className="space-y-1">
+                  <li>
+                    • Batch field is optional - system will auto-generate if
+                    empty
+                  </li>
+                  <li>
+                    • Format:{" "}
+                    <span className="font-mono bg-blue-100 px-1 rounded">
+                      PROD-YYYYMMDD-001
+                    </span>
+                  </li>
+                  <li>• Custom batch names are allowed for manual tracking</li>
+                </ul>
+              ) : (
+                <ul className="space-y-1">
+                  <li>
+                    • Batch field is optional - system will auto-select if empty
+                  </li>
+                  <li>• Auto-selection prioritizes nearest expiry date</li>
+                  <li>• Specify batch to export from specific inventory lot</li>
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-      <div>
-        <div className="flex items-center justify-between mb-4">
+
+      <div className="space-y-4 flex-1 flex flex-col">
+        <div className="flex items-center justify-between">
           <Label className="text-lg font-semibold">Products</Label>
           <Dialog open={searchModalOpen} onOpenChange={setSearchModalOpen}>
             <DialogTrigger asChild>
@@ -333,10 +374,6 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
                                 width={64}
                                 height={64}
                                 unoptimized
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.src = "/placeholder-product.png";
-                                }}
                               />
                             ) : (
                               <div className="w-full h-full bg-gray-200 rounded-md flex items-center justify-center">
@@ -393,82 +430,137 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
             </DialogContent>
           </Dialog>
         </div>
-
-        {/* Column Headers */}
-        <div className="grid grid-cols-5 gap-2 mb-2 px-2">
-          <Label className="text-sm font-medium">Product ID</Label>
-          <Label className="text-sm font-medium">Quantity</Label>
-          <Label className="text-sm font-medium">Price</Label>
-          <Label className="text-sm font-medium">Expiry Date</Label>
+        {/* Improved column headers */}
+        <div className="bg-slate-100 rounded-lg p-3">
+          <div className="grid grid-cols-6 gap-3 text-sm font-medium text-slate-700">
+            <div>Product ID</div>
+            <div>Quantity</div>
+            {/* Hide Price and Expiry Date if action is export */}
+            {form.action === "import" && <div>Price</div>}
+            {form.action === "import" && <div>Expiry Date</div>}
+            {form.action === "export" && <div className="col-span-2"></div>}
+            <div>Batch</div>
+            <div className="text-center">Actions</div>
+          </div>
         </div>
-
-        <div className="space-y-2">
+        {/* Product rows scrollable area */}
+        <div className="space-y-3 overflow-y-auto max-h-[250px] flex-1 min-h-0">
           {form.products.map((p, idx) => (
-            <div key={idx} className="grid grid-cols-5 gap-2 items-center">
-              <Input
-                name="productId"
-                placeholder="Product ID"
-                value={p.productId}
-                onChange={(e) => handleFormChange(e, idx)}
-                required
-              />
-              <Input
-                name="quantity"
-                type="number"
-                placeholder="Quantity"
-                value={p.quantity}
-                onChange={(e) => handleFormChange(e, idx)}
-                required
-                min={1}
-              />
-              <Input
-                name="price"
-                type="number"
-                step="1"
-                placeholder="Price"
-                value={p.price}
-                onChange={(e) => handleFormChange(e, idx)}
-                required
-                min={0}
-              />
-              <Input
-                name="expiryDate"
-                type="date"
-                placeholder="Expiry Date"
-                value={p.expiryDate}
-                onChange={(e) => handleFormChange(e, idx)}
-                required
-                min={getTodayDate()}
-              />
-              <div className="flex justify-center">
-                {form.products.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => removeProduct(idx)}
-                  >
-                    Remove
-                  </Button>
+            <div
+              key={idx}
+              className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <div className="bg-slate-100 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold text-slate-600">
+                  {idx + 1}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-6 gap-2 items-start">
+                <Input
+                  name="productId"
+                  placeholder="Product ID"
+                  value={p.productId}
+                  onChange={(e) => handleFormChange(e, idx)}
+                  required
+                  className="h-10"
+                />
+                <Input
+                  name="quantity"
+                  type="number"
+                  placeholder="Quantity"
+                  value={p.quantity}
+                  onChange={(e) => handleFormChange(e, idx)}
+                  required
+                  min={1}
+                  className="h-10"
+                />
+                {/* Only show Price and Expiry Date if action is import */}
+                {form.action === "import" && (
+                  <>
+                    <Input
+                      name="price"
+                      type="number"
+                      step="1"
+                      placeholder="Price"
+                      value={p.price}
+                      onChange={(e) => handleFormChange(e, idx)}
+                      required
+                      min={0}
+                      className="h-10"
+                    />
+                    <Input
+                      name="expiryDate"
+                      type="date"
+                      value={p.expiryDate}
+                      onChange={(e) => handleFormChange(e, idx)}
+                      required
+                      min={getTodayDate()}
+                      className="h-10"
+                    />
+                  </>
                 )}
+                {/* If export, add empty cells for grid alignment */}
+                {form.action === "export" && (
+                  <>
+                    <div></div>
+                    <div></div>
+                  </>
+                )}
+                <div className="space-y-1">
+                  <Input
+                    name="batch"
+                    placeholder="Optional"
+                    value={p.batch}
+                    onChange={(e) => handleFormChange(e, idx)}
+                    className="h-10"
+                  />
+                  <div className="text-xs text-slate-500">
+                    {form.action === "import"
+                      ? "Auto-gen if empty"
+                      : "Auto-select if empty"}
+                  </div>
+                </div>
+                <div className="flex justify-center items-start">
+                  {form.products.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removeProduct(idx)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
-          <div className="pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addProduct}
-            >
-              Add Product
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addProduct}
+            className="w-full border-dashed border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-slate-50"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Another Product
+          </Button>
         </div>
       </div>
-      <Button type="submit" disabled={loading}>
-        Create Inventory Log
-      </Button>
+      {/* Sticky submit button at the bottom */}
+      <div className="pt-4 border-t border-slate-200 sticky bottom-2 bg-white ">
+        <Button
+          type="submit"
+          disabled={loading}
+          className="w-full h-12 text-base font-semibold"
+        >
+          {loading
+            ? "Creating..."
+            : `Create ${form.action === "import" ? "Import" : "Export"} Log`}
+        </Button>
+      </div>
     </form>
   );
 };

@@ -88,7 +88,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
       <div className="w-64 bg-white shadow-md">
-        <div className="p-4 border-b">
+        <div className="p-6 border-b">
           <h1 className="text-xl font-bold">
             {user?.role === "admin" ? "Admin Portal" : "Staff Portal"}
           </h1>
@@ -110,7 +110,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white shadow-sm p-4 flex justify-end items-center">
+        <header className="bg-white shadow-sm p-3.5 flex justify-end items-center">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">
               Welcome, {user?.role === "admin" ? "Admin" : "Staff"}

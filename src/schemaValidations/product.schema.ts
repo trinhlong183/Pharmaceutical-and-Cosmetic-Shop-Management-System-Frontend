@@ -1,6 +1,5 @@
 import z from "zod";
 
-// Define the SuitableFor enum
 
 export enum SuitableFor {
   ALL_SKIN_TYPES = "All skin types",
@@ -20,14 +19,14 @@ const ReviewSchema = z.object({
 
 // Base Product Schema
 const BaseProductSchema = z.object({
-  productId: z.string().optional(), // Usually auto-generated
+  productId: z.string().optional(), 
   productName: z.string().min(1, "Product name is required"),
-  productDescription: z.string().optional(), // Make optional for creation
+  productDescription: z.string().optional(),
   price: z.number().positive("Price must be positive"),
   stock: z.number().int().nonnegative("Stock cannot be negative"),
   category: z.array(z.string()).min(1, "At least one category is required"),
   brand: z.string().min(1, "Brand is required"),
-  productImages: z.array(z.string()).optional(), // Make optional for creation
+  productImages: z.array(z.string()).optional(), 
   ingredients: z.string().min(1, "Ingredients are required"),
   suitableFor: z.nativeEnum(SuitableFor),
   reviews: z.array(ReviewSchema).optional().default([]),
@@ -42,13 +41,11 @@ export const CreateProductBody = z
   .object({
     productName: z.string().min(1, "Product name is required"),
     price: z.number().positive("Price is required"),
-    stock: z.number().positive("Stock is required"),
     brand: z.string().min(1, "Brand is required"),
     ingredients: z.string().min(1, "Ingredients are required"),
     suitableFor: z.nativeEnum(SuitableFor),
     expiryDate: z.string().or(z.date()),
     category: z.array(z.string()).min(1, "At least one category is required"),
-    // Các trường còn lại là optional
     productDescription: z.string().optional(),
     productImages: z.array(z.string()).optional(),
     salePercentage: z.number().min(0).max(100).optional(),
@@ -89,7 +86,6 @@ export const UpdateProductBody = z
   .object({
     productName: z.string().min(1, "Product name is required").optional(),
     price: z.number().nonnegative("Price must be non-negative").optional(),
-    stock: z.number().int().nonnegative("Stock cannot be negative").optional(),
     brand: z.string().min(1, "Brand is required").optional(),
     ingredients: z.string().min(1, "Ingredients are required").optional(),
     suitableFor: z.nativeEnum(SuitableFor).optional(),
@@ -130,7 +126,7 @@ export type AddReviewBodyType = z.infer<typeof AddReviewBody>;
 export const ProductQueryParams = z
   .object({
     search: z.string().optional(),
-    category: z.array(z.string()).optional(), // chỉ cho phép mảng string
+    category: z.array(z.string()).optional(), 
     brand: z.string().optional(),
     minPrice: z.number().optional(),
     maxPrice: z.number().optional(),

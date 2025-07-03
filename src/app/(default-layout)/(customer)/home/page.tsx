@@ -21,6 +21,7 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 export default function CustomerHome() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -329,19 +330,18 @@ export default function CustomerHome() {
                           {product.salePercentage > 0 ? (
                             <div className="space-y-1">
                               <span className="text-2xl font-bold bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent">
-                                $
-                                {(
+                                {formatCurrency(
                                   product.price *
-                                  (1 - product.salePercentage / 100)
-                                ).toFixed(2)}
+                                    (1 - product.salePercentage / 100)
+                                )}
                               </span>
                               <div className="text-sm text-gray-400 line-through">
-                                ${product.price.toFixed(2)}
+                                {formatCurrency(product.price)}
                               </div>
                             </div>
                           ) : (
                             <span className="text-2xl font-bold text-gray-900">
-                              ${product.price.toFixed(2)}
+                              {formatCurrency(product.price)}
                             </span>
                           )}
                         </div>

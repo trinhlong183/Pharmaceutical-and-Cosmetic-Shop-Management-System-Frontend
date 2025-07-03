@@ -42,7 +42,8 @@ import {
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import Image from "next/image";
-import { log } from "console";
+import { uploadImgService } from "@/api/uploadImgService";
+import { toast } from "sonner";
 
 interface ProductFormProps {
   product?: Product | null;
@@ -64,6 +65,7 @@ const ProductForm = ({
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     (product?.category as string[]) || []
   );
+  const [uploading, setUploading] = useState(false);
 
   const isEditMode = !!product;
 
@@ -74,7 +76,6 @@ const ProductForm = ({
       productName: product?.productName || "",
       productDescription: product?.productDescription || "",
       price: product?.price || 0,
-      stock: product?.stock || 0,
       brand: product?.brand || "",
       ingredients: product?.ingredients || "",
       suitableFor: product?.suitableFor || SuitableFor.ALL_SKIN_TYPES,
@@ -147,6 +148,32 @@ const ProductForm = ({
     );
   };
 
+  // Handle uploading image from local file
+  const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "products");
+      // Chỉ truyền formData, không truyền tham số thứ 2
+      const url = await uploadImgService.uploadImage(formData);
+      console.log("Image upload response:", url);
+
+    
+      if (url && !imageUrls.includes(url)) {
+        setImageUrls((prev) => [...prev, url]);
+      }
+    } catch (err) {
+      toast.error("Failed to upload image");
+    } finally {
+      setUploading(false);
+      // Reset input value to allow re-upload same file
+      e.target.value = "";
+    }
+  };
+
   return (
     <div
       className="max-h-[80vh] overflow-y-auto p-6 bg-white rounded-lg shadow"
@@ -212,30 +239,6 @@ const ProductForm = ({
                   <FormControl>
                     <Input
                       type="number"
-                      min="0"
-                      {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      disabled={isLoading}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Stock */}
-            <FormField
-              control={form.control}
-              name="stock"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Stock<span className="text-red-500">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="0"
                       min="0"
                       {...field}
                       onChange={(e) => field.onChange(Number(e.target.value))}
@@ -415,6 +418,17 @@ const ProductForm = ({
                 <ImagePlusIcon className="h-4 w-4" /> Add
               </Button>
             </div>
+            {/* Upload from computer */}
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={handleUploadFile}
+              disabled={isLoading || uploading}
+              className="w-auto max-w-50"
+            />
+            {uploading && (
+              <span className="text-xs text-gray-500 ml-2">Uploading...</span>
+            )}
 
             {/* Image Previews */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
@@ -428,11 +442,6 @@ const ProductForm = ({
                       alt={`Product image ${index + 1}`}
                       className="h-full w-full object-cover"
                       unoptimized
-                      onError={(e) => {
-                        // Handle image loading errors
-                        (e.target as HTMLImageElement).src =
-                          "https://via.placeholder.com/400x300?text=Image+Error";
-                      }}
                     />
                   </div>
                   <Button

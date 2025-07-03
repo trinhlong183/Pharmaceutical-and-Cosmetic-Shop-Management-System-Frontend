@@ -31,14 +31,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { formatCurrency } from '@/lib/utils';
 
-// Format currency function
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(amount);
-};
+
 
 // Format date from string like "20250613082630" to readable format
 const formatPayDate = (dateStr?: string): string => {

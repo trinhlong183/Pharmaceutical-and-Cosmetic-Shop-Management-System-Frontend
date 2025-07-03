@@ -14,6 +14,20 @@ interface ApiResponse<T> {
   message: string;
 }
 
+interface ProductBatch {
+  itemId: string;
+  batchNumber: string;
+  stock: number;
+  expiryDate: string;
+  price: number;
+  daysUntilExpiry: number;
+  inventoryLogInfo: {
+    _id: string;
+    action: string;
+    createdAt: string;
+  };
+}
+
 export const productService = {
   getAllProducts: (param: ProductQueryParamsType = {}) => {
     return http
@@ -45,6 +59,13 @@ export const productService = {
   },
   deleteProduct: (id: string) => {
     return http.delete(`/products/${id}`);
+  },
+  getProductBatchById: (productId: string) => {
+    return http
+      .get<{ data: { batches: ProductBatch[]; totalStock: number } }>(
+        `/inventory-logs/product/${productId}/batches`
+      )
+      .then((response) => response.payload.data);
   },
 };
 

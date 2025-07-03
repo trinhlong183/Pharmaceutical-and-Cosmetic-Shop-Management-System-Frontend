@@ -33,6 +33,12 @@ import { toast } from "sonner";
 import CreateInventoryForm from "./create-inventory-form";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 function ManageInventoryPage() {
   const [logs, setLogs] = useState<InventoryLogType[]>([]);
@@ -46,6 +52,7 @@ function ManageInventoryPage() {
   const [pendingFilters, setPendingFilters] = useState<
     Omit<InventoryQueryParamsType, "userId">
   >({});
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const fetchLogs = async () => {
     if (!user?.id) return;
@@ -93,12 +100,21 @@ function ManageInventoryPage() {
     if (!user?.id) return;
     setCreating(true);
     try {
-      await inventoryService.createInventoryLogs({
+      const res = await inventoryService.createInventoryLogs({
         ...form,
         userId: user.id,
       });
-      fetchLogs();
-      toast.success("Inventory log created successfully");
+      console.log(res.payload);
+      if (res.payload.errorCode === 400) {
+        toast.error(res.payload.message || "Failed to create inventory log", {
+          duration: 16000,
+          dismissible: true,
+        });
+      } else {
+        fetchLogs();
+        toast.success("Inventory log created successfully");
+        setCreateModalOpen(false);
+      }
     } catch (e) {
       handleErrorApi({
         error: e,
@@ -137,20 +153,65 @@ function ManageInventoryPage() {
     );
   };
 
+  const getActionBadge = (action: string) => {
+    if (action === "import")
+      return (
+        <Badge
+          variant="secondary"
+          className="capitalize bg-blue-100 text-blue-800 font-semibold"
+        >
+          Import
+        </Badge>
+      );
+    if (action === "export")
+      return (
+        <Badge
+          variant="secondary"
+          className="capitalize bg-yellow-100 text-yellow-800 border-yellow-200 font-semibold"
+        >
+          Export
+        </Badge>
+      );
+  };
+
   return (
-    <RoleRoute allowedRoles={["staff", Role.STAFF]}>
-      <div className="max-w-4xl mx-auto py-8">
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Create Inventory Log</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CreateInventoryForm
-              onSubmit={handleCreateInventory}
-              loading={creating}
-            />
-          </CardContent>
-        </Card>
+    <RoleRoute allowedRoles={[ Role.STAFF]}>
+      <div className="max-w-8xl mx-auto">
+        {/* Modal for create form */}
+        <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+          <DialogContent
+            className="w-full max-w-4xl p-0"
+            style={{
+              left: "85%",
+              top: "95%",
+              transform: "translate(-50%, -50%)",
+              position: "fixed",
+              margin: 0,
+              padding: 0,
+              borderRadius: 20,
+              maxWidth: "70%",
+              maxHeight: "95vh",
+              width: "100%",
+              height: "95vh",
+              overflowY: "auto",
+              background: "white",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <DialogHeader className="p-6 border-b">
+              <DialogTitle>Create Inventory Log</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 flex flex-col px-4">
+              <CreateInventoryForm
+                onSubmit={async (form) => {
+                  await handleCreateInventory(form);
+                }}
+                loading={creating}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Filter Inventory Logs</CardTitle>
@@ -190,6 +251,13 @@ function ManageInventoryPage() {
                 </Select>
               </div>
               <Button type="submit">Search</Button>
+              <Button
+                className="ml-4"
+                onClick={() => setCreateModalOpen(true)}
+                type="button"
+              >
+                + Create Log
+              </Button>
             </form>
           </CardContent>
         </Card>
@@ -205,7 +273,6 @@ function ManageInventoryPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Batch</TableHead>
                       <TableHead>Action</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created At</TableHead>
@@ -216,15 +283,7 @@ function ManageInventoryPage() {
                     {logs.map((log, idx) => (
                       <React.Fragment key={idx}>
                         <TableRow>
-                          <TableCell>{log.batch}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="secondary"
-                              className="capitalize bg-blue-100 text-blue-800 font-semibold"
-                            >
-                              {log.action}
-                            </Badge>
-                          </TableCell>
+                          <TableCell>{getActionBadge(log.action)}</TableCell>
                           <TableCell>
                             {getStatusBadge(log.status || "unknown")}
                           </TableCell>
