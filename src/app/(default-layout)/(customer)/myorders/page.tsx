@@ -429,8 +429,10 @@ export default function MyOrdersPage() {
   const refundedLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "refunded");
   const rejectedLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "rejected");
 
-  // Get pending orders from orders API
+  // Get orders from orders API by status
   const pendingOrders = orders.filter(order => order.status?.toLowerCase() === "pending");
+  const rejectedOrders = orders.filter(order => order.status?.toLowerCase() === "rejected");
+  const refundedOrders = orders.filter(order => order.status?.toLowerCase() === "refunded");
 
   if (!isAuthenticated) {
     return null; // Will redirect to login
@@ -452,14 +454,6 @@ export default function MyOrdersPage() {
               Continue Shopping
             </Button>
           </Link>
-          <Button 
-            variant="outline" 
-            onClick={refreshAllShippingLogs}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh Shipping Status
-          </Button>
         </div>
       </div>
 
@@ -512,7 +506,7 @@ export default function MyOrdersPage() {
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="w-full flex flex-wrap gap-2 mb-6">
               <TabsTrigger value="all" className="flex-grow">
-                All ({shippingLogs.length + pendingOrders.length})
+                All ({shippingLogs.length + pendingOrders.length + rejectedOrders.length + refundedOrders.length})
               </TabsTrigger>
               <TabsTrigger value="pending" className="text-yellow-700 flex-grow">
                 Pending ({pendingLogs.length + pendingOrders.length})
@@ -527,25 +521,27 @@ export default function MyOrdersPage() {
                 Received ({receivedLogs.length})
               </TabsTrigger>
               <TabsTrigger value="rejected" className="text-red-700 flex-grow">
-                Rejected ({rejectedLogs.length})
+                Rejected ({rejectedLogs.length + rejectedOrders.length})
               </TabsTrigger>
               <TabsTrigger value="refunded" className="text-emerald-700 flex-grow">
-                Refunded ({refundedLogs.length})
+                Refunded ({refundedLogs.length + refundedOrders.length})
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="space-y-6">
               <div className="space-y-6">
-                <ShippingLogList shippingLogs={shippingLogs} />
                 {pendingOrders.length > 0 && <PendingOrdersList orders={pendingOrders} />}
+                {rejectedOrders.length > 0 && <RejectedOrdersList orders={rejectedOrders} />}
+                {refundedOrders.length > 0 && <RefundedOrdersList orders={refundedOrders} />}
+                <ShippingLogList shippingLogs={shippingLogs} />
               </div>
             </TabsContent>
 
             <TabsContent value="pending" className="space-y-6">
               {pendingLogs.length > 0 || pendingOrders.length > 0 ? (
                 <div className="space-y-6">
-                  <ShippingLogList shippingLogs={pendingLogs} />
                   {pendingOrders.length > 0 && <PendingOrdersList orders={pendingOrders} />}
+                  <ShippingLogList shippingLogs={pendingLogs} />
                 </div>
               ) : (
                 <EmptyState message="No pending orders at the moment" />
@@ -577,16 +573,22 @@ export default function MyOrdersPage() {
             </TabsContent>
 
             <TabsContent value="rejected" className="space-y-6">
-              {rejectedLogs.length > 0 ? (
-                <ShippingLogList shippingLogs={rejectedLogs} />
+              {rejectedLogs.length > 0 || rejectedOrders.length > 0 ? (
+                <div className="space-y-6">
+                  {rejectedOrders.length > 0 && <RejectedOrdersList orders={rejectedOrders} />}
+                  <ShippingLogList shippingLogs={rejectedLogs} />
+                </div>
               ) : (
                 <EmptyState message="No rejected orders" />
               )}
             </TabsContent>
             
             <TabsContent value="refunded" className="space-y-6">
-              {refundedLogs.length > 0 ? (
-                <ShippingLogList shippingLogs={refundedLogs} />
+              {refundedLogs.length > 0 || refundedOrders.length > 0 ? (
+                <div className="space-y-6">
+                  {refundedOrders.length > 0 && <RefundedOrdersList orders={refundedOrders} />}
+                  <ShippingLogList shippingLogs={refundedLogs} />
+                </div>
               ) : (
                 <EmptyState message="No refunded orders" />
               )}
@@ -795,6 +797,7 @@ export default function MyOrdersPage() {
                   <span className="text-xl">
                     {shippingLog.status?.toLowerCase() === 'received' ? '✅' :
                      shippingLog.status?.toLowerCase() === 'delivered' ? '📦' :
+                     shippingLog.status?.toLowerCase() === 'intransit' ? '🚛' :
                      shippingLog.status?.toLowerCase() === 'shipped' ? '🚚' :
                      shippingLog.status?.toLowerCase() === 'processing' ? '📦' : '⏳'}
                   </span>
@@ -809,6 +812,8 @@ export default function MyOrdersPage() {
                           ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
                           : shippingLog.status?.toLowerCase() === 'delivered' 
                           ? 'bg-green-100 text-green-800 border-green-200'
+                          : shippingLog.status?.toLowerCase() === 'intransit'
+                          ? 'bg-orange-100 text-orange-800 border-orange-200'
                           : shippingLog.status?.toLowerCase() === 'shipped'
                           ? 'bg-blue-100 text-blue-800 border-blue-200'
                           : shippingLog.status?.toLowerCase() === 'processing'
@@ -834,25 +839,32 @@ export default function MyOrdersPage() {
                         <span className="font-mono">{shippingLog.trackingNumber}</span>
                       </div>
                     )}
-                    {/* Show progress indicator based on status */}                      <div className="flex items-center gap-1 text-xs">
+                    {/* Show progress indicator based on status */}
+                    <div className="flex items-center gap-1 text-xs">
                         <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
                             style={{ 
                               width: `${
                                 shippingLog.status?.toLowerCase() === 'received' ? 100 :
-                                shippingLog.status?.toLowerCase() === 'delivered' ? 90 :
+                                shippingLog.status?.toLowerCase() === 'delivered' ? 85 :
                                 shippingLog.status?.toLowerCase() === 'shipped' ? 75 :
-                                shippingLog.status?.toLowerCase() === 'processing' ? 50 : 25
+                                shippingLog.status?.toLowerCase() === 'intransit' ? 60 :
+                                shippingLog.status?.toLowerCase() === 'processing' ? 40 :
+                                shippingLog.order?.status?.toLowerCase() === 'approved' ? 20 :
+                                shippingLog.order?.status?.toLowerCase() === 'pending' ? 10 : 0
                               }%` 
                             }}
                           />
                         </div>
                         <span>
                           {shippingLog.status?.toLowerCase() === 'received' ? 100 :
-                           shippingLog.status?.toLowerCase() === 'delivered' ? 90 :
+                           shippingLog.status?.toLowerCase() === 'delivered' ? 85 :
                            shippingLog.status?.toLowerCase() === 'shipped' ? 75 :
-                           shippingLog.status?.toLowerCase() === 'processing' ? 50 : 25}%
+                           shippingLog.status?.toLowerCase() === 'intransit' ? 60 :
+                           shippingLog.status?.toLowerCase() === 'processing' ? 40 :
+                           shippingLog.order?.status?.toLowerCase() === 'approved' ? 20 :
+                           shippingLog.order?.status?.toLowerCase() === 'pending' ? 10 : 0}%
                         </span>
                       </div>
                   </div>
@@ -900,6 +912,8 @@ export default function MyOrdersPage() {
                         <Badge className={`${
                           shippingLog.status?.toLowerCase() === 'delivered' 
                             ? 'bg-green-100 text-green-800 border-green-200'
+                            : shippingLog.status?.toLowerCase() === 'intransit'
+                            ? 'bg-orange-100 text-orange-800 border-orange-200'
                             : shippingLog.status?.toLowerCase() === 'shipped'
                             ? 'bg-blue-100 text-blue-800 border-blue-200'
                             : shippingLog.status?.toLowerCase() === 'processing'
@@ -923,7 +937,7 @@ export default function MyOrdersPage() {
                   </div>
 
                   {/* Shipping Tracker */}
-                  {(['processing', 'shipped', 'delivered', 'received'].includes(shippingLog.status?.toLowerCase() || '')) && (
+                  {(['processing', 'shipped', 'intransit', 'delivered', 'received'].includes(shippingLog.status?.toLowerCase() || '')) && (
                     <div className="space-y-4 mb-6">
                       <OrderShippingTracker 
                         shippingLog={shippingLog} 
@@ -1124,6 +1138,134 @@ export default function MyOrdersPage() {
                 </div>
               </CardContent>
             )}
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  function RejectedOrdersList({ orders }: { orders: ApiOrder[] }) {
+    return (
+      <div className="space-y-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Rejected Orders</h3>
+        {orders.map((order) => (
+          <Card
+            key={order.id}
+            className="overflow-hidden border hover:border-gray-200 transition-all duration-300 hover:shadow-md border-red-200"
+          >
+            <div className="bg-red-50 px-6 py-3 flex items-center gap-3 border-b border-red-100">
+              <XCircle className="h-4 w-4 text-red-500" />
+              <div>
+                <p className="text-sm text-red-800 font-medium">
+                  This order has been rejected.
+                </p>
+                {order.rejectionReason && (
+                  <p className="text-xs text-red-700 mt-1">
+                    Reason: {order.rejectionReason}
+                  </p>
+                )}
+                <p className="text-xs text-red-700 mt-1">
+                  Rejected on: {formatDate(order.updatedAt)}
+                </p>
+              </div>
+            </div>
+            <div className="px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="hidden md:flex h-12 w-12 rounded-full bg-red-50 items-center justify-center">
+                  <span className="text-xl">❌</span>
+                </div>
+                <div>
+                  <div className="font-semibold text-lg flex items-center gap-2">
+                    Order #{order.id.slice(-6)}
+                    <Badge variant="outline" className="ml-2 bg-red-100 text-red-800 border-red-200">
+                      Rejected
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center text-sm text-gray-500 gap-3 mt-1">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {formatDate(order.createdAt)}
+                    </div>
+                    <div className="font-medium">
+                      {order.items?.length || 0} items
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4">
+                <div className="text-right">
+                  <div className="text-sm text-gray-500">Total Amount:</div>
+                  <div className="font-bold text-lg">
+                    {formatCurrency(order.totalAmount || 0)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  function RefundedOrdersList({ orders }: { orders: ApiOrder[] }) {
+    return (
+      <div className="space-y-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Refunded Orders</h3>
+        {orders.map((order) => (
+          <Card
+            key={order.id}
+            className="overflow-hidden border hover:border-gray-200 transition-all duration-300 hover:shadow-md border-emerald-200"
+          >
+            <div className="bg-emerald-50 px-6 py-3 flex items-center gap-3 border-b border-emerald-100">
+              <RefreshCw className="h-4 w-4 text-emerald-500" />
+              <div>
+                <p className="text-sm text-emerald-800 font-medium">
+                  This order has been refunded. Your payment has been returned.
+                </p>
+                {order.refundReason && (
+                  <p className="text-xs text-emerald-700 mt-1">
+                    Reason: {order.refundReason}
+                  </p>
+                )}
+                <p className="text-xs text-emerald-700 mt-1">
+                  Refunded on: {formatDate(order.updatedAt)}
+                </p>
+              </div>
+            </div>
+            <div className="px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="hidden md:flex h-12 w-12 rounded-full bg-emerald-50 items-center justify-center">
+                  <span className="text-xl">💰</span>
+                </div>
+                <div>
+                  <div className="font-semibold text-lg flex items-center gap-2">
+                    Order #{order.id.slice(-6)}
+                    <Badge variant="outline" className="ml-2 bg-emerald-100 text-emerald-800 border-emerald-200">
+                      Refunded
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center text-sm text-gray-500 gap-3 mt-1">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {formatDate(order.createdAt)}
+                    </div>
+                    <div className="font-medium">
+                      {order.items?.length || 0} items
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4">
+                <div className="text-right">
+                  <div className="text-sm text-gray-500">Refunded Amount:</div>
+                  <div className="font-bold text-lg">
+                    {formatCurrency(order.totalAmount || 0)}
+                  </div>
+                </div>
+              </div>
+            </div>
           </Card>
         ))}
       </div>

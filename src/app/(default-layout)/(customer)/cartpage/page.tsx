@@ -576,19 +576,6 @@ export default function CartPage() {
                       </span>
                     </Button>
                     
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        // Select only first item for testing
-                        if (cart.items.length > 0) {
-                          setSelectedProductIds([cart.items[0].productId._id]);
-                        }
-                      }}
-                      className="text-xs"
-                    >
-                      Test: Select First Only
-                    </Button>
                   </div>
                   <span className="text-sm text-gray-500">
                     {selectedProductIds.length} of {cart.items.length} selected
