@@ -89,9 +89,11 @@ const InventoryLogCard: React.FC<InventoryLogCardProps> = ({ log }) => {
     }).format(price);
   };
 
+  const isExport = log.action === "export" || log.status === "export";
+
   return (
-    <Card className="w-full">
-      <CardContent className="p-6 space-y-8">
+    <Card className="w-full ">
+      <CardContent className="p-6 space-y-8 ">
         {/* Request Information Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Remove Batch block */}
@@ -119,33 +121,38 @@ const InventoryLogCard: React.FC<InventoryLogCardProps> = ({ log }) => {
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm md:col-span-2 lg:col-span-1">
-            <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">
-              Requested By
-            </p>
-            <p className="font-semibold text-slate-800">
-              {typeof log.userId === "object"
-                ? `${log.userId.fullName}`
-                : log.userId}
-            </p>
-            {typeof log.userId === "object" && (
-              <p className="text-sm text-slate-600">{log.userId.email}</p>
-            )}
-          </div>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm md:col-span-2 lg:col-span-1 flex flex-col justify-between">
+            <div className="flex items-start sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                  Requested By
+                </p>
+                <p className="font-semibold text-slate-800">
+                  {typeof log.userId === "object"
+                    ? `${log.userId.fullName}`
+                    : log.userId}
+                </p>
 
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm md:col-span-2">
-            <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">
-              Request Date
-            </p>
-            <p className="font-semibold text-slate-800">
-              {new Date(log.createdAt).toLocaleString([], {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
+                {typeof log.userId === "object" && (
+                  <p className="text-sm text-slate-600">{log.userId.email}</p>
+                )}
+              </div>
+              <div className="flex flex-col justify-end">
+                <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">
+                  Request Date
+                </p>
+                <p className="font-semibold text-slate-800">
+                  {new Date(log.createdAt).toLocaleString([], {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+                <p></p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -184,18 +191,24 @@ const InventoryLogCard: React.FC<InventoryLogCardProps> = ({ log }) => {
                   <TableHead className="font-bold text-slate-700 text-right">
                     Quantity
                   </TableHead>
-                  <TableHead className="font-bold text-slate-700 text-right">
-                    Unit Price
-                  </TableHead>
-                  <TableHead className="font-bold text-slate-700 text-right">
-                    Expiry Date
-                  </TableHead>
+                  {!isExport && (
+                    <TableHead className="font-bold text-slate-700 text-right">
+                      Unit Price
+                    </TableHead>
+                  )}
+                  {!isExport && (
+                    <TableHead className="font-bold text-slate-700 text-right">
+                      Expiry Date
+                    </TableHead>
+                  )}
                   <TableHead className="font-bold text-slate-700 text-right">
                     Batch
                   </TableHead>
-                  <TableHead className="font-bold text-slate-700 text-right">
-                    Total
-                  </TableHead>
+                  {!isExport && (
+                    <TableHead className="font-bold text-slate-700 text-right">
+                      Total
+                    </TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -227,24 +240,30 @@ const InventoryLogCard: React.FC<InventoryLogCardProps> = ({ log }) => {
                           <TableCell className="text-right font-semibold text-slate-700">
                             {quantity}
                           </TableCell>
-                          <TableCell className="text-right text-slate-600">
-                            {formatVND(price)}
-                          </TableCell>
-                          <TableCell className="text-right text-slate-600">
-                            {expiryDate}
-                          </TableCell>
+                          {!isExport && (
+                            <TableCell className="text-right text-slate-600">
+                              {formatVND(price)}
+                            </TableCell>
+                          )}
+                          {!isExport && (
+                            <TableCell className="text-right text-slate-600">
+                              {expiryDate}
+                            </TableCell>
+                          )}
                           <TableCell className="text-right text-slate-600">
                             {batch}
                           </TableCell>
-                          <TableCell className="text-right font-bold text-slate-800">
-                            {formatVND(total)}
-                          </TableCell>
+                          {!isExport && (
+                            <TableCell className="text-right font-bold text-slate-800">
+                              {formatVND(total)}
+                            </TableCell>
+                          )}
                         </TableRow>
                       );
                     })
                   : null}
                 {/* Grand Total Row */}
-                {displayItems && (
+                {!isExport && displayItems && (
                   <TableRow className="bg-blue-100 hover:bg-blue-100 border-t-2 border-blue-200">
                     <TableCell
                       colSpan={6}

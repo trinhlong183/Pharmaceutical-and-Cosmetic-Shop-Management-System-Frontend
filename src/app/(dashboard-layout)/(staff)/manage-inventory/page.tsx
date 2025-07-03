@@ -35,7 +35,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
-  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -101,12 +100,21 @@ function ManageInventoryPage() {
     if (!user?.id) return;
     setCreating(true);
     try {
-      await inventoryService.createInventoryLogs({
+      const res = await inventoryService.createInventoryLogs({
         ...form,
         userId: user.id,
       });
-      fetchLogs();
-      toast.success("Inventory log created successfully");
+      console.log(res.payload);
+      if (res.payload.errorCode === 400) {
+        toast.error(res.payload.message || "Failed to create inventory log", {
+          duration: 10000,
+          dismissible: true,
+        });
+      } else {
+        fetchLogs();
+        toast.success("Inventory log created successfully");
+        setCreateModalOpen(false);
+      }
     } catch (e) {
       handleErrorApi({
         error: e,
@@ -177,7 +185,6 @@ function ManageInventoryPage() {
               <CreateInventoryForm
                 onSubmit={async (form) => {
                   await handleCreateInventory(form);
-                  setCreateModalOpen(false);
                 }}
                 loading={creating}
               />
@@ -245,7 +252,6 @@ function ManageInventoryPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Batch</TableHead>
                       <TableHead>Action</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created At</TableHead>
@@ -256,7 +262,6 @@ function ManageInventoryPage() {
                     {logs.map((log, idx) => (
                       <React.Fragment key={idx}>
                         <TableRow>
-                          <TableCell>{log.batch}</TableCell>
                           <TableCell>
                             <Badge
                               variant="secondary"

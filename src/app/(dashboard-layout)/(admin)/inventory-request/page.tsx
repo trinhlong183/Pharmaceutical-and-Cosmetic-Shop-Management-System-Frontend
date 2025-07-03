@@ -255,7 +255,6 @@ function InventoryRequest() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gray-50">
-                      <TableHead className="font-semibold">Batch</TableHead>
                       <TableHead className="font-semibold">Action</TableHead>
                       <TableHead className="font-semibold">Staff</TableHead>
                       <TableHead className="font-semibold">Status</TableHead>
@@ -265,43 +264,83 @@ function InventoryRequest() {
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody >
+                  <TableBody>
                     {logs.map((log, idx) => (
-                      <TableRow key={idx} className="hover:bg-gray-50">
-                        <TableCell className="font-medium">
-                          {log.batch}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize">
-                            {log.action}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {typeof log.userId === "object"
-                            ? log.userId.fullName
-                            : log.userId}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(log.status)}</TableCell>
-                        <TableCell className="text-sm text-gray-600">
-                          {log.createdAt
-                            ? typeof log.createdAt === "string"
-                              ? new Date(log.createdAt).toLocaleString()
-                              : log.createdAt.toLocaleString()
-                            : ""}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedLog(log);
-                              setReason("");
-                            }}
-                          >
-                            View Details
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                      <React.Fragment key={idx}>
+                        <TableRow className="hover:bg-gray-50">
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize">
+                              {log.action}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {typeof log.userId === "object"
+                              ? log.userId.fullName
+                              : log.userId}
+                          </TableCell>
+                          <TableCell>{getStatusBadge(log.status)}</TableCell>
+                          <TableCell className="text-sm text-gray-600">
+                            {log.createdAt
+                              ? typeof log.createdAt === "string"
+                                ? new Date(log.createdAt).toLocaleString()
+                                : log.createdAt.toLocaleString()
+                              : ""}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedLog(log);
+                                setReason("");
+                              }}
+                            >
+                              View Details
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                        {selectedLog && selectedLog._id === log._id && (
+                          <TableRow>
+                            <TableCell colSpan={5} className="p-0">
+                              <div className="p-4">
+                                <InventoryLogCard log={selectedLog as any} />
+                                <div className="mt-6 flex gap-3 flex-wrap justify-end border-t pt-4">
+                                  {selectedLog.status === "pending" && (
+                                    <>
+                                      <Button
+                                        variant="outline"
+                                        className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                                        disabled={reviewing}
+                                        onClick={() =>
+                                          handleApprove(selectedLog._id)
+                                        }
+                                      >
+                                        <CheckCircle className="w-4 h-4 mr-2" />
+                                        Approve
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                                        disabled={reviewing}
+                                        onClick={() => setDenyModalOpen(true)}
+                                      >
+                                        <XCircle className="w-4 h-4 mr-2" />
+                                        Deny
+                                      </Button>
+                                    </>
+                                  )}
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => setSelectedLog(null)}
+                                  >
+                                    Close
+                                  </Button>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                     ))}
                   </TableBody>
                 </Table>
@@ -309,44 +348,6 @@ function InventoryRequest() {
             )}
           </CardContent>
         </Card>
-
-        {selectedLog && (
-          <Card className="mt-6 shadow-md border-l-4 border-l-blue-500">
-            <CardHeader className="bg-blue-50">
-              <CardTitle className="text-lg">Request Details</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <InventoryLogCard log={selectedLog as any} />
-              <div className="mt-6 flex gap-3 flex-wrap justify-end border-t pt-4">
-                {selectedLog.status === "pending" && (
-                  <>
-                    <Button
-                      variant="outline"
-                      className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                      disabled={reviewing}
-                      onClick={() => handleApprove(selectedLog._id)}
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Approve
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
-                      disabled={reviewing}
-                      onClick={() => setDenyModalOpen(true)}
-                    >
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Deny
-                    </Button>
-                  </>
-                )}
-                <Button variant="outline" onClick={() => setSelectedLog(null)}>
-                  Close
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         <Dialog open={denyModalOpen} onOpenChange={setDenyModalOpen}>
           <DialogContent className="sm:max-w-md">

@@ -41,14 +41,36 @@ export const CreateInventoryLogBody = InventoryLogSchema.extend({
         .number()
         .int()
         .nonnegative("Quantity must be a non-negative integer"),
-      price: z.number().min(0, "Price must be a non-negative number"),
+      // Price and expiryDate only required for import
+      price: z.number().min(0, "Price must be a non-negative number").optional(),
       expiryDate: z
         .string()
-        .datetime("Expiry date must be a valid ISO 8601 date string"),
+        .datetime("Expiry date must be a valid ISO 8601 date string")
+        .optional(),
       batch: z.string().optional(),
     })
   ),
-}).strict();
+})
+  .superRefine((data, ctx) => {
+    if (data.action === action.IMPORT) {
+      data.products.forEach((product, idx) => {
+        if (typeof product.price !== "number") {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Price is required for import",
+            path: ["products", idx, "price"],
+          });
+        }
+        if (!product.expiryDate) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Expiry date is required for import",
+            path: ["products", idx, "expiryDate"],
+          });
+        }
+      });
+    }
+  })
 export type CreateInventoryLogBodyType = z.infer<typeof CreateInventoryLogBody>;
 
 export const InventoryQueryParams = z

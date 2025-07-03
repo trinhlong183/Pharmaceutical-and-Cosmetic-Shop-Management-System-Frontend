@@ -395,6 +395,15 @@ export default function ManageProductsPage() {
                               >
                                 View Details
                               </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  router.push(
+                                    `/checkstock/${product.id || product._id}`
+                                  )
+                                }
+                              >
+                                Check Stock
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

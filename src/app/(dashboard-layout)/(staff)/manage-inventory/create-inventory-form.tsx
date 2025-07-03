@@ -225,15 +225,24 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
       return;
     }
 
-    // Convert expiryDate to ISO format
+    // Convert expiryDate to ISO format for import, remove for export
     const formWithISODates = {
       ...form,
-      products: form.products.map((product) => ({
-        ...product,
-        expiryDate: product.expiryDate
-          ? new Date(product.expiryDate + "T23:59:59.000Z").toISOString()
-          : "",
-      })),
+      products: form.products.map((product) => {
+        if (form.action === "import") {
+          return {
+            ...product,
+            expiryDate: product.expiryDate
+              ? new Date(product.expiryDate + "T23:59:59.000Z").toISOString()
+              : undefined,
+          };
+        } else {
+          // export: do not send expiryDate at all
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { expiryDate, ...rest } = product;
+          return rest;
+        }
+      }),
     };
 
     await onSubmit(formWithISODates);
@@ -421,14 +430,15 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
             </DialogContent>
           </Dialog>
         </div>
-
         {/* Improved column headers */}
         <div className="bg-slate-100 rounded-lg p-3">
           <div className="grid grid-cols-6 gap-3 text-sm font-medium text-slate-700">
             <div>Product ID</div>
             <div>Quantity</div>
-            <div>Price</div>
-            <div>Expiry Date</div>
+            {/* Hide Price and Expiry Date if action is export */}
+            {form.action === "import" && <div>Price</div>}
+            {form.action === "import" && <div>Expiry Date</div>}
+            {form.action === "export" && <div className="col-span-2"></div>}
             <div>Batch</div>
             <div className="text-center">Actions</div>
           </div>
@@ -465,26 +475,38 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
                   min={1}
                   className="h-10"
                 />
-                <Input
-                  name="price"
-                  type="number"
-                  step="1"
-                  placeholder="Price"
-                  value={p.price}
-                  onChange={(e) => handleFormChange(e, idx)}
-                  required
-                  min={0}
-                  className="h-10"
-                />
-                <Input
-                  name="expiryDate"
-                  type="date"
-                  value={p.expiryDate}
-                  onChange={(e) => handleFormChange(e, idx)}
-                  required
-                  min={getTodayDate()}
-                  className="h-10"
-                />
+                {/* Only show Price and Expiry Date if action is import */}
+                {form.action === "import" && (
+                  <>
+                    <Input
+                      name="price"
+                      type="number"
+                      step="1"
+                      placeholder="Price"
+                      value={p.price}
+                      onChange={(e) => handleFormChange(e, idx)}
+                      required
+                      min={0}
+                      className="h-10"
+                    />
+                    <Input
+                      name="expiryDate"
+                      type="date"
+                      value={p.expiryDate}
+                      onChange={(e) => handleFormChange(e, idx)}
+                      required
+                      min={getTodayDate()}
+                      className="h-10"
+                    />
+                  </>
+                )}
+                {/* If export, add empty cells for grid alignment */}
+                {form.action === "export" && (
+                  <>
+                    <div></div>
+                    <div></div>
+                  </>
+                )}
                 <div className="space-y-1">
                   <Input
                     name="batch"
@@ -515,7 +537,6 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
               </div>
             </div>
           ))}
-
           <Button
             type="button"
             variant="outline"
@@ -529,7 +550,7 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
         </div>
       </div>
       {/* Sticky submit button at the bottom */}
-      <div className="pt-4 border-t border-slate-200 sticky bottom-2 bg-white z-10">
+      <div className="pt-4 border-t border-slate-200 sticky bottom-2 bg-white ">
         <Button
           type="submit"
           disabled={loading}

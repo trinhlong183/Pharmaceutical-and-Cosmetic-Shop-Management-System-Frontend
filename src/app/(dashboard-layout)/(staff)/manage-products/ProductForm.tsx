@@ -74,7 +74,6 @@ const ProductForm = ({
       productName: product?.productName || "",
       productDescription: product?.productDescription || "",
       price: product?.price || 0,
-      stock: product?.stock || 0,
       brand: product?.brand || "",
       ingredients: product?.ingredients || "",
       suitableFor: product?.suitableFor || SuitableFor.ALL_SKIN_TYPES,
@@ -212,30 +211,6 @@ const ProductForm = ({
                   <FormControl>
                     <Input
                       type="number"
-                      min="0"
-                      {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      disabled={isLoading}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Stock */}
-            <FormField
-              control={form.control}
-              name="stock"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Stock<span className="text-red-500">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="0"
                       min="0"
                       {...field}
                       onChange={(e) => field.onChange(Number(e.target.value))}
