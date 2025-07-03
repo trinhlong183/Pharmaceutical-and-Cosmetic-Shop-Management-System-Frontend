@@ -77,6 +77,26 @@ function InventoryRequest() {
     }));
   };
 
+  const getActionBadge = (action: string) => {
+    if (action === "import")
+      return (
+        <Badge
+          variant="secondary"
+          className="capitalize bg-blue-100 text-blue-800 font-semibold"
+        >
+          Import
+        </Badge>
+      );
+    if (action === "export")
+      return (
+        <Badge
+          variant="secondary"
+          className="capitalize bg-yellow-100 text-yellow-800 border-yellow-200 font-semibold"
+        >
+          Export
+        </Badge>
+      );
+  };
   const handleSearch = () => {
     setFilters({ ...pendingFilters });
   };
@@ -120,7 +140,7 @@ function InventoryRequest() {
     setReviewing(false);
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string | undefined) => {
     switch (status) {
       case "pending":
         return (
@@ -269,9 +289,7 @@ function InventoryRequest() {
                       <React.Fragment key={idx}>
                         <TableRow className="hover:bg-gray-50">
                           <TableCell>
-                            <Badge variant="outline" className="capitalize">
-                              {log.action}
-                            </Badge>
+                            {getActionBadge(log.action)}
                           </TableCell>
                           <TableCell>
                             {typeof log.userId === "object"

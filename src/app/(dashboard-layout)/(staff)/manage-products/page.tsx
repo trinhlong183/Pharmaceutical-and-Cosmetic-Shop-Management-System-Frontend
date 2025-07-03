@@ -167,8 +167,6 @@ export default function ManageProductsPage() {
     }
   };
 
- 
-
   return (
     <RoleRoute allowedRoles={[Role.STAFF, Role.ADMIN]}>
       <div className="container mx-auto py-8 px-4">
@@ -389,20 +387,11 @@ export default function ManageProductsPage() {
                               <DropdownMenuItem
                                 onClick={() =>
                                   router.push(
-                                    `/products/${product.id || product._id}`
-                                  )
-                                }
-                              >
-                                View Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  router.push(
                                     `/checkstock/${product.id || product._id}`
                                   )
                                 }
                               >
-                                Check Stock
+                                View Details
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

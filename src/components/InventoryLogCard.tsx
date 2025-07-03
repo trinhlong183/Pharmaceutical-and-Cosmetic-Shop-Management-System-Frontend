@@ -58,6 +58,26 @@ const statusStyles: Record<string, { color: string; label: string }> = {
     label: "Denied",
   },
 };
+const getActionBadge = (action: string) => {
+  if (action === "import")
+    return (
+      <Badge
+        variant="secondary"
+        className="capitalize bg-blue-100 text-blue-800 font-semibold"
+      >
+        Import
+      </Badge>
+    );
+  if (action === "export")
+    return (
+      <Badge
+        variant="secondary"
+        className="capitalize bg-yellow-100 text-yellow-800 border-yellow-200 font-semibold"
+      >
+        Export
+      </Badge>
+    );
+};
 
 const InventoryLogCard: React.FC<InventoryLogCardProps> = ({ log }) => {
   // Add null safety check
@@ -102,12 +122,7 @@ const InventoryLogCard: React.FC<InventoryLogCardProps> = ({ log }) => {
             <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1">
               Action Type
             </p>
-            <Badge
-              variant="secondary"
-              className="capitalize bg-blue-100 text-blue-800 font-semibold"
-            >
-              {log.action}
-            </Badge>
+            {getActionBadge(log.action)}
           </div>
 
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">

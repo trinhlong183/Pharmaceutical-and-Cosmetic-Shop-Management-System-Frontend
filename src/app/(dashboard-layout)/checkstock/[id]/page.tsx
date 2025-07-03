@@ -4,7 +4,6 @@ import { useParams } from "next/navigation";
 import productService from "@/api/productService";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
 import {
   Calendar,
@@ -47,6 +46,7 @@ const CheckStock = () => {
   const [totalStock, setTotalStock] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [product, setProduct] = useState<any>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   useEffect(() => {
     if (!productId) return;
@@ -65,17 +65,6 @@ const CheckStock = () => {
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Batch & Inventory Management
-        </h1>
-        <Badge variant="outline" className="text-lg px-4 py-2">
-          <Package className="h-4 w-4 mr-2" />
-          Total Stock: {totalStock}
-        </Badge>
-      </div>
-
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -93,16 +82,21 @@ const CheckStock = () => {
                   Product Information
                 </CardTitle>
               </CardHeader>
+              <Badge variant="outline" className="text-lg px-4 py-2">
+                <Package className="h-4 w-4 mr-2" />
+                Total Stock: {totalStock}
+              </Badge>
               <CardContent className="p-6">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* Product Images */}
                   <div className="lg:col-span-1">
                     <div className="space-y-4">
+                      {/* Main Image Display */}
                       {product.productImages &&
                       product.productImages.length > 0 ? (
                         <div className="relative h-64 w-full rounded-xl overflow-hidden bg-gray-100">
                           <Image
-                            src={product.productImages[0]}
+                            src={product.productImages[selectedImageIndex]}
                             alt={product.productName}
                             fill
                             className="object-contain"
@@ -115,26 +109,29 @@ const CheckStock = () => {
                         </div>
                       )}
 
-                      {/* Thumbnail grid */}
+                      {/* Thumbnail Grid - Clickable */}
                       {product.productImages &&
                         product.productImages.length > 1 && (
                           <div className="grid grid-cols-4 gap-2">
-                            {product.productImages
-                              .slice(1, 5)
-                              .map((image, index) => (
-                                <div
-                                  key={index}
-                                  className="relative h-16 w-full rounded-lg overflow-hidden bg-gray-100"
-                                >
-                                  <Image
-                                    src={image}
-                                    alt={`${product.productName} ${index + 2}`}
-                                    fill
-                                    className="object-cover"
-                                    unoptimized
-                                  />
-                                </div>
-                              ))}
+                            {product.productImages.map((image, index) => (
+                              <button
+                                key={index}
+                                onClick={() => setSelectedImageIndex(index)}
+                                className={`relative h-16 w-full rounded-lg overflow-hidden transition-all ${
+                                  selectedImageIndex === index
+                                    ? "ring-2 ring-blue-500 ring-offset-2"
+                                    : "border border-gray-200 hover:border-blue-300"
+                                }`}
+                              >
+                                <Image
+                                  src={image}
+                                  alt={`${product.productName} ${index + 1}`}
+                                  fill
+                                  className="object-cover"
+                                  unoptimized
+                                />
+                              </button>
+                            ))}
                           </div>
                         )}
                     </div>
@@ -153,11 +150,12 @@ const CheckStock = () => {
                           className="bg-blue-100 text-blue-800"
                         >
                           <Tag className="h-3 w-3 mr-1" />
+                          ID: {""}
                           {product.id || product._id}
                         </Badge>
                         <Badge variant="outline">
                           <Building2 className="h-3 w-3 mr-1" />
-                          {product.brand}
+                          Brand: {product.brand}
                         </Badge>
                       </div>
                     </div>
@@ -180,32 +178,20 @@ const CheckStock = () => {
                       <div className="space-y-3">
                         <div className="flex justify-between items-center py-2 border-b border-gray-100">
                           <span className="text-sm font-medium text-gray-600">
-                            Weight
-                          </span>
-                          <span className="text-sm text-gray-900">
-                            {product.weight ? `${product.weight}g` : "N/A"}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span className="text-sm font-medium text-gray-600">
-                            Current Stock
-                          </span>
-                          <Badge
-                            className={
-                              product.stock <= 10
-                                ? "bg-red-100 text-red-700"
-                                : "bg-green-100 text-green-700"
-                            }
-                          >
-                            {product.stock}
-                          </Badge>
-                        </div>
-                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span className="text-sm font-medium text-gray-600">
                             Price
                           </span>
                           <span className="text-sm font-semibold text-gray-900">
                             {formatVND(product.price)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span className="text-sm font-medium text-gray-600">
+                            Weight
+                          </span>
+                          <span className="text-sm text-gray-900">
+                            {product.weight
+                              ? `${product.weight}g`
+                              : "Not specified"}
                           </span>
                         </div>
                       </div>
@@ -232,21 +218,19 @@ const CheckStock = () => {
                             </span>
                           </div>
                         )}
-                        {product.salePercentage && (
-                          <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                            <span className="text-sm font-medium text-gray-600">
-                              Sale
-                            </span>
-                            <Badge className="bg-red-100 text-red-700">
-                              {product.salePercentage}% OFF
-                            </Badge>
-                          </div>
-                        )}
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span className="text-sm font-medium text-gray-600">
+                            Sale
+                          </span>
+                          <Badge className="bg-red-100 text-red-700">
+                            {product.salePercentage}% OFF
+                          </Badge>
+                        </div>
                       </div>
                     </div>
 
                     {/* Additional Info */}
-                    {(product.ingredients || product.usage) && (
+                    {product.ingredients && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {product.ingredients && (
                           <div className="bg-amber-50 rounded-lg p-4">
@@ -255,16 +239,6 @@ const CheckStock = () => {
                             </h4>
                             <p className="text-amber-800 text-sm">
                               {product.ingredients}
-                            </p>
-                          </div>
-                        )}
-                        {product.usage && (
-                          <div className="bg-green-50 rounded-lg p-4">
-                            <h4 className="font-semibold text-green-900 mb-2">
-                              Usage Instructions
-                            </h4>
-                            <p className="text-green-800 text-sm">
-                              {product.usage}
                             </p>
                           </div>
                         )}
@@ -305,7 +279,7 @@ const CheckStock = () => {
                           Stock
                         </th>
                         <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
-                          Price
+                          Import Price
                         </th>
                         <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
                           Expiry Date

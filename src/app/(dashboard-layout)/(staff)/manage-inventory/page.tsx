@@ -153,6 +153,27 @@ function ManageInventoryPage() {
     );
   };
 
+  const getActionBadge = (action: string) => {
+    if (action === "import")
+      return (
+        <Badge
+          variant="secondary"
+          className="capitalize bg-blue-100 text-blue-800 font-semibold"
+        >
+          Import
+        </Badge>
+      );
+    if (action === "export")
+      return (
+        <Badge
+          variant="secondary"
+          className="capitalize bg-yellow-100 text-yellow-800 border-yellow-200 font-semibold"
+        >
+          Export
+        </Badge>
+      );
+  };
+
   return (
     <RoleRoute allowedRoles={["staff", Role.STAFF]}>
       <div className="max-w-8xl mx-auto">
@@ -262,14 +283,7 @@ function ManageInventoryPage() {
                     {logs.map((log, idx) => (
                       <React.Fragment key={idx}>
                         <TableRow>
-                          <TableCell>
-                            <Badge
-                              variant="secondary"
-                              className="capitalize bg-blue-100 text-blue-800 font-semibold"
-                            >
-                              {log.action}
-                            </Badge>
-                          </TableCell>
+                          <TableCell>{getActionBadge(log.action)}</TableCell>
                           <TableCell>
                             {getStatusBadge(log.status || "unknown")}
                           </TableCell>
