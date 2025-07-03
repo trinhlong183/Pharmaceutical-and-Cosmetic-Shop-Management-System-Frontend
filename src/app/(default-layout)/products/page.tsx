@@ -16,6 +16,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Category } from "@/types/category";
 import { Product } from "@/types/product";
+import { formatCurrency } from "@/lib/utils";
 
 const DEFAULT_PRICE_RANGE: [number, number] = [0, 10000000];
 const PAGE_SIZE = 20;
@@ -87,13 +88,7 @@ export default function ProductsPage() {
     order: "asc",
   });
 
-  const formatVND = (price: number): string => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      minimumFractionDigits: 0,
-    }).format(price);
-  };
+
   // Fetch categories on mount
   useEffect(() => {
     categoriesService
@@ -338,8 +333,8 @@ export default function ProductsPage() {
                     className="w-full"
                   />
                   <div className="flex justify-between text-sm mt-3 text-gray-600">
-                    <span>{formatVND(pendingFilter.priceRange[0])}</span>
-                    <span>{formatVND(pendingFilter.priceRange[1])}</span>
+                    <span>{formatCurrency(pendingFilter.priceRange[0])}</span>
+                    <span>{formatCurrency(pendingFilter.priceRange[1])}</span>
                   </div>
                 </div>
 
@@ -430,6 +425,7 @@ export default function ProductsPage() {
                       category={product.category}
                       productDescription={product.productDescription}
                       salePercentage={product.salePercentage}
+                      stock={product.stock}
                     />
                   ))}
                 </div>

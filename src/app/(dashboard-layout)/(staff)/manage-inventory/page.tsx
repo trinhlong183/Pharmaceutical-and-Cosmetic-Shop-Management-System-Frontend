@@ -107,7 +107,7 @@ function ManageInventoryPage() {
       console.log(res.payload);
       if (res.payload.errorCode === 400) {
         toast.error(res.payload.message || "Failed to create inventory log", {
-          duration: 10000,
+          duration: 16000,
           dismissible: true,
         });
       } else {
@@ -175,7 +175,7 @@ function ManageInventoryPage() {
   };
 
   return (
-    <RoleRoute allowedRoles={["staff", Role.STAFF]}>
+    <RoleRoute allowedRoles={[ Role.STAFF]}>
       <div className="max-w-8xl mx-auto">
         {/* Modal for create form */}
         <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>

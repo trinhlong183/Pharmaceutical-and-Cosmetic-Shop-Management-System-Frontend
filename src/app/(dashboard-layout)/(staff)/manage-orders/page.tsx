@@ -15,6 +15,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -31,45 +32,63 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { orderService } from "@/api/orderService";
-import { userService } from "@/api/userService";
-import { toast } from "react-hot-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 import {
-  Loader2,
   Search,
-  RefreshCw,
   Eye,
+  RefreshCw,
+  Loader2,
   Package2,
-  Truck,
   CheckCircle2,
+  TruckIcon,
   XCircle,
 } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
+import { orderService } from "@/api/orderService";
+import { userService } from "@/api/userService";
+import { shippingLogsService, ShippingLog } from "@/api/shippingLogsService";
+import {
+  getUnifiedStatus,
+  getAvailableStatusTransitions,
+  formatStatusForDisplay,
+  hasShippingInfo,
+  StatusConfigurations,
+} from "@/utils/statusUtils";
 
-// Define interfaces for our data structures
+// Define interfaces for our data structures - Updated to match new API response
 interface User {
-  id?: string;
-  _id?: string;
+  _id: string;
+  email: string;
+  phone: string;
+  address: string;
   name?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
+  fullName?: string;
+  [key: string]: any;
 }
 
 interface Transaction {
-  id?: string;
-  _id?: string;
-  orderId?: string;
-  status?: string;
-  paymentMethod?: string;
-  paymentDetails?: {
-    bankCode?: string;
-    [key: string]: any;
+  _id: string;
+  orderId: string;
+  status: string;
+  totalAmount: number;
+  paymentMethod: string;
+  paymentDetails: {
+    userId: string;
+    cartId: string;
+    ipAddr: string;
+    selectedProductIds: string[];
+    bankCode: string;
+    cardType: string;
+    transactionNo: string;
+    payDate: string;
+    responseCode: string;
   };
-  [key: string]: any;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
 }
 
 interface OrderItem {
@@ -81,18 +100,20 @@ interface OrderItem {
   [key: string]: any;
 }
 
+// Updated Order interface to match the new API response structure
 interface Order {
-  id?: string;
-  _id?: string;
-  userId: string | User;
-  items?: OrderItem[];
-  totalAmount: number;
+  _id: string;
+  id: string;
+  userId: User; // Now always populated as an object
+  transactionId: Transaction; // Now always populated as an object
   status: string;
+  totalAmount: number;
+  shippingAddress: string;
+  contactPhone: string;
   createdAt: string;
-  updatedAt?: string;
-  transactionId?: string | Transaction;
-  shippingAddress?: string;
-  contactPhone?: string;
+  updatedAt: string;
+  __v: number;
+  items?: OrderItem[];
   rejectionReason?: string;
   refundReason?: string;
   processedBy?: string;
@@ -100,51 +121,14 @@ interface Order {
   [key: string]: any;
 }
 
-// Update the constants to include status color and icon information for better visualization
-const StatusConfig = {
-  pending: {
-    bg: "bg-yellow-100 text-yellow-800",
-    icon: <Package2 className="h-3 w-3 mr-1" />,
-    description: "Waiting for approval",
-  },
-  approved: {
-    bg: "bg-blue-100 text-blue-800",
-    icon: <CheckCircle2 className="h-3 w-3 mr-1" />,
-    description: "Order has been approved",
-  },
-  rejected: {
-    bg: "bg-red-100 text-red-800",
-    icon: <XCircle className="h-3 w-3 mr-1" />,
-    description: "Order has been rejected",
-  },
-  refunded: {
-    bg: "bg-emerald-100 text-emerald-800",
-    icon: <RefreshCw className="h-3 w-3 mr-1" />,
-    description: "Payment has been refunded",
-  },
-  shipping: {
-    bg: "bg-indigo-100 text-indigo-800",
-    icon: <Truck className="h-3 w-3 mr-1" />,
-    description: "Order is being shipped",
-  },
-  delivered: {
-    bg: "bg-green-100 text-green-800",
-    icon: <CheckCircle2 className="h-3 w-3 mr-1" />,
-    description: "Order has been delivered",
-  },
-  canceled: {
-    bg: "bg-gray-100 text-gray-800",
-    icon: <XCircle className="h-3 w-3 mr-1" />,
-    description: "Order has been canceled",
-  },
-};
-
 const ManageOrdersPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<Record<string, User>>({});
+  const [shippingLogs, setShippingLogs] = useState<Record<string, ShippingLog>>({});
   const [loading, setLoading] = useState(true);
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
+  const [detailShippingLog, setDetailShippingLog] = useState<ShippingLog | null>(null);
   const [openDetails, setOpenDetails] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [openRejectDialog, setOpenRejectDialog] = useState(false);
@@ -190,11 +174,15 @@ const ManageOrdersPage = () => {
     try {
       const orders = await orderService.getAllOrders();
       console.log("Orders received:", orders);
-      setOrders(orders || []);
-      setFilteredOrders(orders || []);
+      
+      // Cast to our local Order type since the API returns populated objects
+      const typedOrders = orders as unknown as Order[];
+      setOrders(typedOrders);
+      setFilteredOrders(typedOrders);
 
-      // Fetch user information for each order
-      await fetchUserInfo(orders);
+      // Since user data is now populated in the API response, we don't need to fetch it separately
+      // Only fetch shipping logs for each order
+      await fetchShippingLogs(typedOrders);
     } catch (error) {
       toast.error("Failed to fetch orders");
       console.error(error);
@@ -202,6 +190,33 @@ const ManageOrdersPage = () => {
       setFilteredOrders([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchShippingLogs = async (orders: Order[]) => {
+    try {
+      const shippingLogsMap: Record<string, ShippingLog> = {};
+
+      // Fetch shipping logs for each order
+      for (const order of orders) {
+        const orderId = order.id || order._id;
+        if (orderId) {
+          try {
+            const logs = await shippingLogsService.getByOrderId(orderId);
+            if (logs && logs.length > 0) {
+              // Use the most recent shipping log
+              shippingLogsMap[orderId] = logs[logs.length - 1];
+            }
+          } catch (error) {
+            console.log(`No shipping log found for order ${orderId}`);
+            // This is expected for orders without shipping logs
+          }
+        }
+      }
+
+      setShippingLogs(shippingLogsMap);
+    } catch (error) {
+      console.error("Error fetching shipping logs:", error);
     }
   };
 
@@ -236,53 +251,12 @@ const ManageOrdersPage = () => {
     setFilteredOrders(filtered);
   };
 
-  const fetchUserInfo = async (orders: Order[]) => {
-    try {
-      const userIds = new Set<string>();
-
-      // Collect unique user IDs
-      orders.forEach((order) => {
-        let userId: string | undefined;
-
-        if (typeof order.userId === "object") {
-          userId = (order.userId as User)._id || (order.userId as User).id;
-        } else {
-          userId = order.userId as string;
-        }
-
-        if (userId) userIds.add(userId);
-      });
-
-      // Fetch user data for each unique user ID
-      const userMap: Record<string, User> = {};
-
-      for (const userId of userIds) {
-        try {
-          const userData = await userService.getUserById(userId);
-          userMap[userId] = userData as User;
-        } catch (error) {
-          console.error(`Failed to fetch user ${userId}:`, error);
-        }
-      }
-
-      setUsers(userMap);
-    } catch (error) {
-      console.error("Error fetching user info:", error);
-    }
-  };
-
-  // Get user name from userId
-  const getUserName = (userId: string | User | undefined) => {
+  // Get user name from userId - Updated for new API response structure
+  const getUserName = (userId: User) => {
     if (!userId) return "N/A";
-
-    // If userId is an object with user information directly
-    if (typeof userId === "object") {
-      return (userId as User).name || (userId as User).email || "N/A";
-    }
-
-    // Look up the user in our users map
-    const user = users[userId];
-    return user ? user.name || user.email : userId;
+    
+    // Since userId is now always a populated User object
+    return userId.name || userId.fullName || userId.email || "N/A";
   };
 
   const handleViewDetail = async (orderId: string) => {
@@ -290,28 +264,27 @@ const ManageOrdersPage = () => {
       const order = await orderService.getOrderById(orderId);
       console.log("Order details:", order);
 
-      // If the user info isn't already loaded, load it
-      let userId: string | undefined;
+      // Since user data is now populated in the API response, we don't need to fetch it separately
 
-      if (typeof order.userId === "object") {
-        userId = (order.userId as User)._id || (order.userId as User).id;
-      } else {
-        userId = order.userId as string;
-      }
-
-      if (userId && !users[userId]) {
+      // Get shipping log for detailed view
+      let shippingLog = shippingLogs[orderId];
+      if (!shippingLog) {
         try {
-          const userData = await userService.getUserById(userId);
-          setUsers((prev) => ({
-            ...prev,
-            [userId as string]: userData as User,
-          }));
+          const logs = await shippingLogsService.getByOrderId(orderId);
+          if (logs && logs.length > 0) {
+            shippingLog = logs[logs.length - 1];
+            setShippingLogs(prev => ({
+              ...prev,
+              [orderId]: shippingLog
+            }));
+          }
         } catch (error) {
-          console.error(`Failed to fetch user ${userId}:`, error);
+          console.log(`No shipping log found for order ${orderId}`);
         }
       }
 
-      setDetailOrder(order as Order);
+      setDetailOrder(order as unknown as Order);
+      setDetailShippingLog(shippingLog || null);
       setOpenDetails(true);
     } catch (error) {
       toast.error("Failed to get order details");
@@ -324,6 +297,16 @@ const ManageOrdersPage = () => {
     newStatus: string
   ) => {
     if (!orderId) return;
+    
+    // Find current order
+    const currentOrder = orders.find(order => 
+      (order.id === orderId || order._id === orderId)
+    );
+    
+    if (!currentOrder) {
+      toast.error("Order not found");
+      return;
+    }
 
     // If new status is "rejected", show dialog requesting reason
     if (newStatus === "rejected") {
@@ -334,15 +317,30 @@ const ManageOrdersPage = () => {
 
     setStatusUpdating(true);
     try {
-      // Call the updateOrderStatus method from orderService
-      const updatedOrder = await orderService.updateOrderStatus(
-        orderId,
-        newStatus
-      );
-
+      // Always use updateOrderStatus API for all status changes
+      const updatedOrder = await orderService.updateOrderStatus(orderId, newStatus);
       toast.success(`Order status updated to ${newStatus}`);
-
-      // Update local state to reflect the change
+      
+      // If status is changed to "approved", automatically create shipping log
+      if (newStatus === "approved") {
+        try {
+          const shippingLog = await shippingLogsService.createFromApprovedOrder(orderId);
+          console.log("Shipping log created automatically:", shippingLog);
+          
+          // Update shipping logs state
+          setShippingLogs(prev => ({
+            ...prev,
+            [orderId]: shippingLog
+          }));
+          
+          toast.success("Order approved and shipping log created successfully!");
+        } catch (shippingError) {
+          console.error("Failed to create shipping log:", shippingError);
+          toast.warning("Order approved but failed to create shipping log. You may need to create it manually.");
+        }
+      }
+      
+      // Update local orders state
       setOrders(
         orders.map((order) =>
           (order.id && order.id === orderId) ||
@@ -367,44 +365,46 @@ const ManageOrdersPage = () => {
       setStatusUpdating(false);
     }
   };
-  const getStatusBadge = (status: string) => {
-    const config = StatusConfig[status as keyof typeof StatusConfig] || {
-      bg: "bg-gray-100 text-gray-800",
-      icon: null,
-      description: "Unknown status",
-    };
 
+  // New unified status badge function
+  const getStatusBadge = (orderId: string, orderStatus: string) => {
+    // Simplified to only show order status directly
+    const statusConfig = StatusConfigurations[orderStatus.toLowerCase()] || {
+      displayText: orderStatus,
+      color: 'text-gray-800',
+      bgColor: 'bg-gray-100',
+      icon: '📋',
+      description: `Order status: ${orderStatus}`
+    };
+    
     return (
       <Badge
         variant="outline"
-        className={`${config.bg} flex items-center`}
-        title={config.description}
+        className={`${statusConfig.bgColor} ${statusConfig.color} flex items-center`}
+        title={statusConfig.description}
       >
-        {config.icon}
-        <span className="capitalize">{status}</span>
+        <span className="mr-1">{statusConfig.icon}</span>
+        <span>{statusConfig.displayText}</span>
       </Badge>
     );
   };
-
-  // Function to get available status options based on current status
-  const getAvailableStatuses = (currentStatus: string): string[] => {
-    switch (currentStatus) {
-      case "pending":
-        return ["pending", "approved", "rejected", "shipping", "canceled"];
-      case "approved":
-        return ["approved", "shipping", "canceled"]; // Can't go back to pending
-      case "rejected":
-        return ["rejected", "refunded"]; // Can only be refunded after rejection
-      case "refunded":
-        return ["refunded"]; // Final state
-      case "shipping":
-        return ["shipping", "delivered", "canceled"];
-      case "delivered":
-        return ["delivered"]; // Final state
-      case "canceled":
-        return ["canceled"]; // Final state
+  
+  // Function to get available status options - Simplified to only allow 3 status changes
+  const getAvailableStatuses = (orderId: string, currentStatus: string): string[] => {
+    // Only allow these 3 status transitions for staff
+    switch (currentStatus.toLowerCase()) {
+      case 'pending':
+        return ['pending', 'approved', 'rejected'];
+      case 'approved':
+        return ['approved', 'rejected'];
+      case 'rejected':
+        return ['rejected'];
+      case 'refunded':
+        return ['refunded'];
+      case 'delivered':
+        return ['delivered'];
       default:
-        return ["pending", "approved", "rejected", "shipping", "canceled"];
+        return [currentStatus]; // Keep current status if not recognized
     }
   };
 
@@ -590,6 +590,66 @@ const ManageOrdersPage = () => {
           Refresh
         </Button>
       </div>
+      
+      {/* Workflow Diagram */}
+      <Card className="bg-white">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Package2 className="h-4 w-4" /> Simplified Order Processing Workflow
+          </CardTitle>
+          <CardDescription>
+            Staff can manage 3 status changes: Pending → Approved/Rejected. Orders track 5 statuses total.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="relative mt-2">
+            {/* Progress line */}
+            <div className="absolute top-5 left-0 w-full h-0.5 bg-gray-200"></div>
+            
+            {/* Workflow steps */}
+            <div className="relative flex justify-between">
+              {/* Step 1: Pending */}
+              <div className="flex flex-col items-center z-10">
+                <div className="w-10 h-10 rounded-full bg-yellow-100 border-2 border-yellow-300 flex items-center justify-center">
+                  <Package2 className="h-5 w-5 text-yellow-700" />
+                </div>
+                <span className="text-xs font-medium mt-1">Pending</span>
+                <span className="text-xs text-muted-foreground">New Order</span>
+              </div>
+              
+              {/* Step 2: Approved */}
+              <div className="flex flex-col items-center z-10">
+                <div className="w-10 h-10 rounded-full bg-blue-100 border-2 border-blue-300 flex items-center justify-center">
+                  <CheckCircle2 className="h-5 w-5 text-blue-700" />
+                </div>
+                <span className="text-xs font-medium mt-1">Approved</span>
+                <span className="text-xs text-muted-foreground">Ready for shipping</span>
+              </div>
+              
+              {/* Step 3: Delivered */}
+              <div className="flex flex-col items-center z-10">
+                <div className="w-10 h-10 rounded-full bg-green-100 border-2 border-green-300 flex items-center justify-center">
+                  <CheckCircle2 className="h-5 w-5 text-green-700" />
+                </div>
+                <span className="text-xs font-medium mt-1">Delivered</span>
+                <span className="text-xs text-muted-foreground">Order completed</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Rejection workflow */}
+          <div className="mt-6 border-t pt-4">
+            <div className="text-xs font-medium mb-2">Alternative Flows:</div>
+            <div className="flex gap-2 items-center">
+              <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">Rejected</Badge>
+              <span className="text-xs">→</span>
+              <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-200">Refunded</Badge>
+              <span className="text-xs text-muted-foreground ml-2">Orders can be refunded after rejection</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex items-center space-x-4 mb-4">
         <Search className="h-4 w-4 text-muted-foreground" />
         <Input
@@ -600,14 +660,13 @@ const ManageOrdersPage = () => {
         />
       </div>
       <Tabs defaultValue="all" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="all">All Orders</TabsTrigger>
           <TabsTrigger value="pending">Pending</TabsTrigger>
           <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="shipping">Shipping</TabsTrigger>
           <TabsTrigger value="delivered">Delivered</TabsTrigger>
           <TabsTrigger value="rejected">Rejected</TabsTrigger>
-          <TabsTrigger value="canceled">Canceled</TabsTrigger>
+          <TabsTrigger value="refunded">Refunded</TabsTrigger>
         </TabsList>
 
         <div className="mt-4">
@@ -649,7 +708,7 @@ const ManageOrdersPage = () => {
                                 {formatPrice(order.totalAmount)}
                               </TableCell>
                               <TableCell>
-                                {getStatusBadge(order.status)}
+                                {getStatusBadge(orderId, order.status)}
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end items-center gap-2">
@@ -664,7 +723,8 @@ const ManageOrdersPage = () => {
                                     <Eye className="h-3.5 w-3.5" />
                                     Details
                                   </Button>
-                                  {order.status === "rejected" && (
+                                  
+                                  {order.status === 'rejected' && (
                                     <Button
                                       size="sm"
                                       variant="secondary"
@@ -703,7 +763,7 @@ const ManageOrdersPage = () => {
                                       <SelectValue placeholder="Status" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {getAvailableStatuses(order.status).map(
+                                      {getAvailableStatuses(orderId, order.status).map(
                                         (status) => (
                                           <SelectItem
                                             key={status}
@@ -756,7 +816,10 @@ const ManageOrdersPage = () => {
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-3">
-                {detailOrder && getStatusBadge(detailOrder.status)}
+                {detailOrder && getStatusBadge(
+                  detailOrder.id || detailOrder._id || '', 
+                  detailOrder.status
+                )}
               </div>
             </div>
           </DialogHeader>
@@ -798,6 +861,14 @@ const ManageOrdersPage = () => {
                       </div>
                       <div className="text-xs text-muted-foreground font-medium mt-1">
                         Items
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm md:text-base font-semibold truncate">
+                        {detailShippingLog ? 'Has Shipping' : 'Order Only'}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-medium mt-1">
+                        Status Type
                       </div>
                     </div>
                   </div>
@@ -857,70 +928,38 @@ const ManageOrdersPage = () => {
                           {getUserName(detailOrder.userId)}
                         </span>
                       </div>
-                      {typeof detailOrder.userId === "object" ? (
-                        <>
-                          <div className="flex flex-col gap-1 min-w-0">
-                            <span className="text-muted-foreground font-medium text-xs">
-                              Email:
-                            </span>
-                            <span className="text-blue-600 hover:underline text-sm truncate">
-                              {detailOrder.userId.email || "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex flex-col gap-1 min-w-0">
-                            <span className="text-muted-foreground font-medium text-xs">
-                              Phone:
-                            </span>
-                            <span className="font-mono text-sm truncate">
-                              {detailOrder.userId.phone || "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex flex-col gap-1 min-w-0">
-                            <span className="text-muted-foreground font-medium text-xs">
-                              Address:
-                            </span>
-                            <span className="text-sm truncate">
-                              {detailOrder.userId.address || "N/A"}
-                            </span>
-                          </div>
-                        </>
-                      ) : users[detailOrder.userId] ? (
-                        <>
-                          <div className="flex flex-col gap-1 min-w-0">
-                            <span className="text-muted-foreground font-medium text-xs">
-                              Email:
-                            </span>
-                            <span className="text-blue-600 hover:underline text-sm truncate">
-                              {users[detailOrder.userId].email || "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex flex-col gap-1 min-w-0">
-                            <span className="text-muted-foreground font-medium text-xs">
-                              Phone:
-                            </span>
-                            <span className="font-mono text-sm truncate">
-                              {users[detailOrder.userId].phone || "N/A"}
-                            </span>
-                          </div>
-                          <div className="flex flex-col gap-1 min-w-0">
-                            <span className="text-muted-foreground font-medium text-xs">
-                              Address:
-                            </span>
-                            <span className="text-sm truncate">
-                              {users[detailOrder.userId].address || "N/A"}
-                            </span>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex flex-col gap-1 min-w-0">
-                          <span className="text-muted-foreground font-medium text-xs">
-                            User ID:
-                          </span>
-                          <span className="font-mono text-xs bg-gray-200 px-2 py-1 rounded truncate">
-                            {detailOrder.userId || "N/A"}
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-muted-foreground font-medium text-xs">
+                          Email:
+                        </span>
+                        <span className="text-blue-600 hover:underline text-sm truncate">
+                          {detailOrder.userId.email || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-muted-foreground font-medium text-xs">
+                          Phone:
+                        </span>
+                        <span className="font-mono text-sm truncate">
+                          {detailOrder.userId.phone || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-muted-foreground font-medium text-xs">
+                          Address:
+                        </span>
+                        <span className="text-sm truncate">
+                          {detailOrder.userId.address || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-muted-foreground font-medium text-xs">
+                          Customer ID:
+                        </span>
+                        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded truncate">
+                          {detailOrder.userId._id?.slice(0, 8) || "N/A"}
+                        </span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -967,12 +1006,8 @@ const ManageOrdersPage = () => {
                       )}
                       {detailOrder.notes && (
                         <div className="flex flex-col gap-1 min-w-0">
-                          <span className="text-muted-foreground font-medium text-xs">
-                            Notes:
-                          </span>
-                          <span className="text-sm italic bg-yellow-50 px-2 py-1 rounded border border-yellow-200 truncate">
-                            {detailOrder.notes}
-                          </span>
+                          <span className="text-muted-foreground font-medium text-xs">Notes:</span>
+                          <span className="text-sm truncate">{detailOrder.notes}</span>
                         </div>
                       )}
                     </div>
@@ -997,60 +1032,54 @@ const ManageOrdersPage = () => {
                             Transaction ID:
                           </span>
                           <span className="font-mono text-xs bg-gray-200 px-2 py-1 rounded truncate">
-                            {typeof detailOrder.transactionId === "object"
-                              ? (
-                                  detailOrder.transactionId._id ||
-                                  detailOrder.transactionId.id
-                                )?.slice(0, 8)
-                              : detailOrder.transactionId?.slice(0, 8)}
+                            {detailOrder.transactionId._id?.slice(0, 8) || "N/A"}
                           </span>
                         </div>
 
-                        {typeof detailOrder.transactionId === "object" && (
-                          <>
-                            <div className="flex flex-col gap-1 min-w-0">
-                              <span className="text-muted-foreground font-medium text-xs">
-                                Payment Method:
-                              </span>
-                              <span className="font-semibold uppercase text-sm truncate">
-                                {detailOrder.transactionId.paymentMethod ||
-                                  "N/A"}
-                              </span>
-                            </div>
-                            <div className="flex flex-col gap-1 min-w-0">
-                              <span className="text-muted-foreground font-medium text-xs">
-                                Status:
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className={`text-xs font-semibold w-fit ${
-                                  detailOrder.transactionId.status === "success"
-                                    ? "bg-green-100 text-green-800 border-green-300"
-                                    : detailOrder.transactionId.status ===
-                                      "pending"
-                                    ? "bg-yellow-100 text-yellow-800 border-yellow-300"
-                                    : "bg-red-100 text-red-800 border-red-300"
-                                }`}
-                              >
-                                {detailOrder.transactionId.status}
-                              </Badge>
-                            </div>
-                            {detailOrder.transactionId.paymentDetails &&
-                              detailOrder.transactionId.paymentDetails
-                                .bankCode && (
-                                <div className="flex flex-col gap-1 min-w-0">
-                                  <span className="text-muted-foreground font-medium text-xs">
-                                    Bank Code:
-                                  </span>
-                                  <span className="font-semibold text-blue-700 text-sm bg-blue-50 px-2 py-1 rounded border border-blue-200 truncate">
-                                    {
-                                      detailOrder.transactionId.paymentDetails
-                                        .bankCode
-                                    }
-                                  </span>
-                                </div>
-                              )}
-                          </>
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="text-muted-foreground font-medium text-xs">
+                            Payment Method:
+                          </span>
+                          <span className="font-semibold uppercase text-sm truncate">
+                            {detailOrder.transactionId.paymentMethod || "N/A"}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="text-muted-foreground font-medium text-xs">
+                            Status:
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs font-semibold w-fit ${
+                              detailOrder.transactionId.status === "success"
+                                ? "bg-green-100 text-green-800 border-green-300"
+                                : detailOrder.transactionId.status === "pending"
+                                ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+                                : "bg-red-100 text-red-800 border-red-300"
+                            }`}
+                          >
+                            {detailOrder.transactionId.status}
+                          </Badge>
+                        </div>
+                        {detailOrder.transactionId.paymentDetails?.bankCode && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Bank Code:
+                            </span>
+                            <span className="font-semibold text-blue-700 text-sm bg-blue-50 px-2 py-1 rounded border border-blue-200 truncate">
+                              {detailOrder.transactionId.paymentDetails.bankCode}
+                            </span>
+                          </div>
+                        )}
+                        {detailOrder.transactionId.paymentDetails?.transactionNo && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Transaction No:
+                            </span>
+                            <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded truncate">
+                              {detailOrder.transactionId.paymentDetails.transactionNo}
+                            </span>
+                          </div>
                         )}
                       </div>
                     </CardContent>
@@ -1191,6 +1220,92 @@ const ManageOrdersPage = () => {
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Shipping Information Card */}
+                {detailShippingLog && (
+                  <Card className="w-full">
+                    <CardHeader className="pb-3 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-t-lg">
+                      <CardTitle className="text-base font-semibold text-orange-900 flex items-center gap-2">
+                        <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs">🚚</span>
+                        </div>
+                        Shipping Information
+                        <Badge variant="secondary" className="ml-auto text-xs">
+                          {getUnifiedStatus(detailOrder.status, detailShippingLog).displayText}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                        {detailShippingLog.trackingNumber && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Tracking Number:
+                            </span>
+                            <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded truncate">
+                              {detailShippingLog.trackingNumber}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {detailShippingLog.carrier && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Carrier:
+                            </span>
+                            <span className="font-semibold text-sm truncate">
+                              {detailShippingLog.carrier}
+                            </span>
+                          </div>
+                        )}
+
+                        {detailShippingLog.currentLocation && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Current Location:
+                            </span>
+                            <span className="text-sm truncate">
+                              {detailShippingLog.currentLocation}
+                            </span>
+                          </div>
+                        )}
+
+                        {detailShippingLog.estimatedDelivery && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Estimated Delivery:
+                            </span>
+                            <span className="text-sm font-medium truncate">
+                              {formatDate(detailShippingLog.estimatedDelivery)}
+                            </span>
+                          </div>
+                        )}
+
+                        {detailShippingLog.actualDelivery && (
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Actual Delivery:
+                            </span>
+                            <span className="text-sm font-medium text-green-600 truncate">
+                              {formatDate(detailShippingLog.actualDelivery)}
+                            </span>
+                          </div>
+                        )}
+
+                        {detailShippingLog.notes && (
+                          <div className="flex flex-col gap-1 min-w-0 col-span-2">
+                            <span className="text-muted-foreground font-medium text-xs">
+                              Shipping Notes:
+                            </span>
+                            <span className="text-sm bg-blue-50 p-2 rounded border">
+                              {detailShippingLog.notes}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </div>
           )}
@@ -1221,15 +1336,13 @@ const ManageOrdersPage = () => {
                       <SelectValue placeholder="Update Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      {getAvailableStatuses(detailOrder.status).map(
+                      {getAvailableStatuses(
+                        detailOrder.id || detailOrder._id || '',
+                        detailOrder.status
+                      ).map(
                         (status) => (
                           <SelectItem key={status} value={status}>
                             <div className="flex items-center gap-2">
-                              {
-                                StatusConfig[
-                                  status as keyof typeof StatusConfig
-                                ]?.icon
-                              }
                               <span className="capitalize font-medium">
                                 {status}
                               </span>

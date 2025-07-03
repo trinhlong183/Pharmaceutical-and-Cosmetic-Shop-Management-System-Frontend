@@ -91,7 +91,7 @@ function AdminDashboard() {
       setInventoryAlerts(alertsData);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
-      toast.error("Failed to load dashboard data");
+      // toast.error("Failed to load dashboard data");
 
       // Set mock data for development
       setStats({

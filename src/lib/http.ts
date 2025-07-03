@@ -28,7 +28,10 @@ export class HttpError extends Error {
     [key: string]: any;
   };
   constructor({ status, payload }: { status: number; payload: any }) {
-    super("Http Error");
+    // Create a more descriptive error message
+    const errorMsg = payload?.message || `HTTP Error ${status}`;
+    super(errorMsg);
+    this.name = "HttpError";
     this.status = status;
     this.payload = payload;
   }
@@ -97,7 +100,26 @@ const request = async <Response>(
     body,
     method,
   });
-  const payload: Response = await res.json();
+  
+  let payload: Response;
+  try {
+    payload = await res.json();
+  } catch (error) {
+    // Handle JSON parsing errors
+    console.error(`JSON parsing error for ${method} ${fullUrl}:`, error);
+    if (!res.ok) {
+      throw new HttpError({ 
+        status: res.status, 
+        payload: { 
+          message: `Error ${res.status}: Failed to parse response as JSON`,
+          originalError: error instanceof Error ? error.message : String(error)
+        } 
+      });
+    }
+    // For successful responses with invalid JSON, return an empty response
+    payload = { message: "No valid data returned" } as any;
+  }
+  
   const data = {
     status: res.status,
     payload,
