@@ -7,6 +7,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/contexts/UserContext";
 import { chatService } from "@/api/chatService";
 import { X, Edit2, Trash2, Check, XCircle } from "lucide-react";
@@ -78,7 +79,6 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
       console.error("Error creating new chat history:", error);
     }
   };
-
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,12 +303,18 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
               className="flex items-center border-t border-gray-100 bg-white px-3 py-2"
               onSubmit={handleSend}
             >
-              <input
-                type="text"
-                className="flex-1 px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-400"
+              <Textarea
+                className="flex-1 px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-400 resize-none max-h-22 overflow-y-auto break-words whitespace-pre-wrap w-80"
                 placeholder="Type your message..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                rows={2}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend(e as any);
+                  }
+                }}
               />
               <Button
                 type="submit"

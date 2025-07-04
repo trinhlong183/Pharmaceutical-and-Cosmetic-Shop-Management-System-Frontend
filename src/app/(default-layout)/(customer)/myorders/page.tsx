@@ -37,12 +37,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useUser } from "@/contexts/UserContext";
-import ReviewDialog from "@/components/ReviewDialog";
 import ShipmentTracking from "@/components/ShipmentTracking";
 import OrderShippingTracker from "@/components/OrderShippingTracker";
 import ConfirmReceiptDialog from "@/components/ConfirmReceiptDialog";
 import { StatusBadge } from "@/components/order/StatusBadge";
 import { shippingLogsService, ShippingLog, ShippingStatus } from "@/api/shippingLogsService";
+import ReviewDialog from "@/components/reviewDialog";
 
 // Interface for Order Item based on shipping log API response
 interface OrderItem {
