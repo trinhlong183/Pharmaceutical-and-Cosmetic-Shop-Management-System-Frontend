@@ -184,7 +184,6 @@ export const shippingLogsService = {
   getAll: async (params?: any): Promise<ShippingLog[]> => {
     try {
       const response = await http.get<ApiResponse<ShippingLog[]>>("/shipping-logs", { params });
-      console.log("Raw shipping logs response:", response);
       
       let shippingLogs: ShippingLog[];
       
@@ -192,14 +191,11 @@ export const shippingLogsService = {
       if (response.payload?.data && Array.isArray(response.payload.data)) {
         // API trả về đúng cấu trúc {data: [...]}
         shippingLogs = response.payload.data;
-        console.log("API returned correct structure with data array");
       } else if (Array.isArray(response.payload)) {
         // API trả về trực tiếp mảng
         shippingLogs = response.payload;
-        console.log("API returned direct array structure");
       } else if (response.payload?.data && !Array.isArray(response.payload.data)) {
         // API trả về một object trong data
-        console.log("API returned data object, not array - converting to array");
         shippingLogs = [response.payload.data as unknown as ShippingLog];
       } else {
         console.error("Unexpected response format from shipping logs API:", response);
@@ -208,50 +204,32 @@ export const shippingLogsService = {
       
       // Xử lý từng shipping log để đảm bảo dữ liệu đầy đủ
       const processedLogs = shippingLogs.map((log) => {
-        // Log dữ liệu để debug
-        console.log(`Processing shipping log:`, {
-          id: log.id || log._id,
-          orderId: log.orderId,
-          hasOrder: !!log.order,
-          hasCustomer: !!log.customer,
-          hasItems: !!(log.items && log.items.length),
-          productSummary: log.productSummary,
-          itemCount: log.itemCount,
-          totalQuantity: log.totalQuantity
-        });
-        
         // Xử lý productSummary nếu là string
         if (typeof log.productSummary === 'string') {
-          console.log(`Converting string productSummary to object for shipping ${log.id || log._id}`);
           // Không cần chuyển đổi vì UI có thể hiển thị trực tiếp string
         }
         
         // Đảm bảo orderId được lấy đúng (có thể từ order object)
         if (!log.orderId && log.order) {
           log.orderId = log.order.id || log.order._id || '';
-          console.log(`Set orderId from order object: ${log.orderId}`);
         }
         
         // Đảm bảo thông tin người nhận
         if (!log.recipientName && log.customer) {
           log.recipientName = log.customer.name || log.customer.fullName || 'Unknown';
-          console.log(`Set recipientName from customer: ${log.recipientName}`);
         }
         
         if (!log.recipientPhone && log.customer) {
           log.recipientPhone = log.customer.phone || log.customer.phoneNumber || 'Unknown';
-          console.log(`Set recipientPhone from customer: ${log.recipientPhone}`);
         }
         
         if (!log.shippingAddress && log.customer) {
           log.shippingAddress = log.customer.address || log.customer.shippingAddress || 'Address not provided';
-          console.log(`Set shippingAddress from customer: ${log.shippingAddress}`);
         }
         
         return log;
       });
       
-      console.log(`Processed ${processedLogs.length} shipping logs`);
       return processedLogs;
     } catch (error) {
       console.error("Error fetching shipping logs:", error);
@@ -262,8 +240,6 @@ export const shippingLogsService = {
   // Get shipping log by ID
   getById: async (id: string): Promise<ShippingLog> => {
     try {
-      console.log(`Fetching shipping log details for ID: ${id}`);
-      
       // Validate ID
       if (!id || typeof id !== 'string') {
         console.error('getById called with invalid ID:', id);
@@ -271,7 +247,6 @@ export const shippingLogsService = {
       }
       
       const response = await http.get<ApiResponse<ShippingLog>>(`/shipping-logs/${id}`);
-      console.log("Shipping log details response:", response);
       
       let shippingLog: ShippingLog;
       
@@ -284,24 +259,11 @@ export const shippingLogsService = {
         throw new Error('Invalid response format from shipping logs API');
       }
       
-      // Log chi tiết để debug
-      console.log(`Shipping log details:`, {
-        id: shippingLog.id || shippingLog._id,
-        orderId: shippingLog.orderId,
-        hasOrder: !!shippingLog.order,
-        hasCustomer: !!shippingLog.customer,
-        hasItems: !!(shippingLog.items && shippingLog.items.length),
-        productSummary: shippingLog.productSummary,
-        itemCount: shippingLog.itemCount,
-        totalQuantity: shippingLog.totalQuantity
-      });
-      
       // Xử lý dữ liệu để đảm bảo đủ thông tin cho UI
       
       // Đảm bảo orderId được lấy đúng (có thể từ order object)
       if (!shippingLog.orderId && shippingLog.order) {
         shippingLog.orderId = shippingLog.order.id || shippingLog.order._id || '';
-        console.log(`Set orderId from order object: ${shippingLog.orderId}`);
       }
       
       // Nếu không có thông tin order mà có orderId (string), thử lấy chi tiết đơn hàng
@@ -309,7 +271,6 @@ export const shippingLogsService = {
         try {
           const { orderService } = await import('@/api/orderService');
           const orderDetails = await orderService.getOrderById(shippingLog.orderId) as Record<string, any>;
-          console.log(`Found order details for shipping ${id}:`, orderDetails);
           
           // Thêm thông tin đơn hàng
           shippingLog.order = {
@@ -355,7 +316,6 @@ export const shippingLogsService = {
       // Nếu không có items nhưng có productSummary dạng string, tạo mô tả items
       if (!shippingLog.items && typeof shippingLog.productSummary === 'string') {
         // Không cần chuyển đổi vì UI có thể hiển thị trực tiếp string
-        console.log(`Shipping log has string productSummary: ${shippingLog.productSummary}`);
       }
       
       return shippingLog;
@@ -422,7 +382,6 @@ export const shippingLogsService = {
           }
           
           // No shipping info in the order
-          console.info(`No shipping information found in order ${cleanOrderId}`);
           return [];
         } catch (fallbackError) {
           console.error(`Both shipping endpoints failed for order ${cleanOrderId}`);
@@ -447,8 +406,6 @@ export const shippingLogsService = {
   // Get order items for shipping
   getOrderItems: async (orderId: string): Promise<OrderItemsResponse> => {
     try {
-      console.log(`Fetching order items for order ${orderId}`);
-      
       // Validate orderId
       if (!orderId || typeof orderId !== 'string') {
         console.error('getOrderItems called with invalid orderId:', orderId);
@@ -456,7 +413,6 @@ export const shippingLogsService = {
       }
       
       const response = await http.get<ApiResponse<OrderItemsResponse>>(`/shipping-logs/order-items/${orderId}`);
-      console.log("Order items response:", response);
       
       let orderItems: OrderItemsResponse;
       
@@ -469,9 +425,6 @@ export const shippingLogsService = {
         console.error("Unexpected response format from order items API:", response);
         throw new Error('Invalid response format from order items API');
       }
-      
-      // Log chi tiết để debug
-      console.log(`Retrieved ${orderItems.items?.length || 0} order items for order ${orderId}`);
       
       return orderItems;
     } catch (error) {
@@ -499,11 +452,7 @@ export const shippingLogsService = {
         throw new Error("Invalid shipping log ID");
       }
       
-      console.log(`Updating shipping status for ID: ${id}`, data);
-      
       const response = await http.patch<ApiResponse<ShippingLog>>(`/shipping-logs/${id}/status`, data);
-      
-      console.log("Update status response:", response);
       
       // Handle various response formats
       if (response?.payload?.data) {
@@ -530,13 +479,8 @@ export const shippingLogsService = {
         throw new Error('Invalid shipping log ID');
       }
       
-      console.log(`Attempting to delete shipping log with ID: ${id}`);
-      
       // Send the delete request
       const response = await http.delete<ApiResponse<any>>(`/shipping-logs/${id}`);
-      
-      // Check response
-      console.log("Delete shipping log response:", response);
       
       // Return true to indicate success
       return true;
@@ -561,7 +505,6 @@ export const shippingLogsService = {
   createFromApprovedOrder: async (orderId: string): Promise<ShippingLog> => {
     try {
       // First, fetch the order details to get required information using orderService
-      console.log(`Fetching order details for order ${orderId} to create shipping log`);
       
       // Import necessary services to get order and user details
       const { orderService } = await import('@/api/orderService');
@@ -574,8 +517,6 @@ export const shippingLogsService = {
         throw new Error("Failed to fetch order information");
       }
       
-      console.log("Order data retrieved:", orderData);
-      
       // Get user data for shipping information
       let userData: any = null;
       
@@ -583,7 +524,6 @@ export const shippingLogsService = {
       try {
         // First check if order has customer details embedded (preferred)
         if (orderData.customer) {
-          console.log("Customer data found in order:", orderData.customer);
           userData = orderData.customer;
         } 
         // Otherwise if we have userId reference, look up the user
@@ -593,9 +533,7 @@ export const shippingLogsService = {
                         orderData.userId : 
                         (orderData.userId.id || orderData.userId._id);
           
-          console.log("Looking up user data with ID:", userId);
           userData = await userService.getUserById(userId);
-          console.log("User data retrieved:", userData);
         }
       } catch (error) {
         console.warn("Could not fetch user data, continuing with order data only:", error);
@@ -638,12 +576,6 @@ export const shippingLogsService = {
       } else if (userData?.phoneNumber) {
         recipientPhone = userData.phoneNumber;
       }
-      
-      console.log("Extracted shipping info:", {
-        shippingAddress,
-        recipientName,
-        recipientPhone
-      });
       
       // Validate that we have minimum required information
       if (!orderId) {
@@ -692,15 +624,8 @@ export const shippingLogsService = {
         notes: `Automatically created shipping log for approved order ${orderReference}`
       };
       
-      // Log debug
-      console.log("Order reference being used:", orderReference);
-      console.log("Product summary generated:", productSummaryText);
-      
-      console.log("Creating shipping log with data:", shippingData);
-      
       // Create the shipping log using the standard create endpoint
       const response = await http.post<ApiResponse<ShippingLog>>("/shipping-logs", shippingData);
-      console.log("Create shipping log response:", response);
       
       let createdShippingLog: ShippingLog;
       
@@ -710,11 +635,8 @@ export const shippingLogsService = {
       } else if (response?.payload && typeof response.payload === 'object') {
         createdShippingLog = response.payload as unknown as ShippingLog;
       } else {
-        console.log("Unexpected API response format:", response);
         throw new Error("Invalid or empty response from the shipping logs service");
       }
-      
-      console.log("Shipping log created successfully:", createdShippingLog);
       
       // Enhance the shipping log with customer info before returning
       const enhancedShippingLog = {
@@ -751,7 +673,6 @@ export const shippingLogsService = {
         shippingAddress
       };
       
-      console.log("Enhanced shipping log to be returned:", enhancedShippingLog);
       return enhancedShippingLog;
     } catch (error: unknown) {
       console.error("Error in createFromApprovedOrder:", error);

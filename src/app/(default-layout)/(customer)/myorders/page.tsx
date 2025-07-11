@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { userService, User } from "@/api/userService";
 import { orderService, Order as ApiOrder } from "@/api/orderService";
 import { reviewService } from "@/api/reviewService";
@@ -42,7 +42,7 @@ import OrderShippingTracker from "@/components/OrderShippingTracker";
 import ConfirmReceiptDialog from "@/components/ConfirmReceiptDialog";
 import { StatusBadge } from "@/components/order/StatusBadge";
 import { shippingLogsService, ShippingLog, ShippingStatus } from "@/api/shippingLogsService";
-import ReviewDialog from "@/components/reviewDialog";
+import ReviewDialog from "@/components/ReviewDialog";
 
 // Interface for Order Item based on shipping log API response
 interface OrderItem {
@@ -147,6 +147,7 @@ export default function MyOrdersPage() {
   const [selectedOrderToConfirm, setSelectedOrderToConfirm] = useState<string | null>(null);
   
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useUser();
 
   // Helper function to get processor name from either object or ID
@@ -187,9 +188,7 @@ export default function MyOrdersPage() {
   // Function to refresh shipping logs data
   const refreshShippingLogs = async () => {
     try {
-      console.log("Refreshing shipping logs...");
       const data = await shippingLogsService.getAll();
-      console.log("Shipping logs data:", data);
       
       // Filter shipping logs for current user (assuming customer info is available)
       const userShippingLogs = data.filter((log: ShippingLog) => 
@@ -206,9 +205,7 @@ export default function MyOrdersPage() {
   // Function to load user orders
   const loadUserOrders = async () => {
     try {
-      console.log("Loading user orders...");
       const userOrders = await orderService.getCurrentUserOrders();
-      console.log("User orders:", userOrders);
       setOrders(userOrders);
     } catch (error) {
       console.error("Error loading user orders:", error);
@@ -235,9 +232,6 @@ export default function MyOrdersPage() {
           shippingLogsService.getAll()
         ]);
         
-        console.log("User orders:", userOrders);
-        console.log("Raw shipping logs data:", shippingLogsData);
-        
         // Set orders
         setOrders(userOrders);
         
@@ -246,7 +240,6 @@ export default function MyOrdersPage() {
           log.customer?.email === user?.email
         );
         
-        console.log("Filtered shipping logs for user:", userShippingLogs);
         setShippingLogs(userShippingLogs);
       } catch (err) {
         console.error("Error loading data:", err);
@@ -264,11 +257,57 @@ export default function MyOrdersPage() {
       }
     }
 
-    // Only load if user is available
+    // Load data if user is available
     if (user?.email) {
       loadData();
     }
   }, [user]);
+
+  // Additional effect to refresh data when page becomes visible (for handling payment returns)
+  useEffect(() => {
+    let refreshTimeout: NodeJS.Timeout;
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user?.email) {
+        // Clear any existing timeout to prevent duplicate calls
+        if (refreshTimeout) {
+          clearTimeout(refreshTimeout);
+        }
+        // Refresh data when page becomes visible again (e.g., after payment)
+        refreshTimeout = setTimeout(() => {
+          refreshAllShippingLogs();
+        }, 1000);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+      }
+    };
+  }, [user]);
+
+  // Check for payment success parameter and refresh data
+  useEffect(() => {
+    const paymentSuccess = searchParams.get('payment_success');
+    const orderCreated = searchParams.get('order_created');
+    
+    if ((paymentSuccess === 'true' || orderCreated === 'true') && user?.email) {
+      // Wait a bit longer for backend to process the order
+      setTimeout(() => {
+        refreshAllShippingLogs();
+      }, 2000);
+      
+      // Clean up URL parameters
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment_success');
+      url.searchParams.delete('order_created');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [searchParams, user]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -340,21 +379,20 @@ export default function MyOrdersPage() {
     }).format(amount);
   };
 
-  // Function to refresh all shipping logs
+  // Function to refresh all shipping logs and orders
   const refreshAllShippingLogs = async () => {
     try {
       setLoading(true);
       
-      // Load both orders and shipping logs in parallel
+      // Load both orders and shipping logs in parallel with a small delay to ensure backend sync
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const [userOrders, shippingLogsData] = await Promise.all([
         orderService.getCurrentUserOrders(),
         shippingLogsService.getAll()
       ]);
       
-      console.log("Refreshed user orders:", userOrders);
-      console.log("Refreshed shipping logs data:", shippingLogsData);
-      
-      // Set orders
+      // Set orders - this should include new pending orders
       setOrders(userOrders);
       
       // Filter shipping logs for current user based on customer email
@@ -362,13 +400,9 @@ export default function MyOrdersPage() {
         log.customer?.email === user?.email
       );
       
-      console.log("Refreshed filtered shipping logs for user:", userShippingLogs);
       setShippingLogs(userShippingLogs);
-      
-      toast.success("Data refreshed successfully!");
     } catch (error) {
       console.error("Error refreshing data:", error);
-      toast.error("Failed to refresh data");
     } finally {
       setLoading(false);
     }
@@ -482,7 +516,7 @@ export default function MyOrdersPage() {
             Try Again
           </Button>
         </div>
-      ) : shippingLogs.length === 0 ? (
+      ) : shippingLogs.length === 0 && pendingOrders.length === 0 && rejectedOrders.length === 0 && refundedOrders.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-gray-100">
           <div className="w-24 h-24 bg-blue-50 rounded-full mx-auto mb-6 flex items-center justify-center">
             <ShoppingBag className="h-12 w-12 text-blue-500" />
@@ -494,15 +528,25 @@ export default function MyOrdersPage() {
             Looks like you haven't placed any orders yet. Start shopping to see
             your orders here!
           </p>
-          <Link href="/products">
-            <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-8 py-6 h-auto text-lg">
-              Explore Products
-            </Button>
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/products">
+              <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 px-8 py-6 h-auto text-lg">
+                Explore Products
+              </Button>
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="space-y-8">
-          {" "}
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800">Your Orders</h2>
+              <p className="text-gray-600 text-sm">
+                {shippingLogs.length + pendingOrders.length + rejectedOrders.length + refundedOrders.length} total orders
+              </p>
+            </div>
+          </div>
+          
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="w-full flex flex-wrap gap-2 mb-6">
               <TabsTrigger value="all" className="flex-grow">
@@ -687,7 +731,12 @@ export default function MyOrdersPage() {
   function PendingOrdersList({ orders }: { orders: ApiOrder[] }) {
     return (
       <div className="space-y-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Pending Orders (Awaiting Processing)</h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold text-gray-800">Pending Orders (Awaiting Processing)</h3>
+          <Badge variant="secondary" className="text-xs">
+            {orders.length} pending
+          </Badge>
+        </div>
         {orders.map((order) => (
           <Card
             key={order.id}
@@ -797,7 +846,7 @@ export default function MyOrdersPage() {
                   <span className="text-xl">
                     {shippingLog.status?.toLowerCase() === 'received' ? '✅' :
                      shippingLog.status?.toLowerCase() === 'delivered' ? '📦' :
-                     shippingLog.status?.toLowerCase() === 'intransit' ? '🚛' :
+                     shippingLog.status?.toLowerCase() === 'in transit' ? '🚛' :
                      shippingLog.status?.toLowerCase() === 'shipped' ? '🚚' :
                      shippingLog.status?.toLowerCase() === 'processing' ? '📦' : '⏳'}
                   </span>
@@ -812,7 +861,7 @@ export default function MyOrdersPage() {
                           ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
                           : shippingLog.status?.toLowerCase() === 'delivered' 
                           ? 'bg-green-100 text-green-800 border-green-200'
-                          : shippingLog.status?.toLowerCase() === 'intransit'
+                          : shippingLog.status?.toLowerCase() === 'in transit'
                           ? 'bg-orange-100 text-orange-800 border-orange-200'
                           : shippingLog.status?.toLowerCase() === 'shipped'
                           ? 'bg-blue-100 text-blue-800 border-blue-200'
@@ -849,7 +898,7 @@ export default function MyOrdersPage() {
                                 shippingLog.status?.toLowerCase() === 'received' ? 100 :
                                 shippingLog.status?.toLowerCase() === 'delivered' ? 85 :
                                 shippingLog.status?.toLowerCase() === 'shipped' ? 75 :
-                                shippingLog.status?.toLowerCase() === 'intransit' ? 60 :
+                                shippingLog.status?.toLowerCase() === 'in transit' ? 60 :
                                 shippingLog.status?.toLowerCase() === 'processing' ? 40 :
                                 shippingLog.order?.status?.toLowerCase() === 'approved' ? 20 :
                                 shippingLog.order?.status?.toLowerCase() === 'pending' ? 10 : 0
@@ -861,7 +910,7 @@ export default function MyOrdersPage() {
                           {shippingLog.status?.toLowerCase() === 'received' ? 100 :
                            shippingLog.status?.toLowerCase() === 'delivered' ? 85 :
                            shippingLog.status?.toLowerCase() === 'shipped' ? 75 :
-                           shippingLog.status?.toLowerCase() === 'intransit' ? 60 :
+                           shippingLog.status?.toLowerCase() === 'in transit' ? 60 :
                            shippingLog.status?.toLowerCase() === 'processing' ? 40 :
                            shippingLog.order?.status?.toLowerCase() === 'approved' ? 20 :
                            shippingLog.order?.status?.toLowerCase() === 'pending' ? 10 : 0}%
@@ -909,10 +958,10 @@ export default function MyOrdersPage() {
                     <div className="bg-blue-50 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-medium text-blue-900">Current Status:</span>
-                        <Badge className={`${
+                        <Badge                          className={`${
                           shippingLog.status?.toLowerCase() === 'delivered' 
                             ? 'bg-green-100 text-green-800 border-green-200'
-                            : shippingLog.status?.toLowerCase() === 'intransit'
+                            : shippingLog.status?.toLowerCase() === 'in transit'
                             ? 'bg-orange-100 text-orange-800 border-orange-200'
                             : shippingLog.status?.toLowerCase() === 'shipped'
                             ? 'bg-blue-100 text-blue-800 border-blue-200'
@@ -937,7 +986,7 @@ export default function MyOrdersPage() {
                   </div>
 
                   {/* Shipping Tracker */}
-                  {(['processing', 'shipped', 'intransit', 'delivered', 'received'].includes(shippingLog.status?.toLowerCase() || '')) && (
+                  {(['processing', 'shipped', 'in transit', 'delivered', 'received'].includes(shippingLog.status?.toLowerCase() || '')) && (
                     <div className="space-y-4 mb-6">
                       <OrderShippingTracker 
                         shippingLog={shippingLog} 

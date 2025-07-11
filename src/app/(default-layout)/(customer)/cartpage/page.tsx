@@ -398,11 +398,14 @@ export default function CartPage() {
               // Clear loading toast and show success message
               toast.dismiss('orderConfirmation');
               toast.success('Order created successfully!', {
-                duration: 5000
+                duration: 3000
               });
 
               // Refresh cart to show updated state (only unselected items remain)
               await fetchCart();
+              
+              // Redirect to myorders page with success parameter
+              router.push('/myorders?order_created=true');
               
             } else {
               throw new Error(verifyResult.data?.message || verifyResult.message || 'Payment verification failed');
