@@ -42,8 +42,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
       minimumFractionDigits: 0,
     }).format(price);
   };
+
+  const isOutOfStock = typeof stock === "number" && stock === 0;
+
   return (
-    <div className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full border border-indigo-50 group">
+    <div
+      className={`bg-white rounded-2xl shadow-md overflow-hidden flex flex-col h-full border group transition-all duration-300 ${
+        isOutOfStock
+          ? "border-gray-200 relative"
+          : "border-indigo-50 hover:shadow-xl"
+      }`}
+    >
       {/* Image & Badges */}
       <div className="relative aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
         <Link href={`/products/${productId}`} className="block w-full h-full">
@@ -53,7 +62,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
               alt={productName}
               fill
               unoptimized
-              className="object-cover transition-all duration-700 group-hover:scale-105"
+              className={`object-cover transition-all duration-700 group-hover:scale-105 ${
+                isOutOfStock ? "grayscale" : ""
+              }`}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 20vw"
             />
           ) : (
@@ -82,12 +93,26 @@ const ProductCard: React.FC<ProductCardProps> = ({
           )}
         </Link>
         {/* Badges */}
-        {salePercentage > 0 && (
+        {isOutOfStock && (
+          <div
+            className="absolute top-3 left-3 z-[100] bg-gradient-to-r from-red-700 to-red-800 text-white text-xs font-bold px-3 py-1.5 rounded-r-md shadow opacity-100 pointer-events-auto"
+            style={{
+              opacity: 1,
+              filter: "none",
+              pointerEvents: "auto",
+              color: "#fff",
+              background: "linear-gradient(to right, #f87171, #ef4444)",
+            }}
+          >
+            Out of Stock
+          </div>
+        )}
+        {!isOutOfStock && salePercentage > 0 && (
           <div className="absolute top-3 right-3 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow z-10">
             -{salePercentage}% OFF
           </div>
         )}
-        {typeof stock === "number" && stock < 10 && (
+        {!isOutOfStock && typeof stock === "number" && stock < 10 && (
           <div className="absolute top-3 left-3 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow z-10">
             Low Stock
           </div>
@@ -111,13 +136,21 @@ const ProductCard: React.FC<ProductCardProps> = ({
         </div>
         {/* Product Name */}
         <Link href={`/products/${productId}`}>
-          <h3 className="font-bold text-lg text-gray-900 truncate mb-1 group-hover:text-indigo-700 transition-colors">
+          <h3
+            className={`font-bold text-lg truncate mb-1 group-hover:text-indigo-700 transition-colors ${
+              isOutOfStock ? "text-gray-400" : "text-gray-900"
+            }`}
+          >
             {productName}
           </h3>
         </Link>
         {/* Description */}
         {productDescription && (
-          <p className="text-sm text-gray-500 mb-2 line-clamp-2">
+          <p
+            className={`text-sm mb-2 line-clamp-2 ${
+              isOutOfStock ? "text-gray-300" : "text-gray-500"
+            }`}
+          >
             {productDescription}
           </p>
         )}
@@ -126,7 +159,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
           <div>
             {salePercentage > 0 ? (
               <div className="flex flex-col">
-                <span className="text-xl font-bold bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent">
+                <span
+                  className={`text-xl font-bold bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent ${
+                    isOutOfStock ? "opacity-60" : ""
+                  }`}
+                >
                   {formatVND(finalPrice)}
                 </span>
                 <span className="text-xs text-gray-400 line-through">
@@ -134,7 +171,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 </span>
               </div>
             ) : (
-              <span className="text-xl font-bold text-gray-900">
+              <span
+                className={`text-xl font-bold ${
+                  isOutOfStock ? "text-gray-400" : "text-gray-900"
+                }`}
+              >
                 {formatVND(price)}
               </span>
             )}
@@ -147,9 +188,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
             </Link>
             <button
               type="button"
-              className="flex items-center text-black p-1 rounded-md hover:bg-gray-100 transition-all duration-300 text-sm font-medium shadow-sm"
+              className={`flex items-center p-1 rounded-md transition-all duration-300 text-sm font-medium shadow-sm ${
+                isOutOfStock
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed pointer-events-none"
+                  : "text-black hover:bg-gray-100"
+              }`}
               title="Add to cart"
-              onClick={() => addToCart(productId)}
+              onClick={() => !isOutOfStock && addToCart(productId)}
+              disabled={isOutOfStock}
             >
               <FiShoppingCart className="mr-1" />
             </button>
