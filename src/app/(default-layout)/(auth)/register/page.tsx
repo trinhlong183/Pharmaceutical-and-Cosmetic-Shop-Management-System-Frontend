@@ -16,7 +16,6 @@ function RegisterPage() {
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-6">
           <div className="bg-blue-600 p-3 rounded-full">
-            {/* You can replace this with your actual logo */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-8 w-8 text-white"

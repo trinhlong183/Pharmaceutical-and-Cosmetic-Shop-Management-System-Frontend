@@ -20,6 +20,8 @@ import {
   Mail,
   Eye,
   EyeOff,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import userService from "@/api/userService";
@@ -159,12 +161,19 @@ export default function ProfilePage() {
       setShowChangePw(false);
       setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (err: any) {
-      toast.error(
-          err?.message ||
-          "Failed to change password"
-      );
+      toast.error(err?.message || "Failed to change password");
     } finally {
       setPwLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!user?.email) return;
+    try {
+      await authApiRequest.resendVerificationEmail(user.email);
+      toast.success("Verification email sent! Please check your inbox.");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send verification email");
     }
   };
 
@@ -329,11 +338,35 @@ export default function ProfilePage() {
                     <Mail className="w-4 h-4 mr-2 text-indigo-500" />
                     Email Address
                   </Label>
-                  <div className="p-3 bg-gray-50 rounded-lg text-gray-800">
+                  <div className="p-3 bg-gray-50 rounded-lg text-gray-800 flex items-center">
                     {user?.email}
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      Verified
-                    </Badge>
+                    {user?.isVerified ? (
+                      <Badge
+                        variant="secondary"
+                        className="ml-2 text-xs flex items-center bg-green-100 text-green-700 border-green-300"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
+                        Verified
+                      </Badge>
+                    ) : (
+                      <>
+                        <Badge
+                          variant="secondary"
+                          className="ml-2 text-xs flex items-center bg-yellow-100 text-yellow-700 border-yellow-300"
+                        >
+                          <AlertCircle className="w-4 h-4 mr-1 text-yellow-500" />
+                          Not Verified
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-2"
+                          onClick={handleResendVerification}
+                        >
+                          Resend Verification Email
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
 
