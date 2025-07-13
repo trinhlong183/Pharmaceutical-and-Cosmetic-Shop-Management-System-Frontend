@@ -54,6 +54,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       icon: <FolderKanban size={20} />,
     },
     {
+      label: "Shipping",
+      path: "/shipping",
+      icon: <Truck size={20} />,
+    },
+    {
       label: "Customers",
       path: "/customers",
       icon: <Users size={20} />,
@@ -77,11 +82,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       path: "/transaction-admin",
       icon: <ShoppingCart size={20} />,
     });
-    menuItems.splice(5, 0, {
-      label: "Shipping",
-      path: "/shipping",
-      icon: <Truck size={20} />,
-    });
+    // menuItems.splice(5, 0, {
+    //   label: "Shipping",
+    //   path: "/shipping",
+    //   icon: <Truck size={20} />,
+    // });
   }
 
   return (

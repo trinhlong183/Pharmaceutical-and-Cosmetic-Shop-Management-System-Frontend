@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/contexts/UserContext";
 import { chatService } from "@/api/chatService";
-import { X, Edit2, Trash2, Check, XCircle } from "lucide-react";
+import { X } from "lucide-react";
 
 interface ChatboxProps {
   open: boolean;
@@ -30,12 +30,7 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
   const [input, setInput] = useState("");
   const [hoveredChatId, setHoveredChatId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
-  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
-  const [editInput, setEditInput] = useState<string>("");
-  const [confirmDeleteMsgId, setConfirmDeleteMsgId] = useState<string | null>(
-    null
-  );
+  const [isSending, setIsSending] = useState(false);
 
   // Sửa lại fetchChatHistory để map data trả về thành Chat[]
   const fetchChatHistory = async () => {
@@ -82,10 +77,9 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
-
+    if (!input.trim() || isSending) return;
+    setIsSending(true);
     try {
-      // Use the new method that handles both user message and AI response
       await chatService.sendMessageWithAIResponse(
         selectedChatId,
         input,
@@ -95,7 +89,6 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
       await fetchChatHistory();
     } catch (error) {
       console.error("Error sending message:", error);
-      // Fallback to just sending user message if AI fails
       try {
         await chatService.createChatMessage({
           chatId: selectedChatId,
@@ -108,6 +101,8 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
       } catch (fallbackError) {
         console.error("Error sending fallback message:", fallbackError);
       }
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -128,48 +123,90 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
     }
   };
 
-  // Cập nhật tin nhắn
-  const handleUpdateMessage = async (msgId: string) => {
-    try {
-      const chat = chats.find((c) => c.id === selectedChatId);
-      const msg = chat?.messages.find((m) => m.id === msgId);
-      if (!msg) return;
-      await chatService.updateChatMessage(msgId, {
-        chatId: selectedChatId,
-        userId: user.id,
-        messageContent: editInput,
-        sender: "user",
-      });
-      setEditingMsgId(null);
-      setEditInput("");
-      await fetchChatHistory();
-    } catch (error) {
-      console.error("Error updating message:", error);
-    }
-  };
+  // Thêm hàm parseMarkdownList để chuyển đổi * thành <ul><li>
+  function parseMarkdownList(text: string) {
+    const lines = text.split("\n");
+    let inList = false;
+    const result: React.ReactNode[] = [];
+    let listItems: React.ReactNode[] = [];
 
-  // Xóa tin nhắn
-  const handleDeleteMessage = async (msgId: string) => {
-    try {
-      await chatService.deleteChatMessage(msgId);
-      setConfirmDeleteMsgId(null);
-      await fetchChatHistory();
-    } catch (error) {
-      console.error("Error deleting message:", error);
+    // Hàm phụ để xử lý **bold**
+    function renderBold(str: string, keyPrefix: string) {
+      const parts = str.split(/(\*\*[^*]+\*\*)/g);
+      return parts.map((part, idx) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return <strong key={keyPrefix + idx}>{part.slice(2, -2)}</strong>;
+        }
+        return <React.Fragment key={keyPrefix + idx}>{part}</React.Fragment>;
+      });
     }
-  };
+
+    lines.forEach((line, idx) => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("* ")) {
+        inList = true;
+        listItems.push(
+          <li key={idx}>{renderBold(trimmed.slice(2), `li-${idx}-`)}</li>
+        );
+      } else {
+        if (inList && listItems.length > 0) {
+          result.push(
+            <ul className="list-disc ml-5" key={`ul-${idx}`}>
+              {listItems}
+            </ul>
+          );
+          listItems = [];
+          inList = false;
+        }
+        if (trimmed) {
+          result.push(
+            <span key={`span-${idx}`}>
+              {renderBold(line, `span-${idx}-`)}
+              <br />
+            </span>
+          );
+        }
+      }
+    });
+    if (inList && listItems.length > 0) {
+      result.push(
+        <ul className="list-disc ml-5" key={`ul-last`}>
+          {listItems}
+        </ul>
+      );
+    }
+    return result;
+  }
 
   if (!open) return null;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent
-        className="max-w-4xl w-full p-0 overflow-hidden"
-        style={{ minWidth: 700 }}
+        className="max-w-6xl w-full p-0 overflow-hidden" // tăng max-w lên 6xl
+        style={{
+          left: "85%",
+          top: "95%",
+          transform: "translate(-50%, -50%)",
+          position: "fixed",
+          margin: 0,
+          padding: 0,
+          borderRadius: 20,
+          maxWidth: "70%",
+
+          maxHeight: "95vh",
+          width: "100%",
+          height: "85vh", // giảm chiều cao một chút cho thoáng
+          overflowY: "auto",
+          background: "white",
+          display: "flex",
+          flexDirection: "column",
+        }}
       >
-        <div className="flex h-[400px]">
-          {/* Left: Chat history & new chat */}
-          <div className="w-56 border-r bg-gray-50 flex flex-col">
+        <div className="flex h-full">
+      
+          <div className="w-72 border-r bg-gray-50 flex flex-col">
+         
             <div className="p-3 border-b flex items-center justify-between">
               <span className="font-semibold text-gray-700">Chats</span>
               <Button size="sm" variant="outline" onClick={handleNewChat}>
@@ -209,15 +246,15 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
           </div>
           {/* Right: Chat window */}
           <div className="flex-1 flex flex-col min-w-0">
-            <DialogHeader className="bg-gradient-to-r from-green-500 to-teal-500 px-4 py-3 flex flex-row items-center justify-between">
+            <DialogHeader className="bg-gradient-to-r from-green-500 to-teal-500 px-6 py-4 flex flex-row items-center justify-between">
               <DialogTitle className="text-white text-lg font-bold flex-1">
                 Chat Support
               </DialogTitle>
               <DialogClose asChild></DialogClose>
             </DialogHeader>
             <div
-              className="flex-1 px-4 py-3 bg-gray-50 overflow-y-auto"
-              style={{ minHeight: 250 }}
+              className="flex-1 px-6 py-4 bg-gray-50 overflow-y-auto"
+              style={{ minHeight: 300 }} // tăng minHeight
             >
               {selectedChat?.messages.length ? (
                 selectedChat.messages.map((msg) => (
@@ -226,71 +263,27 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
                     className={`mb-2 flex ${
                       msg.from === "user" ? "justify-end" : "justify-start"
                     } group`}
-                    onMouseEnter={() => setHoveredMsgId(msg.id)}
-                    onMouseLeave={() => setHoveredMsgId(null)}
                   >
-                    {editingMsgId === msg.id ? (
-                      <form
-                        className="flex items-center gap-2"
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          handleUpdateMessage(msg.id);
+                    <div className="relative flex items-center">
+                      <div
+                        className={`px-3 py-2 rounded-lg break-words mt-6 ${
+                          msg.from === "user"
+                            ? "bg-teal-500 text-white max-w-[620px] ml-auto"
+                            : "bg-gray-200 text-gray-800 max-w-[620px] mr-auto"
+                        }`}
+                        style={{
+                          wordBreak: "break-word",
+                          whiteSpace: "normal",
+                          textAlign: "left",
+                          justifyContent:
+                            msg.from === "user" ? "flex-end" : "flex-start",
                         }}
                       >
-                        <input
-                          className="px-2 py-1 rounded border border-gray-300"
-                          value={editInput}
-                          onChange={(e) => setEditInput(e.target.value)}
-                          autoFocus
-                        />
-                        <button type="submit" className="text-green-600">
-                          <Check size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          className="text-gray-400 hover:text-red-500"
-                          onClick={() => {
-                            setEditingMsgId(null);
-                            setEditInput("");
-                          }}
-                        >
-                          <XCircle size={16} />
-                        </button>
-                      </form>
-                    ) : (
-                      <div className="relative flex items-center">
-                        {msg.from === "user" && hoveredMsgId === msg.id && (
-                          <div className="flex gap-1 mr-4">
-                            <button
-                              className="text-blue-500 hover:text-blue-700"
-                              title="Edit"
-                              onClick={() => {
-                                setEditingMsgId(msg.id);
-                                setEditInput(msg.text);
-                              }}
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              className="text-red-400 hover:text-red-600"
-                              title="Delete"
-                              onClick={() => setConfirmDeleteMsgId(msg.id)}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        )}
-                        <div
-                          className={`px-3 py-2 rounded-lg ${
-                            msg.from === "user"
-                              ? "bg-teal-500 text-white"
-                              : "bg-gray-200 text-gray-800"
-                          }`}
-                        >
-                          {msg.text}
-                        </div>
+                        {msg.from === "ai"
+                          ? parseMarkdownList(msg.text)
+                          : msg.text}
                       </div>
-                    )}
+                    </div>
                   </div>
                 ))
               ) : (
@@ -300,15 +293,16 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
               )}
             </div>
             <form
-              className="flex items-center border-t border-gray-100 bg-white px-3 py-2"
+              className="flex items-center border-t border-gray-100 bg-white px-4 py-3"
               onSubmit={handleSend}
             >
               <Textarea
-                className="flex-1 px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-400 resize-none max-h-22 overflow-y-auto break-words whitespace-pre-wrap w-80"
+                className="flex-1 px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-400 resize-none max-h-32 overflow-y-auto break-words whitespace-pre-wrap w-full"
                 placeholder="Type your message..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 rows={2}
+                disabled={isSending}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -318,9 +312,35 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
               />
               <Button
                 type="submit"
-                className="ml-2 bg-gradient-to-r from-green-500 to-teal-500 text-white font-medium hover:from-green-600 hover:to-teal-600"
+                className="ml-3 px-6 py-2 bg-gradient-to-r from-green-500 to-teal-500 text-white font-medium hover:from-green-600 hover:to-teal-600 flex items-center"
+                disabled={isSending}
               >
-                Send
+                {isSending ? (
+                  <>
+                    <svg
+                      className="animate-spin h-5 w-5 mr-2"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                      />
+                    </svg>
+                    Sending...
+                  </>
+                ) : (
+                  "Send"
+                )}
               </Button>
             </form>
           </div>
@@ -346,33 +366,6 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
               <Button
                 variant="destructive"
                 onClick={() => handleDeleteChat(confirmDeleteId)}
-              >
-                Delete
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-      {/* Modal xác nhận xóa tin nhắn */}
-      {confirmDeleteMsgId && (
-        <Dialog open={true} onOpenChange={() => setConfirmDeleteMsgId(null)}>
-          <DialogContent className="max-w-xs w-full">
-            <DialogHeader>
-              <DialogTitle>Delete message?</DialogTitle>
-            </DialogHeader>
-            <div className="py-2">
-              Are you sure you want to delete this message?
-            </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <Button
-                variant="outline"
-                onClick={() => setConfirmDeleteMsgId(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => handleDeleteMessage(confirmDeleteMsgId)}
               >
                 Delete
               </Button>

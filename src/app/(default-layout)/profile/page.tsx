@@ -18,9 +18,14 @@ import {
   Save,
   X,
   Mail,
+  Eye,
+  EyeOff,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import userService from "@/api/userService";
+import authApiRequest from "@/api/auth";
 
 export default function ProfilePage() {
   const { user, setUser } = useUser();
@@ -34,6 +39,19 @@ export default function ProfilePage() {
     dob: user?.dob || "",
   });
 
+  const [showChangePw, setShowChangePw] = useState(false);
+  const [pwForm, setPwForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [pwLoading, setPwLoading] = useState(false);
+  const [showPw, setShowPw] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
+
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -42,6 +60,11 @@ export default function ProfilePage() {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handlePwInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPwForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSave = async () => {
@@ -108,6 +131,49 @@ export default function ProfilePage() {
       toast.error("Failed to upload avatar");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (
+      !pwForm.currentPassword ||
+      !pwForm.newPassword ||
+      !pwForm.confirmPassword
+    ) {
+      toast.error("Please fill all fields");
+      return;
+    }
+    if (pwForm.newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters");
+      return;
+    }
+    if (pwForm.newPassword !== pwForm.confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    setPwLoading(true);
+    try {
+      await authApiRequest.changePassword({
+        currentPassword: pwForm.currentPassword,
+        newPassword: pwForm.newPassword,
+      });
+      toast.success("Password changed successfully");
+      setShowChangePw(false);
+      setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to change password");
+    } finally {
+      setPwLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!user?.email) return;
+    try {
+      await authApiRequest.resendVerificationEmail(user.email);
+      toast.success("Verification email sent! Please check your inbox.");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send verification email");
     }
   };
 
@@ -193,6 +259,7 @@ export default function ProfilePage() {
                 <Button
                   variant="outline"
                   className="w-full justify-start hover:bg-red-50 hover:border-red-300"
+                  onClick={() => setShowChangePw(true)}
                 >
                   Change Password
                 </Button>
@@ -271,11 +338,35 @@ export default function ProfilePage() {
                     <Mail className="w-4 h-4 mr-2 text-indigo-500" />
                     Email Address
                   </Label>
-                  <div className="p-3 bg-gray-50 rounded-lg text-gray-800">
+                  <div className="p-3 bg-gray-50 rounded-lg text-gray-800 flex items-center">
                     {user?.email}
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      Verified
-                    </Badge>
+                    {user?.isVerified ? (
+                      <Badge
+                        variant="secondary"
+                        className="ml-2 text-xs flex items-center bg-green-100 text-green-700 border-green-300"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
+                        Verified
+                      </Badge>
+                    ) : (
+                      <>
+                        <Badge
+                          variant="secondary"
+                          className="ml-2 text-xs flex items-center bg-yellow-100 text-yellow-700 border-yellow-300"
+                        >
+                          <AlertCircle className="w-4 h-4 mr-1 text-yellow-500" />
+                          Not Verified
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-2"
+                          onClick={handleResendVerification}
+                        >
+                          Resend Verification Email
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -357,6 +448,126 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Modal đổi mật khẩu */}
+      {showChangePw && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm relative">
+            <button
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-700"
+              onClick={() => setShowChangePw(false)}
+              disabled={pwLoading}
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-xl font-bold mb-4 text-center text-gray-800">
+              Change Password
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="currentPassword" className="text-sm">
+                  Current Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="currentPassword"
+                    name="currentPassword"
+                    type={showPw.current ? "text" : "password"}
+                    value={pwForm.currentPassword}
+                    onChange={handlePwInput}
+                    disabled={pwLoading}
+                    className="mt-1 pr-10"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                    tabIndex={-1}
+                    onClick={() =>
+                      setShowPw((prev) => ({ ...prev, current: !prev.current }))
+                    }
+                  >
+                    {showPw.current ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="newPassword" className="text-sm">
+                  New Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="newPassword"
+                    name="newPassword"
+                    type={showPw.new ? "text" : "password"}
+                    value={pwForm.newPassword}
+                    onChange={handlePwInput}
+                    disabled={pwLoading}
+                    className="mt-1 pr-10"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                    tabIndex={-1}
+                    onClick={() =>
+                      setShowPw((prev) => ({ ...prev, new: !prev.new }))
+                    }
+                  >
+                    {showPw.new ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="confirmPassword" className="text-sm">
+                  Confirm New Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showPw.confirm ? "text" : "password"}
+                    value={pwForm.confirmPassword}
+                    onChange={handlePwInput}
+                    disabled={pwLoading}
+                    className="mt-1 pr-10"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                    tabIndex={-1}
+                    onClick={() =>
+                      setShowPw((prev) => ({ ...prev, confirm: !prev.confirm }))
+                    }
+                  >
+                    {showPw.confirm ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <Button
+              className="w-full mt-5 bg-gradient-to-r from-red-500 to-pink-500 text-white"
+              onClick={handleChangePassword}
+              disabled={pwLoading}
+            >
+              {pwLoading ? (
+                <span className="animate-spin mr-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full inline-block"></span>
+              ) : null}
+              Change Password
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
