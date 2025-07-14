@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { SalesData } from "@/api/dashboardService";
 import { formatCurrency } from "@/lib/utils";
+import { TrendingUp } from "lucide-react";
 
 interface SalesChartProps {
   data: SalesData[];
@@ -81,8 +82,17 @@ export const SalesChart: React.FC<SalesChartProps> = ({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
+        {data.length === 0 ? (
+          <div className="h-80 flex items-center justify-center text-gray-500">
+            <div className="text-center">
+              <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+              <p>No sales data available</p>
+              <p className="text-sm">Sales data will appear here once orders are placed</p>
+            </div>
+          </div>
+        ) : (
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
             {chartType === "line" ? (
               <LineChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -126,7 +136,8 @@ export const SalesChart: React.FC<SalesChartProps> = ({
               </BarChart>
             )}
           </ResponsiveContainer>
-        </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

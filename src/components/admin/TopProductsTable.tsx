@@ -65,68 +65,76 @@ export const TopProductsTable: React.FC<TopProductsTableProps> = ({
         </Button>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">#</TableHead>
-              <TableHead>Product</TableHead>
-              <TableHead className="text-right">Sales</TableHead>
-              <TableHead className="text-right">Revenue</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {products.map((product, index) => (
-              <TableRow key={product.id} className="hover:bg-gray-50">
-                <TableCell className="font-medium">
-                  <Badge
-                    variant={index < 3 ? "default" : "outline"}
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
-                      index === 0
-                        ? "bg-yellow-500"
-                        : index === 1
-                        ? "bg-gray-400"
-                        : index === 2
-                        ? "bg-amber-600"
-                        : ""
-                    }`}
-                  >
-                    {index + 1}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-                      {product.image ? (
-                        <Image
-                          src={product.image}
-                          alt={product.name}
-                          width={40}
-                          height={40}
-                          className="object-cover"
-                          unoptimized
-                        />
-                      ) : (
-                        <Package className="h-5 w-5 text-gray-400" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-medium text-sm">{product.name}</div>
-                      <div className="text-xs text-gray-500">
-                        ID: {product.id.slice(0, 8)}...
+        {products.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <p>No product sales data available</p>
+            <p className="text-sm">Sales data will appear here once orders are placed</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">#</TableHead>
+                <TableHead>Product</TableHead>
+                <TableHead className="text-right">Sales</TableHead>
+                <TableHead className="text-right">Revenue</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {products.map((product, index) => (
+                <TableRow key={product.id} className="hover:bg-gray-50">
+                  <TableCell className="font-medium">
+                    <Badge
+                      variant={index < 3 ? "default" : "outline"}
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                        index === 0
+                          ? "bg-yellow-500"
+                          : index === 1
+                          ? "bg-gray-400"
+                          : index === 2
+                          ? "bg-amber-600"
+                          : ""
+                      }`}
+                    >
+                      {index + 1}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                        {product.image ? (
+                          <Image
+                            src={product.image}
+                            alt={product.name}
+                            width={40}
+                            height={40}
+                            className="object-cover"
+                            unoptimized
+                          />
+                        ) : (
+                          <Package className="h-5 w-5 text-gray-400" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm">{product.name}</div>
+                        <div className="text-xs text-gray-500">
+                          ID: {product.id.slice(0, 8)}...
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right font-medium">
-                  {product.sales.toLocaleString()}
-                </TableCell>
-                <TableCell className="text-right font-bold text-green-600">
-                  {formatCurrency(product.revenue)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {product.sales.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-green-600">
+                    {formatCurrency(product.revenue)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   );
