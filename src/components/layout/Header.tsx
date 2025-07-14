@@ -2,6 +2,7 @@
 import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import { useUser } from "@/contexts/UserContext";
+import { usePathname } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -27,6 +28,7 @@ export default function Header() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
   const { user, setUser, loading } = useUser();
+  const pathname = usePathname();
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -71,13 +73,21 @@ export default function Header() {
         <nav className="hidden md:flex space-x-8">
           <Link
             href="/home"
-            className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+            className={`font-medium transition-colors ${
+              pathname === "/home" || pathname === "/"
+                ? "text-blue-600 font-bold"
+                : "text-gray-600 hover:text-blue-600"
+            }`}
           >
             Home
           </Link>
           <Link
             href="/products"
-            className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+            className={`font-medium transition-colors ${
+              pathname === "/products"
+                ? "text-blue-600 font-bold"
+                : "text-gray-600 hover:text-blue-600"
+            }`}
           >
             Products
           </Link>
@@ -85,7 +95,11 @@ export default function Header() {
           {/* Categories Dropdown */}
           <div className="relative categories-dropdown">
             <button
-              className="text-gray-600 hover:text-blue-600 font-medium transition-colors flex items-center space-x-1"
+              className={`font-medium transition-colors flex items-center space-x-1 ${
+                pathname.startsWith("/categories")
+                  ? "text-blue-600 font-bold"
+                  : "text-gray-600 hover:text-blue-600"
+              }`}
               onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
             >
               <span>Categories</span>
@@ -120,7 +134,11 @@ export default function Header() {
 
           <Link
             href="/aboutus"
-            className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+            className={`font-medium transition-colors ${
+              pathname === "/aboutus"
+                ? "text-blue-600 font-bold"
+                : "text-gray-600 hover:text-blue-600"
+            }`}
           >
             About Us
           </Link>
@@ -167,7 +185,14 @@ export default function Header() {
                     Skin Analysis History
                   </DropdownMenuItem>
                 </Link>
-                {(user.role === Role.STAFF || user.role === Role.ADMIN) && (
+                {user.role === Role.STAFF && (
+                  <Link href="/manage-orders" passHref>
+                    <DropdownMenuItem className="cursor-pointer">
+                      Manage
+                    </DropdownMenuItem>
+                  </Link>
+                )}
+                {user.role === Role.ADMIN && (
                   <Link href="/dashboard" passHref>
                     <DropdownMenuItem className="cursor-pointer">
                       Dashboard
@@ -225,47 +250,65 @@ export default function Header() {
             <nav className="flex flex-col space-y-4">
               <Link
                 href="/"
-                className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
+                className={`py-2 font-medium transition-colors ${
+                  pathname === "/" || pathname === "/home"
+                    ? "text-blue-600 font-bold"
+                    : "text-gray-600 hover:text-blue-600"
+                }`}
               >
                 Home
               </Link>
               <Link
                 href="/products"
-                className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
+                className={`py-2 font-medium transition-colors ${
+                  pathname === "/products"
+                    ? "text-blue-600 font-bold"
+                    : "text-gray-600 hover:text-blue-600"
+                }`}
               >
                 Products
               </Link>
               <Link
                 href="/mobile-app"
-                className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors flex items-center space-x-2"
+                className={`py-2 font-medium transition-colors flex items-center space-x-2 ${
+                  pathname === "/mobile-app"
+                    ? "text-blue-600 font-bold"
+                    : "text-gray-600 hover:text-blue-600"
+                }`}
               >
                 <span className="text-lg">📱</span>
                 <span>Mobile App</span>
               </Link>
               <Link
                 href="/categories"
-                className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors flex items-center space-x-2"
+                className={`py-2 font-medium transition-colors flex items-center space-x-2 ${
+                  pathname.startsWith("/categories")
+                    ? "text-blue-600 font-bold"
+                    : "text-gray-600 hover:text-blue-600"
+                }`}
               >
                 <span className="text-lg">📦</span>
                 <span>Categories</span>
               </Link>
-              <Link
-                href="/beauty-tips"
-                className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors flex items-center space-x-2"
-              >
-                <span className="text-lg">💡</span>
-                <span>Beauty Tips</span>
-              </Link>
+
               <Link
                 href="/cart"
-                className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors flex items-center"
+                className={`py-2 font-medium transition-colors flex items-center ${
+                  pathname === "/cart"
+                    ? "text-blue-600 font-bold"
+                    : "text-gray-600 hover:text-blue-600"
+                }`}
               >
                 <ShoppingCart className="w-5 h-5 mr-2" />
                 Shopping Cart
               </Link>
               <Link
                 href="/aboutus"
-                className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
+                className={`py-2 font-medium transition-colors ${
+                  pathname === "/aboutus"
+                    ? "text-blue-600 font-bold"
+                    : "text-gray-600 hover:text-blue-600"
+                }`}
               >
                 About Us
               </Link>
@@ -287,10 +330,18 @@ export default function Header() {
                   </Link>
                   {user.role === Role.STAFF && (
                     <Link
-                      href="/manage-products"
+                      href="/manage-orders"
                       className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
                     >
-                      Manage Products
+                      Manage Orders
+                    </Link>
+                  )}
+                  {user.role === Role.ADMIN && (
+                    <Link
+                      href="/dashboard"
+                      className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
+                    >
+                      Dashboard
                     </Link>
                   )}
                 </>

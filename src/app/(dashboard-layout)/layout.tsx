@@ -2,6 +2,7 @@
 
 import { ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Package,
@@ -30,14 +31,15 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, setUser } = useUser();
+  const pathname = usePathname();
 
   // Menu items chung cho cả staff và admin
   const menuItems = [
-    {
-      label: "Dashboard",
-      path: "/dashboard",
-      icon: <LayoutDashboard size={20} />,
-    },
+    // {
+    //   label: "Dashboard",
+    //   path: "/dashboard",
+    //   icon: <LayoutDashboard size={20} />,
+    // },
     {
       label: "Products",
       path: "/manage-products",
@@ -58,20 +60,25 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       path: "/shipping",
       icon: <Truck size={20} />,
     },
-    {
-      label: "Customers",
-      path: "/customers",
-      icon: <Users size={20} />,
-    },
-    {
-      label: "Settings",
-      path: "/settings",
-      icon: <Settings size={20} />,
-    },
+    // {
+    //   label: "Customers",
+    //   path: "/customers",
+    //   icon: <Users size={20} />,
+    // },
+    // {
+    //   label: "Settings",
+    //   path: "/settings",
+    //   icon: <Settings size={20} />,
+    // },
   ];
 
   // Nếu là admin thì thêm menu quản lý danh mục
   if (user?.role === "admin") {
+    menuItems.splice(0, 0, {
+      label: "Dashboard",
+      path: "/dashboard",
+      icon: <LayoutDashboard size={20} />,
+    });
     menuItems.splice(3, 0, {
       label: "Categories",
       path: "/manage-categories",
@@ -82,11 +89,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       path: "/transaction-admin",
       icon: <ShoppingCart size={20} />,
     });
-    // menuItems.splice(5, 0, {
-    //   label: "Shipping",
-    //   path: "/shipping",
-    //   icon: <Truck size={20} />,
-    // });
   }
 
   return (
@@ -103,7 +105,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <Link
               key={item.path}
               href={item.path}
-              className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md"
+              className={`flex items-center gap-2 p-2 rounded-md transition-colors ${
+                pathname === item.path
+                  ? "bg-blue-100 text-blue-600 font-bold border-l-4 border-blue-600"
+                  : "hover:bg-gray-100 text-gray-700"
+              }`}
             >
               {item.icon}
               <span>{item.label}</span>

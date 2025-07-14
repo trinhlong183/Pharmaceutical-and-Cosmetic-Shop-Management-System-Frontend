@@ -801,7 +801,27 @@ const ManageOrdersPage = () => {
       </Tabs>
       {/* Order Details Dialog - Redesigned */}
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
-        <DialogContent className="max-w-[98vw] w-full max-h-[95vh] overflow-hidden flex flex-col px-[40px]">
+        {/* <DialogContent className="max-w-[98vw] w-full max-h-[95vh] overflow-hidden flex flex-col px-[40px]"> */}
+            <DialogContent
+                className="max-w-6xl w-full p-0 overflow-hidden" // tăng max-w lên 6xl
+                style={{
+                  left: "80%",
+                  top: "95%",
+                  transform: "translate(-50%, -50%)",
+                  position: "fixed",
+                  margin: 0,
+                  padding: 20,
+                  borderRadius: 20,
+                  maxWidth: "60%",
+                  maxHeight: "90vh",
+                  width: "60%",
+                  height: "90vh",
+                  overflowY: "auto",
+                  background: "white",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
           <DialogHeader className="flex-shrink-0 pb-4 border-b sticky top-0 bg-background z-10">
             <div className="flex items-center justify-between">
               <div>
