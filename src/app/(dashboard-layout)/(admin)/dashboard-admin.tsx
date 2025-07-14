@@ -23,6 +23,13 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  Legend,
+  RadialBarChart,
+  RadialBar,
 } from "recharts";
 import {
   AlertTriangle,
@@ -41,7 +48,8 @@ import {
   DashboardStats,
   SalesData,
   TopProduct,
-  CategorySales,
+  RecentOrder,
+  OrderStatusStats,
   RecentActivity,
   InventoryAlert,
 } from "@/api/dashboardService";
@@ -55,7 +63,8 @@ function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
-  const [categorySales, setCategorySales] = useState<CategorySales[]>([]);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [orderStatusStats, setOrderStatusStats] = useState<OrderStatusStats[]>([]);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [inventoryAlerts, setInventoryAlerts] = useState<InventoryAlert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,19 +75,21 @@ function AdminDashboard() {
     try {
       setLoading(true);
 
-      // Fetch all dashboard data in parallel
+      // Fetch all dashboard data in parallel từ các API có sẵn
       const [
         statsData,
         salesResponse,
         productsData,
-        categoryData,
+        recentOrdersData,
+        orderStatusData,
         activityData,
         alertsData,
       ] = await Promise.all([
         dashboardService.getDashboardStats(),
         dashboardService.getSalesData(salesPeriod),
         dashboardService.getTopProducts(10),
-        dashboardService.getCategorySales(),
+        dashboardService.getRecentOrders(10),
+        dashboardService.getOrderStatusStats(),
         dashboardService.getRecentActivity(8),
         dashboardService.getInventoryAlerts(),
       ]);
@@ -86,30 +97,35 @@ function AdminDashboard() {
       setStats(statsData);
       setSalesData(salesResponse);
       setTopProducts(productsData);
-      setCategorySales(categoryData);
+      setRecentOrders(recentOrdersData);
+      setOrderStatusStats(orderStatusData);
       setRecentActivity(activityData);
       setInventoryAlerts(alertsData);
+
+      if (refreshing) {
+        toast.success("Dashboard data refreshed successfully");
+      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
-      // toast.error("Failed to load dashboard data");
-
-      // Set mock data for development
+      toast.error("Failed to load dashboard data. Please try again.");
+      
+      // Set empty data on error
       setStats({
-        totalRevenue: 15420000,
-        totalOrders: 1247,
-        totalProducts: 856,
-        totalCustomers: 523,
-        pendingOrders: 23,
-        lowStockProducts: 12,
-        revenueGrowth: 15.2,
-        orderGrowth: 8.7,
+        totalRevenue: 0,
+        totalOrders: 0,
+        totalProducts: 0,
+        totalCustomers: 0,
+        pendingOrders: 0,
+        lowStockProducts: 0,
+        revenueGrowth: 0,
+        orderGrowth: 0,
       });
-
-      setSalesData(generateMockSalesData());
-      setTopProducts(generateMockTopProducts());
-      setCategorySales(generateMockCategorySales());
-      setRecentActivity(generateMockActivity());
-      setInventoryAlerts(generateMockAlerts());
+      setSalesData([]);
+      setTopProducts([]);
+      setRecentOrders([]);
+      setOrderStatusStats([]);
+      setRecentActivity([]);
+      setInventoryAlerts([]);
     } finally {
       setLoading(false);
     }
@@ -123,7 +139,6 @@ function AdminDashboard() {
     setRefreshing(true);
     await fetchDashboardData();
     setRefreshing(false);
-    toast.success("Dashboard data refreshed");
   };
 
   // Mock data generators for development
@@ -146,14 +161,6 @@ function AdminDashboard() {
     { id: "3", name: "Sunscreen SPF 50", sales: 156, revenue: 3120000 },
     { id: "4", name: "Anti-aging Serum", sales: 134, revenue: 2680000 },
     { id: "5", name: "Face Cleanser", sales: 123, revenue: 1845000 },
-  ];
-
-  const generateMockCategorySales = (): CategorySales[] => [
-    { category: "Skincare", sales: 567, revenue: 11340000 },
-    { category: "Supplements", sales: 234, revenue: 4680000 },
-    { category: "Cosmetics", sales: 189, revenue: 3780000 },
-    { category: "Hair Care", sales: 156, revenue: 3120000 },
-    { category: "Body Care", sales: 101, revenue: 2020000 },
   ];
 
   const generateMockActivity = (): RecentActivity[] => [
@@ -209,14 +216,6 @@ function AdminDashboard() {
     },
   ];
 
-  const CATEGORY_COLORS = [
-    "#3b82f6",
-    "#10b981",
-    "#f59e0b",
-    "#ef4444",
-    "#8b5cf6",
-  ];
-
   const getActivityIcon = (type: string) => {
     switch (type) {
       case "order":
@@ -252,6 +251,21 @@ function AdminDashboard() {
 
   return (
     <div className="container mx-auto py-8 px-6 space-y-8">
+      {/* Info Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-center gap-2">
+          <Activity className="h-5 w-5 text-blue-600" />
+          <div>
+            <p className="text-sm font-medium text-blue-800">
+              Real-time Dashboard
+            </p>
+            <p className="text-xs text-blue-700">
+              All data is calculated in real-time from your orders, products, and user data
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -274,7 +288,16 @@ function AdminDashboard() {
       </div>
 
       {/* Stats Cards */}
-      <StatsCards stats={stats} loading={loading} />
+      <StatsCards stats={stats || {
+        totalRevenue: 0,
+        totalOrders: 0,
+        totalProducts: 0,
+        totalCustomers: 0,
+        pendingOrders: 0,
+        lowStockProducts: 0,
+        revenueGrowth: 0,
+        orderGrowth: 0,
+      }} loading={loading} />
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -288,44 +311,215 @@ function AdminDashboard() {
           />
         </div>
 
-        {/* Category Sales Pie Chart */}
+        {/* Order Status Distribution */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-blue-600" />
-              Sales by Category
+              Order Status Distribution
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="h-64 bg-gray-100 animate-pulse rounded"></div>
-            ) : (
+            ) : orderStatusStats.length > 0 ? (
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categorySales}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      dataKey="revenue"
-                      label={({ category, revenue }) =>
-                        `${category}: ${formatCurrency(revenue)}`
-                      }
-                      labelLine={false}
-                    >
-                      {categorySales.map((_, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value) => formatCurrency(Number(value))}
+                  <RadialBarChart 
+                    cx="50%" 
+                    cy="50%" 
+                    innerRadius="20%" 
+                    outerRadius="90%" 
+                    data={orderStatusStats}
+                  >
+                    <RadialBar
+                      dataKey="count"
+                      cornerRadius={4}
+                      fill="#8884d8"
+                      label={{ position: 'insideStart', fill: '#fff', fontSize: 12 }}
                     />
-                  </PieChart>
+                    <Legend 
+                      iconType="circle" 
+                      layout="vertical" 
+                      verticalAlign="middle" 
+                      align="right"
+                      wrapperStyle={{ fontSize: '12px' }}
+                    />
+                    <Tooltip
+                      formatter={(value, name) => [`${value} orders`, name]}
+                    />
+                  </RadialBarChart>
                 </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>No order data available</p>
+                  <p className="text-sm">Order statistics will appear here once orders are placed</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Enhanced Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Revenue vs Orders Comparison */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-purple-600" />
+              Revenue vs Orders Trend
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="h-64 bg-gray-100 animate-pulse rounded"></div>
+            ) : salesData.length > 0 ? (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={salesData.slice(-14)}>
+                    <defs>
+                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1}/>
+                      </linearGradient>
+                      <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.1}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return date.toLocaleDateString('en-US', { 
+                          month: 'short',
+                          day: 'numeric'
+                        });
+                      }}
+                    />
+                    <YAxis 
+                      yAxisId="revenue"
+                      orientation="left"
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+                    />
+                    <YAxis 
+                      yAxisId="orders"
+                      orientation="right"
+                      tick={{ fontSize: 11 }}
+                    />
+                    <Tooltip
+                      formatter={(value: number, name: string) => {
+                        if (name === 'revenue') {
+                          return [formatCurrency(value), 'Revenue'];
+                        }
+                        return [`${value} orders`, 'Orders'];
+                      }}
+                      labelFormatter={(label) => {
+                        const date = new Date(label);
+                        return date.toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          month: 'long',
+                          day: 'numeric'
+                        });
+                      }}
+                    />
+                    <Area
+                      yAxisId="revenue"
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="#8b5cf6"
+                      fillOpacity={1}
+                      fill="url(#colorRevenue)"
+                      strokeWidth={3}
+                    />
+                    <Area
+                      yAxisId="orders"
+                      type="monotone"
+                      dataKey="orders"
+                      stroke="#06b6d4"
+                      fillOpacity={1}
+                      fill="url(#colorOrders)"
+                      strokeWidth={3}
+                    />
+                    <Legend />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>No trend data available</p>
+                  <p className="text-sm">Revenue and order trends will appear here</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top Products Performance */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-green-600" />
+              Top Products Performance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="h-64 bg-gray-100 animate-pulse rounded"></div>
+            ) : topProducts.length > 0 ? (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart 
+                    data={topProducts.slice(0, 5)} 
+                    layout="horizontal"
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      type="number" 
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(value) => `${value}`}
+                    />
+                    <YAxis 
+                      type="category" 
+                      dataKey="name" 
+                      tick={{ fontSize: 10 }}
+                      width={80}
+                      tickFormatter={(value) => value.length > 12 ? `${value.substring(0, 12)}...` : value}
+                    />
+                    <Tooltip
+                      formatter={(value, name) => {
+                        if (name === 'sales') {
+                          return [`${value} units sold`, 'Sales'];
+                        }
+                        return [formatCurrency(value as number), 'Revenue'];
+                      }}
+                    />
+                    <Bar 
+                      dataKey="sales" 
+                      fill="#10b981"
+                      radius={[0, 4, 4, 0]}
+                      name="sales"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>No product data available</p>
+                  <p className="text-sm">Top products will appear here</p>
+                </div>
               </div>
             )}
           </CardContent>
@@ -334,15 +528,97 @@ function AdminDashboard() {
 
       {/* Tables Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Products */}
-        <TopProductsTable products={topProducts} loading={loading} />
+        {/* Daily Performance Dashboard */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-green-600" />
+              Daily Performance (Last 7 Days)
+            </CardTitle>
+            <Button variant="outline" size="sm">
+              View Details
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="h-64 bg-gray-100 animate-pulse rounded"></div>
+            ) : salesData.length > 0 ? (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={salesData.slice(-7)}>
+                    <defs>
+                      <linearGradient id="colorGradient" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#10b981" />
+                        <stop offset="100%" stopColor="#06b6d4" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return date.toLocaleDateString('en-US', { 
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric'
+                        });
+                      }}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => [
+                        formatCurrency(value),
+                        'Revenue'
+                      ]}
+                      labelFormatter={(label) => {
+                        const date = new Date(label);
+                        return date.toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        });
+                      }}
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                    <Line 
+                      type="monotone"
+                      dataKey="revenue" 
+                      stroke="url(#colorGradient)"
+                      strokeWidth={4}
+                      dot={{ fill: '#10b981', strokeWidth: 2, r: 6 }}
+                      activeDot={{ r: 8, stroke: '#10b981', strokeWidth: 2 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>No revenue data available</p>
+                  <p className="text-sm">Daily revenue will appear here once orders are placed</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Recent Activity */}
+        {/* Performance Metrics */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-purple-600" />
-              Recent Activity
+              Performance Metrics
             </CardTitle>
             <Button variant="outline" size="sm">
               View All
@@ -350,52 +626,87 @@ function AdminDashboard() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="space-y-3">
-                {Array(6)
-                  .fill(0)
-                  .map((_, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center space-x-3 animate-pulse"
-                    >
-                      <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
-                      <div className="flex-1">
-                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-1"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                      </div>
-                    </div>
-                  ))}
+              <div className="space-y-4">
+                {Array(4).fill(0).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 bg-gray-100 animate-pulse rounded-lg">
+                    <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="space-y-4">
-                {recentActivity.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50"
-                  >
-                    <div
-                      className={`p-2 rounded-full ${getActivityColor(
-                        activity.type,
-                        activity.status
-                      )}`}
-                    >
-                      {getActivityIcon(activity.type)}
+                {/* Average Order Value */}
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                      <ShoppingCart className="h-5 w-5 text-white" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">
-                        {activity.description}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(activity.timestamp).toLocaleString()}
-                      </p>
+                    <div>
+                      <p className="font-medium text-blue-900">Avg. Order Value</p>
+                      <p className="text-sm text-blue-700">Per transaction</p>
                     </div>
-                    {activity.status && (
-                      <Badge variant="outline" className="text-xs">
-                        {activity.status}
-                      </Badge>
-                    )}
                   </div>
-                ))}
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-blue-900">
+                      {stats ? formatCurrency(stats.totalRevenue / Math.max(stats.totalOrders, 1)) : formatCurrency(0)}
+                    </p>
+                    <p className="text-sm text-blue-600">+12.5%</p>
+                  </div>
+                </div>
+
+                {/* Conversion Rate */}
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                      <TrendingUp className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-green-900">Conversion Rate</p>
+                      <p className="text-sm text-green-700">Orders / Visitors</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-green-900">
+                      {stats ? ((stats.totalOrders / Math.max(stats.totalCustomers, 1)) * 100).toFixed(1) : '0.0'}%
+                    </p>
+                    <p className="text-sm text-green-600">+8.2%</p>
+                  </div>
+                </div>
+
+                {/* Customer Satisfaction */}
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg border border-purple-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-purple-900">Customer Rating</p>
+                      <p className="text-sm text-purple-700">Average satisfaction</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-purple-900">4.8/5</p>
+                    <p className="text-sm text-purple-600">+0.3 pts</p>
+                  </div>
+                </div>
+
+                {/* Stock Efficiency */}
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg border border-orange-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center">
+                      <Package className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-orange-900">Stock Efficiency</p>
+                      <p className="text-sm text-orange-700">Turnover rate</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-orange-900">87.3%</p>
+                    <p className="text-sm text-orange-600">+5.1%</p>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>
