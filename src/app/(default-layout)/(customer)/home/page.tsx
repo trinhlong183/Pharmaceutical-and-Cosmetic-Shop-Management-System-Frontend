@@ -120,7 +120,7 @@ export default function CustomerHome() {
 
   // Statistics data
   const stats = [
-    { number: "10K+", label: "Happy Customers", icon: Users },
+    { number: "1K+", label: "Happy Customers", icon: Users },
     { number: "500+", label: "Premium Products", icon: Award },
     { number: "98%", label: "Satisfaction Rate", icon: TrendingUp },
     { number: "24/7", label: "Support Available", icon: Clock },
@@ -190,7 +190,7 @@ export default function CustomerHome() {
       </section>
 
       {/* Trending Categories Section - New */}
-      <section className="py-16 bg-white relative">
+      {/* <section className="py-16 bg-white relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-4 pb-2">
@@ -228,7 +228,7 @@ export default function CustomerHome() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Latest Products Section - Enhanced */}
       <section className="py-20 bg-gradient-to-br from-gray-50 via-white to-purple-50 relative overflow-hidden">

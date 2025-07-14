@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useUser } from "@/contexts/UserContext";
+import { usePathname } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -11,14 +12,52 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { ShoppingCart, Menu, X } from "lucide-react";
+import { ShoppingCart, Menu, X, ChevronDown } from "lucide-react";
 import CartIcon from "./CartIcon";
 import { Role } from "@/constants/type";
+import { categoriesService } from "@/api/categoriesService";
+
+interface Category {
+  _id: string;
+  categoryName: string;
+  categoryDescription: string;
+}
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
   const { user, setUser, loading } = useUser();
-  // const { totalItems } = useCart();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await categoriesService.getAllCategories();
+        setCategories(data);
+      } catch (error) {
+        console.error("Failed to fetch categories:", error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(".categories-dropdown")) {
+        setIsCategoriesOpen(false);
+      }
+    };
+
+    if (isCategoriesOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isCategoriesOpen]);
 
   return (
     <header className="bg-white shadow-lg border-b border-gray-100">
@@ -34,19 +73,72 @@ export default function Header() {
         <nav className="hidden md:flex space-x-8">
           <Link
             href="/home"
-            className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+            className={`font-medium transition-colors ${
+              pathname === "/home" || pathname === "/"
+                ? "text-blue-600 font-bold"
+                : "text-gray-600 hover:text-blue-600"
+            }`}
           >
             Home
           </Link>
           <Link
             href="/products"
-            className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+            className={`font-medium transition-colors ${
+              pathname === "/products"
+                ? "text-blue-600 font-bold"
+                : "text-gray-600 hover:text-blue-600"
+            }`}
           >
             Products
           </Link>
+
+          {/* Categories Dropdown */}
+          <div className="relative categories-dropdown">
+            <button
+              className={`font-medium transition-colors flex items-center space-x-1 ${
+                pathname.startsWith("/categories")
+                  ? "text-blue-600 font-bold"
+                  : "text-gray-600 hover:text-blue-600"
+              }`}
+              onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
+            >
+              <span>Categories</span>
+              <ChevronDown
+                className={`w-4 h-4 transition-transform ${
+                  isCategoriesOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {isCategoriesOpen && (
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-[600px] bg-white border border-gray-300 rounded-xl shadow-2xl z-50">
+                <div className="p-4">
+                  <div className="grid grid-cols-4 gap-3">
+                    {categories.map((category) => (
+                      <Link
+                        key={category._id}
+                        href={`/categories/${category._id}`}
+                        onClick={() => setIsCategoriesOpen(false)}
+                        className="flex flex-col h-10 p-3  hover:border-blue-300 hover:bg-gradient-to-br hover:from-blue-50 hover:to-purple-50 transition-all duration-300 group bg-white  hover:shadow-md"
+                      >
+                        <div className="font-semibold text-gray-700 group-hover:text-blue-600 text-sm line-clamp-2 flex-grow flex items-center justify-center text-center leading-tight">
+                          {category.categoryName}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <Link
             href="/aboutus"
-            className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
+            className={`font-medium transition-colors ${
+              pathname === "/aboutus"
+                ? "text-blue-600 font-bold"
+                : "text-gray-600 hover:text-blue-600"
+            }`}
           >
             About Us
           </Link>
@@ -93,7 +185,14 @@ export default function Header() {
                     Skin Analysis History
                   </DropdownMenuItem>
                 </Link>
-                {(user.role === Role.STAFF || user.role === Role.ADMIN) && (
+                {user.role === Role.STAFF && (
+                  <Link href="/manage-orders" passHref>
+                    <DropdownMenuItem className="cursor-pointer">
+                      Manage
+                    </DropdownMenuItem>
+                  </Link>
+                )}
+                {user.role === Role.ADMIN && (
                   <Link href="/dashboard" passHref>
                     <DropdownMenuItem className="cursor-pointer">
                       Dashboard
@@ -151,27 +250,65 @@ export default function Header() {
             <nav className="flex flex-col space-y-4">
               <Link
                 href="/"
-                className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
+                className={`py-2 font-medium transition-colors ${
+                  pathname === "/" || pathname === "/home"
+                    ? "text-blue-600 font-bold"
+                    : "text-gray-600 hover:text-blue-600"
+                }`}
               >
                 Home
               </Link>
               <Link
                 href="/products"
-                className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
+                className={`py-2 font-medium transition-colors ${
+                  pathname === "/products"
+                    ? "text-blue-600 font-bold"
+                    : "text-gray-600 hover:text-blue-600"
+                }`}
               >
                 Products
+              </Link>
+              <Link
+                href="/mobile-app"
+                className={`py-2 font-medium transition-colors flex items-center space-x-2 ${
+                  pathname === "/mobile-app"
+                    ? "text-blue-600 font-bold"
+                    : "text-gray-600 hover:text-blue-600"
+                }`}
+              >
+                <span className="text-lg">📱</span>
+                <span>Mobile App</span>
+              </Link>
+              <Link
+                href="/categories"
+                className={`py-2 font-medium transition-colors flex items-center space-x-2 ${
+                  pathname.startsWith("/categories")
+                    ? "text-blue-600 font-bold"
+                    : "text-gray-600 hover:text-blue-600"
+                }`}
+              >
+                <span className="text-lg">📦</span>
+                <span>Categories</span>
               </Link>
 
               <Link
                 href="/cart"
-                className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors flex items-center"
+                className={`py-2 font-medium transition-colors flex items-center ${
+                  pathname === "/cart"
+                    ? "text-blue-600 font-bold"
+                    : "text-gray-600 hover:text-blue-600"
+                }`}
               >
                 <ShoppingCart className="w-5 h-5 mr-2" />
                 Shopping Cart
               </Link>
               <Link
                 href="/aboutus"
-                className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
+                className={`py-2 font-medium transition-colors ${
+                  pathname === "/aboutus"
+                    ? "text-blue-600 font-bold"
+                    : "text-gray-600 hover:text-blue-600"
+                }`}
               >
                 About Us
               </Link>
@@ -193,10 +330,18 @@ export default function Header() {
                   </Link>
                   {user.role === Role.STAFF && (
                     <Link
-                      href="/manage-products"
+                      href="/manage-orders"
                       className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
                     >
-                      Manage Products
+                      Manage Orders
+                    </Link>
+                  )}
+                  {user.role === Role.ADMIN && (
+                    <Link
+                      href="/dashboard"
+                      className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
+                    >
+                      Dashboard
                     </Link>
                   )}
                 </>
