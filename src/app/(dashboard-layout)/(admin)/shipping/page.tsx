@@ -518,11 +518,6 @@ export default function ShippingAdminPage() {
                 <span className="text-sm font-medium text-blue-800">
                   {user?.role === Role.ADMIN ? "Admin Access" : "Staff Access"}
                 </span>
-                {user?.role === Role.STAFF && (
-                  <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                    Forward-only
-                  </span>
-                )}
               </div>
               <Button onClick={loadShippingLogs} className="flex gap-2">
                 <RefreshCw className="h-4 w-4" /> Refresh Data
@@ -851,8 +846,7 @@ export default function ShippingAdminPage() {
             <DialogHeader>
               <DialogTitle>Update Shipping Status</DialogTitle>
               <DialogDescription>
-                Change the shipping status from the current state to a new one. This will be visible to the
-                customer and update the order tracking information.
+                Change the shipping status. This will be visible to the customer and update the order tracking information.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -867,7 +861,6 @@ export default function ShippingAdminPage() {
                   </span>
                 </div>
               </div>
-              
               <div className="grid gap-2">
                 <Label htmlFor="status">New Status</Label>
                 <Select
@@ -925,7 +918,17 @@ export default function ShippingAdminPage() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleUpdateStatus} disabled={loadingAction}>
+              <Button
+                onClick={async () => {
+                  try {
+                    await handleUpdateStatus();
+                    toast.success(`Shipping status updated to ${newStatus}`);
+                  } catch (error) {
+                    toast.error("Failed to update shipping status");
+                  }
+                }}
+                disabled={loadingAction}
+              >
                 {loadingAction ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1125,9 +1128,9 @@ export default function ShippingAdminPage() {
         <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
           <DialogContent className="sm:max-w-3xl">
             <DialogHeader>
-              <DialogTitle>Chi tiết vận chuyển</DialogTitle>
+              <DialogTitle>Shipping Details</DialogTitle>
               <DialogDescription>
-                Thông tin đầy đủ về lô hàng này
+                Full information about this shipment
               </DialogDescription>
             </DialogHeader>
 
@@ -1136,7 +1139,7 @@ export default function ShippingAdminPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <h3 className="text-lg font-semibold flex items-center gap-2 mb-2">
-                      <Package className="h-5 w-5" /> Thông tin đơn hàng
+                      <Package className="h-5 w-5" /> Order Information
                     </h3>
                     <div className="space-y-3">
                       <div className="flex justify-between">
