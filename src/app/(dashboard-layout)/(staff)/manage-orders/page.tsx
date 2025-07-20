@@ -125,10 +125,13 @@ const ManageOrdersPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<Record<string, User>>({});
-  const [shippingLogs, setShippingLogs] = useState<Record<string, ShippingLog>>({});
+  const [shippingLogs, setShippingLogs] = useState<Record<string, ShippingLog>>(
+    {}
+  );
   const [loading, setLoading] = useState(true);
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
-  const [detailShippingLog, setDetailShippingLog] = useState<ShippingLog | null>(null);
+  const [detailShippingLog, setDetailShippingLog] =
+    useState<ShippingLog | null>(null);
   const [openDetails, setOpenDetails] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [openRejectDialog, setOpenRejectDialog] = useState(false);
@@ -153,6 +156,11 @@ const ManageOrdersPage = () => {
   // Add state to track if a refund operation is in progress
   const [isRefunding, setIsRefunding] = useState(false);
 
+  // Add state for tracking expanded items in order details
+  const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>(
+    {}
+  );
+
   const router = useRouter();
 
   useEffect(() => {
@@ -174,7 +182,7 @@ const ManageOrdersPage = () => {
     try {
       const orders = await orderService.getAllOrders();
       console.log("Orders received:", orders);
-      
+
       // Cast to our local Order type since the API returns populated objects
       const typedOrders = orders as unknown as Order[];
       setOrders(typedOrders);
@@ -254,7 +262,7 @@ const ManageOrdersPage = () => {
   // Get user name from userId - Updated for new API response structure
   const getUserName = (userId: User) => {
     if (!userId) return "N/A";
-    
+
     // Since userId is now always a populated User object
     return userId.name || userId.fullName || userId.email || "N/A";
   };
@@ -273,9 +281,9 @@ const ManageOrdersPage = () => {
           const logs = await shippingLogsService.getByOrderId(orderId);
           if (logs && logs.length > 0) {
             shippingLog = logs[logs.length - 1];
-            setShippingLogs(prev => ({
+            setShippingLogs((prev) => ({
               ...prev,
-              [orderId]: shippingLog
+              [orderId]: shippingLog,
             }));
           }
         } catch (error) {
@@ -297,12 +305,12 @@ const ManageOrdersPage = () => {
     newStatus: string
   ) => {
     if (!orderId) return;
-    
+
     // Find current order
-    const currentOrder = orders.find(order => 
-      (order.id === orderId || order._id === orderId)
+    const currentOrder = orders.find(
+      (order) => order.id === orderId || order._id === orderId
     );
-    
+
     if (!currentOrder) {
       toast.error("Order not found");
       return;
@@ -318,28 +326,37 @@ const ManageOrdersPage = () => {
     setStatusUpdating(true);
     try {
       // Always use updateOrderStatus API for all status changes
-      const updatedOrder = await orderService.updateOrderStatus(orderId, newStatus);
+      const updatedOrder = await orderService.updateOrderStatus(
+        orderId,
+        newStatus
+      );
       toast.success(`Order status updated to ${newStatus}`);
-      
+
       // If status is changed to "approved", automatically create shipping log
       if (newStatus === "approved") {
         try {
-          const shippingLog = await shippingLogsService.createFromApprovedOrder(orderId);
+          const shippingLog = await shippingLogsService.createFromApprovedOrder(
+            orderId
+          );
           console.log("Shipping log created automatically:", shippingLog);
-          
+
           // Update shipping logs state
-          setShippingLogs(prev => ({
+          setShippingLogs((prev) => ({
             ...prev,
-            [orderId]: shippingLog
+            [orderId]: shippingLog,
           }));
-          
-          toast.success("Order approved and shipping log created successfully!");
+
+          toast.success(
+            "Order approved and shipping log created successfully!"
+          );
         } catch (shippingError) {
           console.error("Failed to create shipping log:", shippingError);
-          toast.warning("Order approved but failed to create shipping log. You may need to create it manually.");
+          toast.warning(
+            "Order approved but failed to create shipping log. You may need to create it manually."
+          );
         }
       }
-      
+
       // Update local orders state
       setOrders(
         orders.map((order) =>
@@ -371,12 +388,12 @@ const ManageOrdersPage = () => {
     // Simplified to only show order status directly
     const statusConfig = StatusConfigurations[orderStatus.toLowerCase()] || {
       displayText: orderStatus,
-      color: 'text-gray-800',
-      bgColor: 'bg-gray-100',
-      icon: '📋',
-      description: `Order status: ${orderStatus}`
+      color: "text-gray-800",
+      bgColor: "bg-gray-100",
+      icon: "📋",
+      description: `Order status: ${orderStatus}`,
     };
-    
+
     return (
       <Badge
         variant="outline"
@@ -388,21 +405,24 @@ const ManageOrdersPage = () => {
       </Badge>
     );
   };
-  
+
   // Function to get available status options - Simplified to only allow 3 status changes
-  const getAvailableStatuses = (orderId: string, currentStatus: string): string[] => {
+  const getAvailableStatuses = (
+    orderId: string,
+    currentStatus: string
+  ): string[] => {
     // Only allow these 3 status transitions for staff
     switch (currentStatus.toLowerCase()) {
-      case 'pending':
-        return ['pending', 'approved', 'rejected'];
-      case 'approved':
-        return ['approved', 'rejected'];
-      case 'rejected':
-        return ['rejected'];
-      case 'refunded':
-        return ['refunded'];
-      case 'delivered':
-        return ['delivered'];
+      case "pending":
+        return ["pending", "approved", "rejected"];
+      case "approved":
+        return ["approved", "rejected"];
+      case "rejected":
+        return ["rejected"];
+      case "refunded":
+        return ["refunded"];
+      case "delivered":
+        return ["delivered"];
       default:
         return [currentStatus]; // Keep current status if not recognized
     }
@@ -567,6 +587,14 @@ const ManageOrdersPage = () => {
       : productId;
   };
 
+  // Add function to toggle item expansion
+  const toggleItemExpansion = (itemIndex: number) => {
+    setExpandedItems((prev) => ({
+      ...prev,
+      [itemIndex]: !prev[itemIndex],
+    }));
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6" suppressHydrationWarning>
       <div className="flex justify-between items-center">
@@ -590,22 +618,23 @@ const ManageOrdersPage = () => {
           Refresh
         </Button>
       </div>
-      
       {/* Workflow Diagram */}
       <Card className="bg-white">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Package2 className="h-4 w-4" /> Simplified Order Processing Workflow
+            <Package2 className="h-4 w-4" /> Simplified Order Processing
+            Workflow
           </CardTitle>
           <CardDescription>
-            Staff can manage 3 status changes: Pending → Approved/Rejected. Orders track 5 statuses total.
+            Staff can manage 3 status changes: Pending → Approved/Rejected.
+            Orders track 5 statuses total.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="relative mt-2">
             {/* Progress line */}
             <div className="absolute top-5 left-0 w-full h-0.5 bg-gray-200"></div>
-            
+
             {/* Workflow steps */}
             <div className="relative flex justify-between">
               {/* Step 1: Pending */}
@@ -616,40 +645,55 @@ const ManageOrdersPage = () => {
                 <span className="text-xs font-medium mt-1">Pending</span>
                 <span className="text-xs text-muted-foreground">New Order</span>
               </div>
-              
+
               {/* Step 2: Approved */}
               <div className="flex flex-col items-center z-10">
                 <div className="w-10 h-10 rounded-full bg-blue-100 border-2 border-blue-300 flex items-center justify-center">
                   <CheckCircle2 className="h-5 w-5 text-blue-700" />
                 </div>
                 <span className="text-xs font-medium mt-1">Approved</span>
-                <span className="text-xs text-muted-foreground">Ready for shipping</span>
+                <span className="text-xs text-muted-foreground">
+                  Ready for shipping
+                </span>
               </div>
-              
+
               {/* Step 3: Delivered */}
               <div className="flex flex-col items-center z-10">
                 <div className="w-10 h-10 rounded-full bg-green-100 border-2 border-green-300 flex items-center justify-center">
                   <CheckCircle2 className="h-5 w-5 text-green-700" />
                 </div>
                 <span className="text-xs font-medium mt-1">Delivered</span>
-                <span className="text-xs text-muted-foreground">Order completed</span>
+                <span className="text-xs text-muted-foreground">
+                  Order completed
+                </span>
               </div>
             </div>
           </div>
-          
+
           {/* Rejection workflow */}
           <div className="mt-6 border-t pt-4">
             <div className="text-xs font-medium mb-2">Alternative Flows:</div>
             <div className="flex gap-2 items-center">
-              <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">Rejected</Badge>
+              <Badge
+                variant="outline"
+                className="bg-red-100 text-red-800 border-red-200"
+              >
+                Rejected
+              </Badge>
               <span className="text-xs">→</span>
-              <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-200">Refunded</Badge>
-              <span className="text-xs text-muted-foreground ml-2">Orders can be refunded after rejection</span>
+              <Badge
+                variant="outline"
+                className="bg-emerald-100 text-emerald-800 border-emerald-200"
+              >
+                Refunded
+              </Badge>
+              <span className="text-xs text-muted-foreground ml-2">
+                Orders can be refunded after rejection
+              </span>
             </div>
           </div>
         </CardContent>
       </Card>
-
       <div className="flex items-center space-x-4 mb-4">
         <Search className="h-4 w-4 text-muted-foreground" />
         <Input
@@ -723,8 +767,8 @@ const ManageOrdersPage = () => {
                                     <Eye className="h-3.5 w-3.5" />
                                     Details
                                   </Button>
-                                  
-                                  {order.status === 'rejected' && (
+
+                                  {order.status === "rejected" && (
                                     <Button
                                       size="sm"
                                       variant="secondary"
@@ -763,20 +807,18 @@ const ManageOrdersPage = () => {
                                       <SelectValue placeholder="Status" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {getAvailableStatuses(orderId, order.status).map(
-                                        (status) => (
-                                          <SelectItem
-                                            key={status}
-                                            value={status}
-                                          >
-                                            <div className="flex items-center">
-                                              <span className="capitalize">
-                                                {status}
-                                              </span>
-                                            </div>
-                                          </SelectItem>
-                                        )
-                                      )}
+                                      {getAvailableStatuses(
+                                        orderId,
+                                        order.status
+                                      ).map((status) => (
+                                        <SelectItem key={status} value={status}>
+                                          <div className="flex items-center">
+                                            <span className="capitalize">
+                                              {status}
+                                            </span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
                                     </SelectContent>
                                   </Select>
                                 </div>
@@ -802,26 +844,26 @@ const ManageOrdersPage = () => {
       {/* Order Details Dialog - Redesigned */}
       <Dialog open={openDetails} onOpenChange={setOpenDetails}>
         {/* <DialogContent className="max-w-[98vw] w-full max-h-[95vh] overflow-hidden flex flex-col px-[40px]"> */}
-            <DialogContent
-                className="max-w-6xl w-full p-0 overflow-hidden" // tăng max-w lên 6xl
-                style={{
-                  left: "80%",
-                  top: "95%",
-                  transform: "translate(-50%, -50%)",
-                  position: "fixed",
-                  margin: 0,
-                  padding: 20,
-                  borderRadius: 20,
-                  maxWidth: "60%",
-                  maxHeight: "90vh",
-                  width: "60%",
-                  height: "90vh",
-                  overflowY: "auto",
-                  background: "white",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
+        <DialogContent
+          className="max-w-6xl w-full p-0 overflow-hidden" // tăng max-w lên 6xl
+          style={{
+            left: "80%",
+            top: "95%",
+            transform: "translate(-50%, -50%)",
+            position: "fixed",
+            margin: 0,
+            padding: 20,
+            borderRadius: 20,
+            maxWidth: "60%",
+            maxHeight: "90vh",
+            width: "60%",
+            height: "90vh",
+            overflowY: "auto",
+            background: "white",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           <DialogHeader className="flex-shrink-0 pb-4 border-b sticky top-0 bg-background z-10">
             <div className="flex items-center justify-between">
               <div>
@@ -836,10 +878,11 @@ const ManageOrdersPage = () => {
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-3">
-                {detailOrder && getStatusBadge(
-                  detailOrder.id || detailOrder._id || '', 
-                  detailOrder.status
-                )}
+                {detailOrder &&
+                  getStatusBadge(
+                    detailOrder.id || detailOrder._id || "",
+                    detailOrder.status
+                  )}
               </div>
             </div>
           </DialogHeader>
@@ -885,7 +928,7 @@ const ManageOrdersPage = () => {
                     </div>
                     <div className="min-w-0">
                       <div className="text-sm md:text-base font-semibold truncate">
-                        {detailShippingLog ? 'Has Shipping' : 'Order Only'}
+                        {detailShippingLog ? "Has Shipping" : "Order Only"}
                       </div>
                       <div className="text-xs text-muted-foreground font-medium mt-1">
                         Status Type
@@ -1026,8 +1069,12 @@ const ManageOrdersPage = () => {
                       )}
                       {detailOrder.notes && (
                         <div className="flex flex-col gap-1 min-w-0">
-                          <span className="text-muted-foreground font-medium text-xs">Notes:</span>
-                          <span className="text-sm truncate">{detailOrder.notes}</span>
+                          <span className="text-muted-foreground font-medium text-xs">
+                            Notes:
+                          </span>
+                          <span className="text-sm truncate">
+                            {detailOrder.notes}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -1052,7 +1099,8 @@ const ManageOrdersPage = () => {
                             Transaction ID:
                           </span>
                           <span className="font-mono text-xs bg-gray-200 px-2 py-1 rounded truncate">
-                            {detailOrder.transactionId._id?.slice(0, 8) || "N/A"}
+                            {detailOrder.transactionId._id?.slice(0, 8) ||
+                              "N/A"}
                           </span>
                         </div>
 
@@ -1087,17 +1135,24 @@ const ManageOrdersPage = () => {
                               Bank Code:
                             </span>
                             <span className="font-semibold text-blue-700 text-sm bg-blue-50 px-2 py-1 rounded border border-blue-200 truncate">
-                              {detailOrder.transactionId.paymentDetails.bankCode}
+                              {
+                                detailOrder.transactionId.paymentDetails
+                                  .bankCode
+                              }
                             </span>
                           </div>
                         )}
-                        {detailOrder.transactionId.paymentDetails?.transactionNo && (
+                        {detailOrder.transactionId.paymentDetails
+                          ?.transactionNo && (
                           <div className="flex flex-col gap-1 min-w-0">
                             <span className="text-muted-foreground font-medium text-xs">
                               Transaction No:
                             </span>
                             <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded truncate">
-                              {detailOrder.transactionId.paymentDetails.transactionNo}
+                              {
+                                detailOrder.transactionId.paymentDetails
+                                  .transactionNo
+                              }
                             </span>
                           </div>
                         )}
@@ -1132,51 +1187,176 @@ const ManageOrdersPage = () => {
                                 Price
                               </TableHead>
                               <TableHead className="text-center font-semibold text-gray-700 text-xs">
-                                Qty
+                                Quantity
                               </TableHead>
                               <TableHead className="text-right font-semibold text-gray-700 text-xs">
                                 Total
+                              </TableHead>
+                              <TableHead className="text-center font-semibold text-gray-700 text-xs">
+                                Batches
                               </TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {detailOrder.items.map((item, index) => (
-                              <TableRow
-                                key={index}
-                                className="hover:bg-gray-50"
-                              >
-                                <TableCell className="py-2">
-                                  <div className="font-medium text-gray-900 text-xs">
-                                    {getProductName(
-                                      item.productDetails.productName
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right py-2">
-                                  <span className="font-semibold text-blue-600 text-xs">
-                                    {formatPrice(item.price)}
-                                  </span>
-                                </TableCell>
-                                <TableCell className="text-center py-2">
-                                  <Badge
-                                    variant="outline"
-                                    className="font-bold text-xs px-2 py-0"
-                                  >
-                                    {item.quantity}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right py-2">
-                                  <span className="font-bold text-green-600 text-xs">
-                                    {formatPrice(item.price * item.quantity)}
-                                  </span>
-                                </TableCell>
-                              </TableRow>
+                              <React.Fragment key={index}>
+                                <TableRow
+                                  className="hover:bg-gray-50 cursor-pointer"
+                                  onClick={() => toggleItemExpansion(index)}
+                                >
+                                  <TableCell className="py-2">
+                                    <div className="font-medium text-gray-900 text-xs">
+                                      {getProductName(
+                                        item.productDetails?.productName ||
+                                          item.productName
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right py-2">
+                                    <span className="font-semibold text-blue-600 text-xs">
+                                      {formatPrice(item.price)}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-center py-2">
+                                    <Badge
+                                      variant="outline"
+                                      className="font-bold text-xs px-2 py-0"
+                                    >
+                                      {item.quantity}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right py-2">
+                                    <span className="font-bold text-green-600 text-xs">
+                                      {formatPrice(item.price * item.quantity)}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-center py-2">
+                                    <div className="flex items-center justify-center gap-1">
+                                      {item.batchReductions &&
+                                      item.batchReductions.length > 0 ? (
+                                        <>
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs"
+                                          >
+                                            {item.batchReductions.length}{" "}
+                                            batches
+                                          </Badge>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 w-6 p-0"
+                                          >
+                                            {expandedItems[index] ? "−" : "+"}
+                                          </Button>
+                                        </>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">
+                                          No batches
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+
+                                {/* Batch Details Expansion */}
+                                {expandedItems[index] &&
+                                  item.batchReductions &&
+                                  item.batchReductions.length > 0 && (
+                                    <TableRow>
+                                      <TableCell
+                                        colSpan={5}
+                                        className="py-0 bg-blue-50/30"
+                                      >
+                                        <div className="p-4 border-l-4 border-blue-400">
+                                          <div className="text-xs font-medium text-blue-900 mb-3 flex items-center gap-2">
+                                            <Package2 className="h-4 w-4" />
+                                            Batch Allocation Details
+                                          </div>
+                                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {item.batchReductions.map(
+                                              (batch, batchIndex) => (
+                                                <div
+                                                  key={batchIndex}
+                                                  className="bg-white rounded-lg border border-blue-200 p-3 shadow-sm"
+                                                >
+                                                  <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs font-medium text-gray-700">
+                                                      Batch #{batchIndex + 1}
+                                                    </span>
+                                                    <Badge
+                                                      variant="outline"
+                                                      className="bg-blue-100 text-blue-800 border-blue-300 text-xs"
+                                                    >
+                                                      {batch.reducedQuantity}{" "}
+                                                      units
+                                                    </Badge>
+                                                  </div>
+
+                                                  <div className="space-y-2">
+                                                    <div className="flex flex-col gap-1">
+                                                      <span className="text-xs text-muted-foreground">
+                                                        Batch Number:
+                                                      </span>
+                                                      <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border">
+                                                        {batch.batchNumber}
+                                                      </span>
+                                                    </div>
+
+                                                    <div className="flex justify-between items-center text-xs">
+                                                      <span className="text-muted-foreground">
+                                                        Remaining:
+                                                      </span>
+                                                      <span
+                                                        className={`font-semibold ${
+                                                          batch.remainingInBatch ===
+                                                          0
+                                                            ? "text-red-600"
+                                                            : "text-green-600"
+                                                        }`}
+                                                      >
+                                                        {batch.remainingInBatch}
+                                                        {batch.remainingInBatch ===
+                                                          0 && (
+                                                          <span className="ml-1 text-xs">
+                                                            (Empty)
+                                                          </span>
+                                                        )}
+                                                      </span>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              )
+                                            )}
+                                          </div>
+
+                                          {/* Summary */}
+                                          <div className="mt-3 pt-3 border-t border-blue-200">
+                                            <div className="flex justify-between items-center text-xs">
+                                              <span className="font-medium text-blue-900">
+                                                Total Allocated:
+                                              </span>
+                                              <span className="font-bold text-blue-900">
+                                                {item.batchReductions.reduce(
+                                                  (sum, batch) =>
+                                                    sum + batch.reducedQuantity,
+                                                  0
+                                                )}{" "}
+                                                units
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                              </React.Fragment>
                             ))}
                           </TableBody>
                           <tfoot className="bg-gradient-to-r from-primary/10 to-primary/5 sticky bottom-0">
                             <TableRow>
                               <TableCell
-                                colSpan={3}
+                                colSpan={4}
                                 className="text-right font-bold text-sm py-3"
                               >
                                 Total Amount:
@@ -1251,7 +1431,12 @@ const ManageOrdersPage = () => {
                         </div>
                         Shipping Information
                         <Badge variant="secondary" className="ml-auto text-xs">
-                          {getUnifiedStatus(detailOrder.status, detailShippingLog).displayText}
+                          {
+                            getUnifiedStatus(
+                              detailOrder.status,
+                              detailShippingLog
+                            ).displayText
+                          }
                         </Badge>
                       </CardTitle>
                     </CardHeader>
@@ -1267,7 +1452,7 @@ const ManageOrdersPage = () => {
                             </span>
                           </div>
                         )}
-                        
+
                         {detailShippingLog.carrier && (
                           <div className="flex flex-col gap-1 min-w-0">
                             <span className="text-muted-foreground font-medium text-xs">
@@ -1357,19 +1542,17 @@ const ManageOrdersPage = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {getAvailableStatuses(
-                        detailOrder.id || detailOrder._id || '',
+                        detailOrder.id || detailOrder._id || "",
                         detailOrder.status
-                      ).map(
-                        (status) => (
-                          <SelectItem key={status} value={status}>
-                            <div className="flex items-center gap-2">
-                              <span className="capitalize font-medium">
-                                {status}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        )
-                      )}
+                      ).map((status) => (
+                        <SelectItem key={status} value={status}>
+                          <div className="flex items-center gap-2">
+                            <span className="capitalize font-medium">
+                              {status}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
 
