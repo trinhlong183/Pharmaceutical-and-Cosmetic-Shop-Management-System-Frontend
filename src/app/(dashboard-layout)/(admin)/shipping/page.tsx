@@ -105,8 +105,8 @@ export default function ShippingAdminPage() {
   const statusProgression = [
     ShippingStatus.PENDING,
     ShippingStatus.PROCESSING,
-    ShippingStatus.SHIPPED,
     ShippingStatus.IN_TRANSIT,
+    ShippingStatus.SHIPPED,
     ShippingStatus.DELIVERED,
     ShippingStatus.RECEIVED,
   ];
@@ -181,7 +181,6 @@ export default function ShippingAdminPage() {
       setShippingLogs(data || []);
       setLoading(false);
     } catch (error) {
-      console.error("Failed to load shipping logs", error);
       toast.error("Failed to load shipping data");
       setLoading(false);
     }
@@ -211,12 +210,8 @@ export default function ShippingAdminPage() {
       } else if (currentShipping._id) {
         shippingId = currentShipping._id;
       } else {
-        throw new Error("Không thể tìm thấy ID của đơn hàng");
+        throw new Error("Cannot find shipping log ID");
       }
-
-      console.log(
-        `Updating shipping log ${shippingId} to status: ${newStatus}`
-      );
 
       // Prepare update data
       const updateData = {
@@ -233,30 +228,20 @@ export default function ShippingAdminPage() {
         shippingId,
         updateData
       );
-
-      console.log("Updated shipping:", updatedShipping);
-
-      // Show success message
-      toast.success(`Đã cập nhật trạng thái thành ${newStatus}`);
-
-      // Close dialog and reload data
+      toast.success(`Shipping status updated to ${newStatus}`);
       setStatusDialogOpen(false);
       loadShippingLogs();
 
-      // Special handling for delivered status - notify user
       if (newStatus === ShippingStatus.DELIVERED) {
         toast.success(
-          "Đơn hàng đã được đánh dấu là đã giao. Khách hàng sẽ nhận được thông báo."
+          "Order has been marked as delivered. The customer will be notified."
         );
       }
     } catch (error) {
-      console.error("Failed to update shipping status", error);
-
-      // Handle different error types
       if (error instanceof Error) {
-        toast.error(`Không thể cập nhật trạng thái: ${error.message}`);
+        toast.error(`Unable to update status: ${error.message}`);
       } else {
-        toast.error("Không thể cập nhật trạng thái vận chuyển");
+        toast.error("Unable to update shipping status");
       }
     } finally {
       setLoadingAction(false);
@@ -361,12 +346,6 @@ export default function ShippingAdminPage() {
   const extractOrderId = (orderIdValue: string | any | undefined): string => {
     if (!orderIdValue) return "";
 
-    // Debug the type of orderIdValue
-    console.log(`Extracting OrderID from:`, {
-      type: typeof orderIdValue,
-      value: orderIdValue,
-    });
-
     // Handle string format directly
     if (typeof orderIdValue === "string") {
       return orderIdValue;
@@ -404,13 +383,13 @@ export default function ShippingAdminPage() {
     }
 
     // Log for debugging
-    console.log("Viewing order details for:", orderId);
+    // console.log("Viewing order details for:", orderId);
 
     // Navigate to the order details page
     try {
       router.push(`/manage-orders/${orderId}`);
     } catch (error) {
-      console.error("Navigation error:", error);
+      // console.error("Navigation error:", error);
       toast.error("Failed to open order details");
     }
   };
@@ -434,7 +413,7 @@ export default function ShippingAdminPage() {
         Array.isArray(shippingLog.items) &&
         shippingLog.items.length > 0
       ) {
-        console.log("Using items from shipping log:", shippingLog.items);
+        // console.log("Using items from shipping log:", shippingLog.items);
         setOrderItems(shippingLog.items);
         setLoadingOrderItems(false);
         return;
@@ -442,17 +421,17 @@ export default function ShippingAdminPage() {
 
       // Fallback: try to fetch from API if items not available in shipping log
       const data = await shippingLogsService.getOrderItems(orderId);
-      console.log("Order items loaded from API:", data);
+      // console.log("Order items loaded from API:", data);
 
       if (data && data.items) {
         setOrderItems(data.items);
       } else {
-        console.warn("No items found in API response");
+        // console.warn("No items found in API response");
         setOrderItems([]);
         toast.error("No items found for this order");
       }
     } catch (error) {
-      console.error("Failed to load order items", error);
+      // console.error("Failed to load order items", error);
       toast.error("Failed to load order items");
       setOrderItems([]);
     } finally {
@@ -479,7 +458,7 @@ export default function ShippingAdminPage() {
       setDeleteDialogOpen(false);
       loadShippingLogs(); // Reload the list
     } catch (error) {
-      console.error("Failed to delete shipping log", error);
+      // console.error("Failed to delete shipping log", error);
 
       // Handle different error types
       if (error instanceof Error) {
@@ -616,8 +595,8 @@ export default function ShippingAdminPage() {
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="processing">Processing</SelectItem>
-                  <SelectItem value="shipped">Shipped</SelectItem>
                   <SelectItem value="in_transit">In Transit</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
                   <SelectItem value="delivered">Delivered</SelectItem>
                   <SelectItem value="received">Received</SelectItem>
                   <SelectItem value="returned">Returned</SelectItem>
@@ -922,7 +901,6 @@ export default function ShippingAdminPage() {
                 onClick={async () => {
                   try {
                     await handleUpdateStatus();
-                    toast.success(`Shipping status updated to ${newStatus}`);
                   } catch (error) {
                     toast.error("Failed to update shipping status");
                   }
