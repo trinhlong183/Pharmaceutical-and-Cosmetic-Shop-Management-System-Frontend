@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-// import { useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -44,11 +44,17 @@ import {
   Loader2,
   Package2,
   CheckCircle2,
+  TruckIcon,
+  XCircle,
 } from "lucide-react";
 import { orderService } from "@/api/orderService";
+import { userService } from "@/api/userService";
 import { shippingLogsService, ShippingLog } from "@/api/shippingLogsService";
 import {
   getUnifiedStatus,
+  getAvailableStatusTransitions,
+  formatStatusForDisplay,
+  hasShippingInfo,
   StatusConfigurations,
 } from "@/utils/statusUtils";
 
@@ -60,7 +66,7 @@ interface User {
   address: string;
   name?: string;
   fullName?: string;
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 interface Transaction {
@@ -88,10 +94,10 @@ interface Transaction {
 interface OrderItem {
   productId:
     | string
-    | { id?: string; _id?: string; name?: string; [key: string]: unknown };
+    | { id?: string; _id?: string; name?: string; [key: string]: any };
   price: number;
   quantity: number;
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 // Updated Order interface to match the new API response structure
@@ -112,14 +118,16 @@ interface Order {
   refundReason?: string;
   processedBy?: string;
   notes?: string;
-  [key: string]: unknown;
+  [key: string]: any;
 }
 
 const ManageOrdersPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
-  // const [users, setUsers] = useState<Record<string, User>>({});
-  const [shippingLogs, setShippingLogs] = useState<Record<string, ShippingLog>>({});
+  const [users, setUsers] = useState<Record<string, User>>({});
+  const [shippingLogs, setShippingLogs] = useState<Record<string, ShippingLog>>(
+    {}
+  );
   const [loading, setLoading] = useState(true);
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const [detailShippingLog, setDetailShippingLog] =
@@ -148,11 +156,12 @@ const ManageOrdersPage = () => {
   // Add state to track if a refund operation is in progress
   const [isRefunding, setIsRefunding] = useState(false);
 
-  // Add state for expanded items in order details
-  const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
+  // Add state for tracking expanded items in order details
+  const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>(
+    {}
+  );
 
-  // const router = useRouter();
-
+  const router = useRouter();
 
   useEffect(() => {
     setIsMounted(true);
@@ -206,7 +215,7 @@ const ManageOrdersPage = () => {
               // Use the most recent shipping log
               shippingLogsMap[orderId] = logs[logs.length - 1];
             }
-          } catch {
+          } catch (error) {
             console.log(`No shipping log found for order ${orderId}`);
             // This is expected for orders without shipping logs
           }
@@ -277,7 +286,7 @@ const ManageOrdersPage = () => {
               [orderId]: shippingLog,
             }));
           }
-        } catch {
+        } catch (error) {
           console.log(`No shipping log found for order ${orderId}`);
         }
       }
@@ -317,8 +326,10 @@ const ManageOrdersPage = () => {
     setStatusUpdating(true);
     try {
       // Always use updateOrderStatus API for all status changes
-      await orderService.updateOrderStatus(orderId, newStatus);
-
+      const updatedOrder = await orderService.updateOrderStatus(
+        orderId,
+        newStatus
+      );
       toast.success(`Order status updated to ${newStatus}`);
 
       // If status is changed to "approved", automatically create shipping log
@@ -500,7 +511,7 @@ const ManageOrdersPage = () => {
       }
 
       // Use orderService to refund the order
-      await orderService.refundOrder(orderId, {
+      const refundedOrder = await orderService.refundOrder(orderId, {
         refundReason: data.refundReason,
         note: data.note,
       });
@@ -538,19 +549,18 @@ const ManageOrdersPage = () => {
         refundReason: "",
         note: "",
       });
-    } catch (error: unknown) {
+    } catch (error: any) {
       // Handle specific error types based on API documentation
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage && errorMessage.includes("409")) {
+      if (error.message && error.message.includes("409")) {
         toast.error("Order can only be refunded if it was previously rejected");
         setValidationError(
           "Order can only be refunded if it was previously rejected"
         );
-      } else if (errorMessage && errorMessage.includes("401")) {
+      } else if (error.message && error.message.includes("401")) {
         toast.error("Your session has expired. Please login again");
-      } else if (errorMessage && errorMessage.includes("403")) {
+      } else if (error.message && error.message.includes("403")) {
         toast.error("You don't have permission to perform this action");
-      } else if (errorMessage && errorMessage.includes("404")) {
+      } else if (error.message && error.message.includes("404")) {
         toast.error("Order not found");
       } else {
         toast.error("Failed to refund order");
@@ -1189,36 +1199,158 @@ const ManageOrdersPage = () => {
                           </TableHeader>
                           <TableBody>
                             {detailOrder.items.map((item, index) => (
-                              <TableRow
-                                key={index}
-                                className="hover:bg-gray-50"
-                              >
-                                <TableCell className="py-2">
-                                  <div className="font-medium text-gray-900 text-xs">
-                                    {getProductName(
-                                      item.productId
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right py-2">
-                                  <span className="font-semibold text-blue-600 text-xs">
-                                    {formatPrice(item.price)}
-                                  </span>
-                                </TableCell>
-                                <TableCell className="text-center py-2">
-                                  <Badge
-                                    variant="outline"
-                                    className="font-bold text-xs px-2 py-0"
-                                  >
-                                    {item.quantity}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right py-2">
-                                  <span className="font-bold text-green-600 text-xs">
-                                    {formatPrice(item.price * item.quantity)}
-                                  </span>
-                                </TableCell>
-                              </TableRow>
+                              <React.Fragment key={index}>
+                                <TableRow
+                                  className="hover:bg-gray-50 cursor-pointer"
+                                  onClick={() => toggleItemExpansion(index)}
+                                >
+                                  <TableCell className="py-2">
+                                    <div className="font-medium text-gray-900 text-xs">
+                                      {getProductName(
+                                        item.productDetails?.productName ||
+                                          item.productName
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right py-2">
+                                    <span className="font-semibold text-blue-600 text-xs">
+                                      {formatPrice(item.price)}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-center py-2">
+                                    <Badge
+                                      variant="outline"
+                                      className="font-bold text-xs px-2 py-0"
+                                    >
+                                      {item.quantity}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right py-2">
+                                    <span className="font-bold text-green-600 text-xs">
+                                      {formatPrice(item.price * item.quantity)}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-center py-2">
+                                    <div className="flex items-center justify-center gap-1">
+                                      {item.batchReductions &&
+                                      item.batchReductions.length > 0 ? (
+                                        <>
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs"
+                                          >
+                                            {item.batchReductions.length}{" "}
+                                            batches
+                                          </Badge>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 w-6 p-0"
+                                          >
+                                            {expandedItems[index] ? "−" : "+"}
+                                          </Button>
+                                        </>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">
+                                          No batches
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+
+                                {/* Batch Details Expansion */}
+                                {expandedItems[index] &&
+                                  item.batchReductions &&
+                                  item.batchReductions.length > 0 && (
+                                    <TableRow>
+                                      <TableCell
+                                        colSpan={5}
+                                        className="py-0 bg-blue-50/30"
+                                      >
+                                        <div className="p-4 border-l-4 border-blue-400">
+                                          <div className="text-xs font-medium text-blue-900 mb-3 flex items-center gap-2">
+                                            <Package2 className="h-4 w-4" />
+                                            Batch Allocation Details
+                                          </div>
+                                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {item.batchReductions.map(
+                                              (batch, batchIndex) => (
+                                                <div
+                                                  key={batchIndex}
+                                                  className="bg-white rounded-lg border border-blue-200 p-3 shadow-sm"
+                                                >
+                                                  <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs font-medium text-gray-700">
+                                                      Batch #{batchIndex + 1}
+                                                    </span>
+                                                    <Badge
+                                                      variant="outline"
+                                                      className="bg-blue-100 text-blue-800 border-blue-300 text-xs"
+                                                    >
+                                                      {batch.reducedQuantity}{" "}
+                                                      units
+                                                    </Badge>
+                                                  </div>
+
+                                                  <div className="space-y-2">
+                                                    <div className="flex flex-col gap-1">
+                                                      <span className="text-xs text-muted-foreground">
+                                                        Batch Number:
+                                                      </span>
+                                                      <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded border">
+                                                        {batch.batchNumber}
+                                                      </span>
+                                                    </div>
+
+                                                    <div className="flex justify-between items-center text-xs">
+                                                      <span className="text-muted-foreground">
+                                                        Remaining:
+                                                      </span>
+                                                      <span
+                                                        className={`font-semibold ${
+                                                          batch.remainingInBatch ===
+                                                          0
+                                                            ? "text-red-600"
+                                                            : "text-green-600"
+                                                        }`}
+                                                      >
+                                                        {batch.remainingInBatch}
+                                                        {batch.remainingInBatch ===
+                                                          0 && (
+                                                          <span className="ml-1 text-xs">
+                                                            (Empty)
+                                                          </span>
+                                                        )}
+                                                      </span>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              )
+                                            )}
+                                          </div>
+
+                                          {/* Summary */}
+                                          <div className="mt-3 pt-3 border-t border-blue-200">
+                                            <div className="flex justify-between items-center text-xs">
+                                              <span className="font-medium text-blue-900">
+                                                Total Allocated:
+                                              </span>
+                                              <span className="font-bold text-blue-900">
+                                                {item.batchReductions.reduce(
+                                                  (sum, batch) =>
+                                                    sum + batch.reducedQuantity,
+                                                  0
+                                                )}{" "}
+                                                units
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                              </React.Fragment>
                             ))}
                           </TableBody>
                           <tfoot className="bg-gradient-to-r from-primary/10 to-primary/5 sticky bottom-0">

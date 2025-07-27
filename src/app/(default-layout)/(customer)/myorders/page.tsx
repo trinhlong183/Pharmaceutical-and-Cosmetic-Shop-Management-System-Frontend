@@ -41,7 +41,11 @@ import ShipmentTracking from "@/components/ShipmentTracking";
 import OrderShippingTracker from "@/components/OrderShippingTracker";
 import ConfirmReceiptDialog from "@/components/ConfirmReceiptDialog";
 import { StatusBadge } from "@/components/order/StatusBadge";
-import { shippingLogsService, ShippingLog, ShippingStatus } from "@/api/shippingLogsService";
+import {
+  shippingLogsService,
+  ShippingLog,
+  ShippingStatus,
+} from "@/api/shippingLogsService";
 import ReviewDialog from "@/components/ReviewDialog";
 
 // Interface for Order Item based on shipping log API response
@@ -142,10 +146,14 @@ function MyOrdersPage() {
     productId: string | null;
     review?: any;
   }>({ open: false, productId: null });
-  const [confirmingReceipt, setConfirmingReceipt] = useState<string | null>(null);
+  const [confirmingReceipt, setConfirmingReceipt] = useState<string | null>(
+    null
+  );
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
-  const [selectedOrderToConfirm, setSelectedOrderToConfirm] = useState<string | null>(null);
-  
+  const [selectedOrderToConfirm, setSelectedOrderToConfirm] = useState<
+    string | null
+  >(null);
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useUser();
@@ -189,12 +197,12 @@ function MyOrdersPage() {
   const refreshShippingLogs = async () => {
     try {
       const data = await shippingLogsService.getAll();
-      
+
       // Filter shipping logs for current user (assuming customer info is available)
-      const userShippingLogs = data.filter((log: ShippingLog) => 
-        log.customer?.email === user?.email
+      const userShippingLogs = data.filter(
+        (log: ShippingLog) => log.customer?.email === user?.email
       );
-      
+
       setShippingLogs(userShippingLogs);
     } catch (error) {
       console.error("Error refreshing shipping logs:", error);
@@ -225,21 +233,21 @@ function MyOrdersPage() {
     async function loadData() {
       try {
         setLoading(true);
-        
+
         // Load both orders and shipping logs in parallel
         const [userOrders, shippingLogsData] = await Promise.all([
           orderService.getCurrentUserOrders(),
-          shippingLogsService.getAll()
+          shippingLogsService.getAll(),
         ]);
-        
+
         // Set orders
         setOrders(userOrders);
-        
+
         // Filter shipping logs for current user based on customer email
-        const userShippingLogs = shippingLogsData.filter((log: ShippingLog) => 
-          log.customer?.email === user?.email
+        const userShippingLogs = shippingLogsData.filter(
+          (log: ShippingLog) => log.customer?.email === user?.email
         );
-        
+
         setShippingLogs(userShippingLogs);
       } catch (err) {
         console.error("Error loading data:", err);
@@ -280,10 +288,10 @@ function MyOrdersPage() {
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (refreshTimeout) {
         clearTimeout(refreshTimeout);
       }
@@ -292,20 +300,20 @@ function MyOrdersPage() {
 
   // Check for payment success parameter and refresh data
   useEffect(() => {
-    const paymentSuccess = searchParams.get('payment_success');
-    const orderCreated = searchParams.get('order_created');
-    
-    if ((paymentSuccess === 'true' || orderCreated === 'true') && user?.email) {
+    const paymentSuccess = searchParams?.get("payment_success");
+    const orderCreated = searchParams?.get("order_created");
+
+    if ((paymentSuccess === "true" || orderCreated === "true") && user?.email) {
       // Wait a bit longer for backend to process the order
       setTimeout(() => {
         refreshAllShippingLogs();
       }, 2000);
-      
+
       // Clean up URL parameters
       const url = new URL(window.location.href);
-      url.searchParams.delete('payment_success');
-      url.searchParams.delete('order_created');
-      window.history.replaceState({}, '', url.toString());
+      url.searchParams?.delete("payment_success");
+      url.searchParams?.delete("order_created");
+      window.history.replaceState({}, "", url.toString());
     }
   }, [searchParams, user]);
 
@@ -326,7 +334,13 @@ function MyOrdersPage() {
     if (!expandedOrder) return;
 
     const shippingLog = shippingLogs.find((log) => log.id === expandedOrder);
-    if (!shippingLog || !['delivered', 'received'].includes(shippingLog.status?.toLowerCase() || '')) return;
+    if (
+      !shippingLog ||
+      !["delivered", "received"].includes(
+        shippingLog.status?.toLowerCase() || ""
+      )
+    )
+      return;
 
     const userId = user?.id;
 
@@ -339,7 +353,9 @@ function MyOrdersPage() {
             userId,
           });
           // Handle both direct array response and nested data response
-          const reviewsArray = Array.isArray(res) ? res : (res as any)?.data || [];
+          const reviewsArray = Array.isArray(res)
+            ? res
+            : (res as any)?.data || [];
           const myReview = reviewsArray.length > 0 ? reviewsArray[0] : null;
           setProductReviews((prev) => ({
             ...prev,
@@ -383,23 +399,23 @@ function MyOrdersPage() {
   const refreshAllShippingLogs = async () => {
     try {
       setLoading(true);
-      
+
       // Load both orders and shipping logs in parallel with a small delay to ensure backend sync
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       const [userOrders, shippingLogsData] = await Promise.all([
         orderService.getCurrentUserOrders(),
-        shippingLogsService.getAll()
+        shippingLogsService.getAll(),
       ]);
-      
+
       // Set orders - this should include new pending orders
       setOrders(userOrders);
-      
+
       // Filter shipping logs for current user based on customer email
-      const userShippingLogs = shippingLogsData.filter((log: ShippingLog) => 
-        log.customer?.email === user?.email
+      const userShippingLogs = shippingLogsData.filter(
+        (log: ShippingLog) => log.customer?.email === user?.email
       );
-      
+
       setShippingLogs(userShippingLogs);
     } catch (error) {
       console.error("Error refreshing data:", error);
@@ -417,16 +433,18 @@ function MyOrdersPage() {
     setSelectedOrderToConfirm(shippingLogId);
     setReceiptDialogOpen(true);
   };
-  
+
   // Function to handle order receipt confirmation
   const confirmReceipt = async () => {
     if (!selectedOrderToConfirm) return;
-    
+
     try {
       setConfirmingReceipt(selectedOrderToConfirm);
-      
+
       // Find the shipping log and update its status to "received"
-      const shippingLogToUpdate = shippingLogs.find(log => log.id === selectedOrderToConfirm);
+      const shippingLogToUpdate = shippingLogs.find(
+        (log) => log.id === selectedOrderToConfirm
+      );
       if (!shippingLogToUpdate) {
         throw new Error("Shipping log not found");
       }
@@ -435,16 +453,18 @@ function MyOrdersPage() {
       await shippingLogsService.updateStatus(selectedOrderToConfirm, {
         status: ShippingStatus.RECEIVED,
         notes: "Order receipt confirmed by customer",
-        actualDelivery: new Date().toISOString()
+        actualDelivery: new Date().toISOString(),
       });
 
       // Update local state to reflect the change
-      setShippingLogs(logs => logs.map(log => 
-        log.id === selectedOrderToConfirm 
-          ? {...log, status: ShippingStatus.RECEIVED} 
-          : log
-      ));
-      
+      setShippingLogs((logs) =>
+        logs.map((log) =>
+          log.id === selectedOrderToConfirm
+            ? { ...log, status: ShippingStatus.RECEIVED }
+            : log
+        )
+      );
+
       toast.success("Thank you for confirming your order receipt!");
       setReceiptDialogOpen(false);
     } catch (error) {
@@ -456,17 +476,35 @@ function MyOrdersPage() {
   };
 
   // Filter shipping logs by status
-  const pendingLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "pending");
-  const approvedLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "approved");
-  const deliveredLogs = shippingLogs.filter(log => log.status?.toLowerCase() === "delivered");
-  const receivedLogs = shippingLogs.filter(log => log.status?.toLowerCase() === "received");
-  const refundedLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "refunded");
-  const rejectedLogs = shippingLogs.filter(log => log.order?.status?.toLowerCase() === "rejected");
+  const pendingLogs = shippingLogs.filter(
+    (log) => log.order?.status?.toLowerCase() === "pending"
+  );
+  const approvedLogs = shippingLogs.filter(
+    (log) => log.order?.status?.toLowerCase() === "approved"
+  );
+  const deliveredLogs = shippingLogs.filter(
+    (log) => log.status?.toLowerCase() === "delivered"
+  );
+  const receivedLogs = shippingLogs.filter(
+    (log) => log.status?.toLowerCase() === "received"
+  );
+  const refundedLogs = shippingLogs.filter(
+    (log) => log.order?.status?.toLowerCase() === "refunded"
+  );
+  const rejectedLogs = shippingLogs.filter(
+    (log) => log.order?.status?.toLowerCase() === "rejected"
+  );
 
   // Get orders from orders API by status
-  const pendingOrders = orders.filter(order => order.status?.toLowerCase() === "pending");
-  const rejectedOrders = orders.filter(order => order.status?.toLowerCase() === "rejected");
-  const refundedOrders = orders.filter(order => order.status?.toLowerCase() === "refunded");
+  const pendingOrders = orders.filter(
+    (order) => order.status?.toLowerCase() === "pending"
+  );
+  const rejectedOrders = orders.filter(
+    (order) => order.status?.toLowerCase() === "rejected"
+  );
+  const refundedOrders = orders.filter(
+    (order) => order.status?.toLowerCase() === "refunded"
+  );
 
   if (!isAuthenticated) {
     return null; // Will redirect to login
@@ -516,7 +554,10 @@ function MyOrdersPage() {
             Try Again
           </Button>
         </div>
-      ) : shippingLogs.length === 0 && pendingOrders.length === 0 && rejectedOrders.length === 0 && refundedOrders.length === 0 ? (
+      ) : shippingLogs.length === 0 &&
+        pendingOrders.length === 0 &&
+        rejectedOrders.length === 0 &&
+        refundedOrders.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-gray-100">
           <div className="w-24 h-24 bg-blue-50 rounded-full mx-auto mb-6 flex items-center justify-center">
             <ShoppingBag className="h-12 w-12 text-blue-500" />
@@ -540,43 +581,72 @@ function MyOrdersPage() {
         <div className="space-y-8">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-semibold text-gray-800">Your Orders</h2>
+              <h2 className="text-xl font-semibold text-gray-800">
+                Your Orders
+              </h2>
               <p className="text-gray-600 text-sm">
-                {shippingLogs.length + pendingOrders.length + rejectedOrders.length + refundedOrders.length} total orders
+                {shippingLogs.length +
+                  pendingOrders.length +
+                  rejectedOrders.length +
+                  refundedOrders.length}{" "}
+                total orders
               </p>
             </div>
           </div>
-          
+
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="w-full flex flex-wrap gap-2 mb-6">
               <TabsTrigger value="all" className="flex-grow">
-                All ({shippingLogs.length + pendingOrders.length + rejectedOrders.length + refundedOrders.length})
+                All (
+                {shippingLogs.length +
+                  pendingOrders.length +
+                  rejectedOrders.length +
+                  refundedOrders.length}
+                )
               </TabsTrigger>
-              <TabsTrigger value="pending" className="text-yellow-700 flex-grow">
+              <TabsTrigger
+                value="pending"
+                className="text-yellow-700 flex-grow"
+              >
                 Pending ({pendingLogs.length + pendingOrders.length})
               </TabsTrigger>
               <TabsTrigger value="approved" className="text-blue-700 flex-grow">
                 Approved ({approvedLogs.length})
               </TabsTrigger>
-              <TabsTrigger value="delivered" className="text-green-700 flex-grow">
+              <TabsTrigger
+                value="delivered"
+                className="text-green-700 flex-grow"
+              >
                 Delivered ({deliveredLogs.length})
               </TabsTrigger>
-              <TabsTrigger value="received" className="text-emerald-700 flex-grow">
+              <TabsTrigger
+                value="received"
+                className="text-emerald-700 flex-grow"
+              >
                 Received ({receivedLogs.length})
               </TabsTrigger>
               <TabsTrigger value="rejected" className="text-red-700 flex-grow">
                 Rejected ({rejectedLogs.length + rejectedOrders.length})
               </TabsTrigger>
-              <TabsTrigger value="refunded" className="text-emerald-700 flex-grow">
+              <TabsTrigger
+                value="refunded"
+                className="text-emerald-700 flex-grow"
+              >
                 Refunded ({refundedLogs.length + refundedOrders.length})
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="space-y-6">
               <div className="space-y-6">
-                {pendingOrders.length > 0 && <PendingOrdersList orders={pendingOrders} />}
-                {rejectedOrders.length > 0 && <RejectedOrdersList orders={rejectedOrders} />}
-                {refundedOrders.length > 0 && <RefundedOrdersList orders={refundedOrders} />}
+                {pendingOrders.length > 0 && (
+                  <PendingOrdersList orders={pendingOrders} />
+                )}
+                {rejectedOrders.length > 0 && (
+                  <RejectedOrdersList orders={rejectedOrders} />
+                )}
+                {refundedOrders.length > 0 && (
+                  <RefundedOrdersList orders={refundedOrders} />
+                )}
                 <ShippingLogList shippingLogs={shippingLogs} />
               </div>
             </TabsContent>
@@ -584,7 +654,9 @@ function MyOrdersPage() {
             <TabsContent value="pending" className="space-y-6">
               {pendingLogs.length > 0 || pendingOrders.length > 0 ? (
                 <div className="space-y-6">
-                  {pendingOrders.length > 0 && <PendingOrdersList orders={pendingOrders} />}
+                  {pendingOrders.length > 0 && (
+                    <PendingOrdersList orders={pendingOrders} />
+                  )}
                   <ShippingLogList shippingLogs={pendingLogs} />
                 </div>
               ) : (
@@ -619,18 +691,22 @@ function MyOrdersPage() {
             <TabsContent value="rejected" className="space-y-6">
               {rejectedLogs.length > 0 || rejectedOrders.length > 0 ? (
                 <div className="space-y-6">
-                  {rejectedOrders.length > 0 && <RejectedOrdersList orders={rejectedOrders} />}
+                  {rejectedOrders.length > 0 && (
+                    <RejectedOrdersList orders={rejectedOrders} />
+                  )}
                   <ShippingLogList shippingLogs={rejectedLogs} />
                 </div>
               ) : (
                 <EmptyState message="No rejected orders" />
               )}
             </TabsContent>
-            
+
             <TabsContent value="refunded" className="space-y-6">
               {refundedLogs.length > 0 || refundedOrders.length > 0 ? (
                 <div className="space-y-6">
-                  {refundedOrders.length > 0 && <RefundedOrdersList orders={refundedOrders} />}
+                  {refundedOrders.length > 0 && (
+                    <RefundedOrdersList orders={refundedOrders} />
+                  )}
                   <ShippingLogList shippingLogs={refundedLogs} />
                 </div>
               ) : (
@@ -678,7 +754,9 @@ function MyOrdersPage() {
               });
 
               // Handle both direct array response and nested data response
-              const reviewsArray = Array.isArray(res) ? res : (res as any)?.data || [];
+              const reviewsArray = Array.isArray(res)
+                ? res
+                : (res as any)?.data || [];
               const myReview = reviewsArray.length > 0 ? reviewsArray[0] : null;
 
               setProductReviews((prev) => ({
@@ -732,7 +810,9 @@ function MyOrdersPage() {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-gray-800">Pending Orders (Awaiting Processing)</h3>
+          <h3 className="text-lg font-semibold text-gray-800">
+            Pending Orders (Awaiting Processing)
+          </h3>
           <Badge variant="secondary" className="text-xs">
             {orders.length} pending
           </Badge>
@@ -761,7 +841,10 @@ function MyOrdersPage() {
                 <div>
                   <div className="font-semibold text-lg flex items-center gap-2">
                     Order #{order.id.slice(-6)}
-                    <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-200">
+                    <Badge
+                      variant="outline"
+                      className="ml-2 bg-yellow-100 text-yellow-800 border-yellow-200"
+                    >
                       Pending
                     </Badge>
                   </div>
@@ -824,7 +907,12 @@ function MyOrdersPage() {
                     shortly.
                   </p>
                   <p className="text-xs text-yellow-700 mt-1">
-                    Submitted on: {formatDate(shippingLog.order?.createdAt || shippingLog.createdAt || new Date().toISOString())}
+                    Submitted on:{" "}
+                    {formatDate(
+                      shippingLog.order?.createdAt ||
+                        shippingLog.createdAt ||
+                        new Date().toISOString()
+                    )}
                   </p>
                 </div>
               </div>
@@ -844,30 +932,38 @@ function MyOrdersPage() {
               <div className="flex items-center gap-4">
                 <div className="hidden md:flex h-12 w-12 rounded-full bg-blue-50 items-center justify-center">
                   <span className="text-xl">
-                    {shippingLog.status?.toLowerCase() === 'received' ? '✅' :
-                     shippingLog.status?.toLowerCase() === 'delivered' ? '📦' :
-                     shippingLog.status?.toLowerCase() === 'in transit' ? '🚛' :
-                     shippingLog.status?.toLowerCase() === 'shipped' ? '🚚' :
-                     shippingLog.status?.toLowerCase() === 'processing' ? '📦' : '⏳'}
+                    {shippingLog.status?.toLowerCase() === "received"
+                      ? "✅"
+                      : shippingLog.status?.toLowerCase() === "delivered"
+                      ? "📦"
+                      : shippingLog.status?.toLowerCase() === "in transit"
+                      ? "🚛"
+                      : shippingLog.status?.toLowerCase() === "shipped"
+                      ? "🚚"
+                      : shippingLog.status?.toLowerCase() === "processing"
+                      ? "📦"
+                      : "⏳"}
                   </span>
                 </div>
                 <div>
                   <div className="font-semibold text-lg flex items-center gap-2">
-                    Order #{shippingLog.order?.id?.slice(-6) || shippingLog.id?.slice(-6)}
-                    <Badge 
-                      variant="outline" 
+                    Order #
+                    {shippingLog.order?.id?.slice(-6) ||
+                      shippingLog.id?.slice(-6)}
+                    <Badge
+                      variant="outline"
                       className={`ml-2 ${
-                        shippingLog.status?.toLowerCase() === 'received'
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                          : shippingLog.status?.toLowerCase() === 'delivered' 
-                          ? 'bg-green-100 text-green-800 border-green-200'
-                          : shippingLog.status?.toLowerCase() === 'in transit'
-                          ? 'bg-orange-100 text-orange-800 border-orange-200'
-                          : shippingLog.status?.toLowerCase() === 'shipped'
-                          ? 'bg-blue-100 text-blue-800 border-blue-200'
-                          : shippingLog.status?.toLowerCase() === 'processing'
-                          ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
-                          : 'bg-gray-100 text-gray-800 border-gray-200'
+                        shippingLog.status?.toLowerCase() === "received"
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                          : shippingLog.status?.toLowerCase() === "delivered"
+                          ? "bg-green-100 text-green-800 border-green-200"
+                          : shippingLog.status?.toLowerCase() === "in transit"
+                          ? "bg-orange-100 text-orange-800 border-orange-200"
+                          : shippingLog.status?.toLowerCase() === "shipped"
+                          ? "bg-blue-100 text-blue-800 border-blue-200"
+                          : shippingLog.status?.toLowerCase() === "processing"
+                          ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+                          : "bg-gray-100 text-gray-800 border-gray-200"
                       }`}
                     >
                       {shippingLog.status}
@@ -876,46 +972,78 @@ function MyOrdersPage() {
                   <div className="flex flex-wrap items-center text-sm text-gray-500 gap-3 mt-1">
                     <div className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5" />
-                      {formatDate(shippingLog.order?.createdAt || shippingLog.createdAt || new Date().toISOString())}
+                      {formatDate(
+                        shippingLog.order?.createdAt ||
+                          shippingLog.createdAt ||
+                          new Date().toISOString()
+                      )}
                     </div>
                     <div className="font-medium">
-                      {shippingLog.itemCount || shippingLog.items?.length || 0} items
+                      {shippingLog.itemCount || shippingLog.items?.length || 0}{" "}
+                      items
                     </div>
                     {/* Show tracking number if available */}
                     {shippingLog.trackingNumber && (
                       <div className="flex items-center gap-1 text-xs bg-gray-50 px-2 py-1 rounded">
                         <Package className="h-3 w-3" />
-                        <span className="font-mono">{shippingLog.trackingNumber}</span>
+                        <span className="font-mono">
+                          {shippingLog.trackingNumber}
+                        </span>
                       </div>
                     )}
                     {/* Show progress indicator based on status */}
                     <div className="flex items-center gap-1 text-xs">
-                        <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
-                            style={{ 
-                              width: `${
-                                shippingLog.status?.toLowerCase() === 'received' ? 100 :
-                                shippingLog.status?.toLowerCase() === 'delivered' ? 85 :
-                                shippingLog.status?.toLowerCase() === 'shipped' ? 75 :
-                                shippingLog.status?.toLowerCase() === 'in transit' ? 60 :
-                                shippingLog.status?.toLowerCase() === 'processing' ? 40 :
-                                shippingLog.order?.status?.toLowerCase() === 'approved' ? 20 :
-                                shippingLog.order?.status?.toLowerCase() === 'pending' ? 10 : 0
-                              }%` 
-                            }}
-                          />
-                        </div>
-                        <span>
-                          {shippingLog.status?.toLowerCase() === 'received' ? 100 :
-                           shippingLog.status?.toLowerCase() === 'delivered' ? 85 :
-                           shippingLog.status?.toLowerCase() === 'shipped' ? 75 :
-                           shippingLog.status?.toLowerCase() === 'in transit' ? 60 :
-                           shippingLog.status?.toLowerCase() === 'processing' ? 40 :
-                           shippingLog.order?.status?.toLowerCase() === 'approved' ? 20 :
-                           shippingLog.order?.status?.toLowerCase() === 'pending' ? 10 : 0}%
-                        </span>
+                      <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
+                          style={{
+                            width: `${
+                              shippingLog.status?.toLowerCase() === "received"
+                                ? 100
+                                : shippingLog.status?.toLowerCase() ===
+                                  "delivered"
+                                ? 85
+                                : shippingLog.status?.toLowerCase() ===
+                                  "shipped"
+                                ? 75
+                                : shippingLog.status?.toLowerCase() ===
+                                  "in transit"
+                                ? 60
+                                : shippingLog.status?.toLowerCase() ===
+                                  "processing"
+                                ? 40
+                                : shippingLog.order?.status?.toLowerCase() ===
+                                  "approved"
+                                ? 20
+                                : shippingLog.order?.status?.toLowerCase() ===
+                                  "pending"
+                                ? 10
+                                : 0
+                            }%`,
+                          }}
+                        />
                       </div>
+                      <span>
+                        {shippingLog.status?.toLowerCase() === "received"
+                          ? 100
+                          : shippingLog.status?.toLowerCase() === "delivered"
+                          ? 85
+                          : shippingLog.status?.toLowerCase() === "shipped"
+                          ? 75
+                          : shippingLog.status?.toLowerCase() === "in transit"
+                          ? 60
+                          : shippingLog.status?.toLowerCase() === "processing"
+                          ? 40
+                          : shippingLog.order?.status?.toLowerCase() ===
+                            "approved"
+                          ? 20
+                          : shippingLog.order?.status?.toLowerCase() ===
+                            "pending"
+                          ? 10
+                          : 0}
+                        %
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -957,18 +1085,24 @@ function MyOrdersPage() {
                     </h3>
                     <div className="bg-blue-50 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-blue-900">Current Status:</span>
-                        <Badge                          className={`${
-                          shippingLog.status?.toLowerCase() === 'delivered' 
-                            ? 'bg-green-100 text-green-800 border-green-200'
-                            : shippingLog.status?.toLowerCase() === 'in transit'
-                            ? 'bg-orange-100 text-orange-800 border-orange-200'
-                            : shippingLog.status?.toLowerCase() === 'shipped'
-                            ? 'bg-blue-100 text-blue-800 border-blue-200'
-                            : shippingLog.status?.toLowerCase() === 'processing'
-                            ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
-                            : 'bg-gray-100 text-gray-800 border-gray-200'
-                        }`}>
+                        <span className="font-medium text-blue-900">
+                          Current Status:
+                        </span>
+                        <Badge
+                          className={`${
+                            shippingLog.status?.toLowerCase() === "delivered"
+                              ? "bg-green-100 text-green-800 border-green-200"
+                              : shippingLog.status?.toLowerCase() ===
+                                "in transit"
+                              ? "bg-orange-100 text-orange-800 border-orange-200"
+                              : shippingLog.status?.toLowerCase() === "shipped"
+                              ? "bg-blue-100 text-blue-800 border-blue-200"
+                              : shippingLog.status?.toLowerCase() ===
+                                "processing"
+                              ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+                              : "bg-gray-100 text-gray-800 border-gray-200"
+                          }`}
+                        >
                           {shippingLog.status}
                         </Badge>
                       </div>
@@ -986,16 +1120,22 @@ function MyOrdersPage() {
                   </div>
 
                   {/* Shipping Tracker */}
-                  {(['processing', 'shipped', 'in transit', 'delivered', 'received'].includes(shippingLog.status?.toLowerCase() || '')) && (
+                  {[
+                    "processing",
+                    "shipped",
+                    "in transit",
+                    "delivered",
+                    "received",
+                  ].includes(shippingLog.status?.toLowerCase() || "") && (
                     <div className="space-y-4 mb-6">
-                      <OrderShippingTracker 
-                        shippingLog={shippingLog} 
+                      <OrderShippingTracker
+                        shippingLog={shippingLog}
                         loading={false}
                         onRefresh={refreshShippingLogs}
                       />
-                      
+
                       {/* Show received confirmation for received orders */}
-                      {shippingLog.status?.toLowerCase() === 'received' && (
+                      {shippingLog.status?.toLowerCase() === "received" && (
                         <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
                           <div className="flex items-center gap-2">
                             <CheckCircle className="h-5 w-5 text-emerald-600" />
@@ -1010,9 +1150,9 @@ function MyOrdersPage() {
                           </div>
                         </div>
                       )}
-                      
+
                       {/* Confirm Receipt button for delivered orders */}
-                      {shippingLog.status?.toLowerCase() === 'delivered' && (
+                      {shippingLog.status?.toLowerCase() === "delivered" && (
                         <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                           <div className="flex items-center justify-between gap-4 flex-wrap">
                             <div>
@@ -1021,23 +1161,30 @@ function MyOrdersPage() {
                                 Order Delivered
                               </h4>
                               <p className="text-sm text-green-700 mt-1">
-                                Please confirm that you have received your order or notify us if you have not received it.
+                                Please confirm that you have received your order
+                                or notify us if you have not received it.
                               </p>
                             </div>
                             <div className="flex gap-2 flex-col md:flex-row">
-                              <Button 
-                                onClick={() => openConfirmReceiptDialog(shippingLog.id!)}
+                              <Button
+                                onClick={() =>
+                                  openConfirmReceiptDialog(shippingLog.id!)
+                                }
                                 className="bg-green-600 hover:bg-green-700 text-white"
                                 disabled={!!confirmingReceipt}
                               >
                                 <CheckCircle2 className="mr-2 h-4 w-4" />
-                                {confirmingReceipt === shippingLog.id ? 'Confirming...' : 'Confirm Receipt'}
+                                {confirmingReceipt === shippingLog.id
+                                  ? "Confirming..."
+                                  : "Confirm Receipt"}
                               </Button>
                               <Button
                                 variant="outline"
                                 className="border-red-400 text-red-600 hover:bg-red-50"
                                 onClick={() => {
-                                  window.alert('If you have not received your order, please contact our support team or hotline for assistance.');
+                                  window.alert(
+                                    "If you have not received your order, please contact our support team or hotline for assistance."
+                                  );
                                 }}
                               >
                                 Not Received Yet
@@ -1048,7 +1195,7 @@ function MyOrdersPage() {
                       )}
                     </div>
                   )}
-                  
+
                   {/* Order Items Section */}
                   <div className="space-y-4">
                     <h3 className="font-medium flex items-center gap-2">
@@ -1086,10 +1233,14 @@ function MyOrdersPage() {
                               </div>
                               <div>{formatCurrency(item.price || 0)}</div>
                               <div className="font-semibold mt-1">
-                                {formatCurrency((item.price || 0) * (item.quantity || 0))}
+                                {formatCurrency(
+                                  (item.price || 0) * (item.quantity || 0)
+                                )}
                               </div>
                               {/* Review section for delivered and received items */}
-                              {['delivered', 'received'].includes(shippingLog.status?.toLowerCase() || '') && (
+                              {["delivered", "received"].includes(
+                                shippingLog.status?.toLowerCase() || ""
+                              ) && (
                                 <div className="mt-4 flex flex-col items-end">
                                   {!productReviews[item.productId!] ? (
                                     <Button
@@ -1113,7 +1264,9 @@ function MyOrdersPage() {
                                         <span className="flex items-center gap-1">
                                           {Array.from(
                                             {
-                                              length: productReviews[item.productId!]?.rating || 0,
+                                              length:
+                                                productReviews[item.productId!]
+                                                  ?.rating || 0,
                                             },
                                             (_, i) => (
                                               <Star
@@ -1124,7 +1277,10 @@ function MyOrdersPage() {
                                           )}
                                         </span>
                                         <span>
-                                          {productReviews[item.productId!]?.content}
+                                          {
+                                            productReviews[item.productId!]
+                                              ?.content
+                                          }
                                         </span>
                                         <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
                                           <button
@@ -1135,7 +1291,10 @@ function MyOrdersPage() {
                                               setReviewDialog({
                                                 open: true,
                                                 productId: item.productId!,
-                                                review: productReviews[item.productId!],
+                                                review:
+                                                  productReviews[
+                                                    item.productId!
+                                                  ],
                                               })
                                             }
                                           >
@@ -1167,7 +1326,9 @@ function MyOrdersPage() {
                   <div className="border-t border-gray-100 pt-4">
                     <div className="flex justify-between items-center py-2">
                       <span className="text-gray-500">Subtotal:</span>
-                      <span>{formatCurrency(shippingLog.totalAmount || 0)}</span>
+                      <span>
+                        {formatCurrency(shippingLog.totalAmount || 0)}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center py-2">
                       <span className="text-gray-500">Shipping:</span>
@@ -1175,7 +1336,9 @@ function MyOrdersPage() {
                     </div>
                     <div className="flex justify-between items-center py-2 font-semibold text-lg">
                       <span>Total:</span>
-                      <span>{formatCurrency(shippingLog.totalAmount || 0)}</span>
+                      <span>
+                        {formatCurrency(shippingLog.totalAmount || 0)}
+                      </span>
                     </div>
                   </div>
                   <div className="bg-gray-50 -mx-6 -mb-6 p-6 flex justify-between items-center">
@@ -1207,7 +1370,9 @@ function MyOrdersPage() {
   function RejectedOrdersList({ orders }: { orders: ApiOrder[] }) {
     return (
       <div className="space-y-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Rejected Orders</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          Rejected Orders
+        </h3>
         {orders.map((order) => (
           <Card
             key={order.id}
@@ -1237,7 +1402,10 @@ function MyOrdersPage() {
                 <div>
                   <div className="font-semibold text-lg flex items-center gap-2">
                     Order #{order.id.slice(-6)}
-                    <Badge variant="outline" className="ml-2 bg-red-100 text-red-800 border-red-200">
+                    <Badge
+                      variant="outline"
+                      className="ml-2 bg-red-100 text-red-800 border-red-200"
+                    >
                       Rejected
                     </Badge>
                   </div>
@@ -1271,7 +1439,9 @@ function MyOrdersPage() {
   function RefundedOrdersList({ orders }: { orders: ApiOrder[] }) {
     return (
       <div className="space-y-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Refunded Orders</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          Refunded Orders
+        </h3>
         {orders.map((order) => (
           <Card
             key={order.id}
@@ -1301,7 +1471,10 @@ function MyOrdersPage() {
                 <div>
                   <div className="font-semibold text-lg flex items-center gap-2">
                     Order #{order.id.slice(-6)}
-                    <Badge variant="outline" className="ml-2 bg-emerald-100 text-emerald-800 border-emerald-200">
+                    <Badge
+                      variant="outline"
+                      className="ml-2 bg-emerald-100 text-emerald-800 border-emerald-200"
+                    >
                       Refunded
                     </Badge>
                   </div>
