@@ -1,4 +1,3 @@
-import { Role } from "@/constants/type";
 import z from "zod";
 
 export const RegisterBody = z
