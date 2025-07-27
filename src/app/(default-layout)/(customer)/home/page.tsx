@@ -11,15 +11,11 @@ import {
   ShieldCheck,
   Clock,
   CreditCard,
-  Star,
-  Sparkles,
-  Heart,
   Eye,
   ShoppingBag,
   Award,
   Users,
   TrendingUp,
-  Zap,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -59,62 +55,6 @@ export default function CustomerHome() {
     { name: "Cetaphil", logo: "/images/brands/cetaphil.png" },
     { name: "La Roche-Posay", logo: "/images/brands/laroche.png" },
     { name: "Bioderma", logo: "/images/brands/bioderma.png" },
-  ];
-
-  // Testimonials data
-  const testimonials = [
-    {
-      name: "Emma Thompson",
-      role: "Regular Customer",
-      image: "/images/testimonials/emma.jpg",
-      quote:
-        "I've been shopping here for years. The product range and quality is exceptional!",
-      rating: 5,
-    },
-    {
-      name: "Michael Chen",
-      role: "Skincare Enthusiast",
-      image: "/images/testimonials/michael.jpg",
-      quote:
-        "Their cosmetics collection is amazing. I always find what I need here.",
-      rating: 5,
-    },
-    {
-      name: "Sarah Johnson",
-      role: "Beauty Blogger",
-      image: "/images/testimonials/sarah.jpg",
-      quote:
-        "As someone who reviews products professionally, I can say this shop has premium quality items.",
-      rating: 4,
-    },
-  ];
-
-  // Trending categories data
-  const trendingCategories = [
-    {
-      name: "Skincare",
-      icon: Sparkles,
-      color: "from-pink-500 to-rose-500",
-      count: "250+ Products",
-    },
-    {
-      name: "Makeup",
-      icon: Heart,
-      color: "from-purple-500 to-indigo-500",
-      count: "180+ Products",
-    },
-    {
-      name: "Fragrance",
-      icon: Zap,
-      color: "from-blue-500 to-cyan-500",
-      count: "120+ Products",
-    },
-    {
-      name: "Hair Care",
-      icon: Star,
-      color: "from-green-500 to-emerald-500",
-      count: "90+ Products",
-    },
   ];
 
   // Statistics data
@@ -358,7 +298,7 @@ export default function CustomerHome() {
               Trusted Brands
             </h2>
             <p className="text-gray-600 text-lg">
-              We partner with the world's leading beauty and pharmaceutical
+              We partner with the world&apos;s leading beauty and pharmaceutical
               brands
             </p>
           </div>
