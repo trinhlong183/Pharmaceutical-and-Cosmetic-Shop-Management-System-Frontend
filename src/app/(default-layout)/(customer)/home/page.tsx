@@ -188,47 +188,6 @@ export default function CustomerHome() {
         </div>
       </section>
 
-      {/* Trending Categories Section - New */}
-      {/* <section className="py-16 bg-white relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-4 pb-2">
-              Trending Categories
-            </h2>
-            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-              Discover our most popular product categories loved by thousands of
-              customers
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {trendingCategories.map((category, index) => (
-              <Link
-                key={index}
-                href={`/categories/${category.name.toLowerCase()}`}
-                className="group block"
-              >
-                <div className="relative overflow-hidden rounded-3xl p-8 text-center bg-white border border-gray-100 hover:border-transparent transition-all duration-500 transform hover:-translate-y-1 hover:shadow-2xl">
-                  <div
-                    className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500`}
-                  ></div>
-                  <div className="relative z-10">
-                    <div
-                      className={`w-20 h-20 bg-gradient-to-br ${category.color} rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300`}
-                    >
-                      <category.icon className="h-10 w-10 text-white" />
-                    </div>
-                    <h3 className="font-bold text-xl text-gray-900 mb-2">
-                      {category.name}
-                    </h3>
-                    <p className="text-gray-600">{category.count}</p>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section> */}
-
       {/* Latest Products Section - Enhanced */}
       <section className="py-20 bg-gradient-to-br from-gray-50 via-white to-purple-50 relative overflow-hidden">
         <div className="absolute inset-0 bg-grid-pattern opacity-5 "></div>
@@ -390,8 +349,6 @@ export default function CustomerHome() {
           </div>
         </div>
       </section>
-
-      {/* Testimonials Section removed as requested */}
 
       {/* Featured Brands - Enhanced */}
       <section className="py-20 bg-white">
