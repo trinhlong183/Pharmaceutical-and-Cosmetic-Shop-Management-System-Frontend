@@ -238,6 +238,7 @@ function AdminDashboard() {
                             width={48}
                             height={48}
                             className="w-12 h-12 object-cover rounded" 
+                            unoptimized
                           />
                         ) : (
                           <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400">-</div>

@@ -96,7 +96,7 @@ export default function Header() {
           <div className="relative categories-dropdown">
             <button
               className={`font-medium transition-colors flex items-center space-x-1 ${
-                pathname.startsWith("/categories")
+                pathname?.startsWith("/categories")
                   ? "text-blue-600 font-bold"
                   : "text-gray-600 hover:text-blue-600"
               }`}
@@ -282,7 +282,7 @@ export default function Header() {
               <Link
                 href="/categories"
                 className={`py-2 font-medium transition-colors flex items-center space-x-2 ${
-                  pathname.startsWith("/categories")
+                  pathname?.startsWith("/categories")
                     ? "text-blue-600 font-bold"
                     : "text-gray-600 hover:text-blue-600"
                 }`}

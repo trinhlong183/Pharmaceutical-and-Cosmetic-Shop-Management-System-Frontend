@@ -19,7 +19,7 @@ import { toast } from "sonner";
 function ResetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") || "";
+  const token = searchParams?.get("token") || "";
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
