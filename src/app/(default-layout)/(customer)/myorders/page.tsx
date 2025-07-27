@@ -1014,24 +1014,35 @@ export default function MyOrdersPage() {
                       {/* Confirm Receipt button for delivered orders */}
                       {shippingLog.status?.toLowerCase() === 'delivered' && (
                         <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-4 flex-wrap">
                             <div>
                               <h4 className="font-medium text-green-800 flex items-center gap-2">
                                 <CheckCircle className="h-4 w-4" />
                                 Order Delivered
                               </h4>
                               <p className="text-sm text-green-700 mt-1">
-                                Please confirm that you've received your order in good condition.
+                                Please confirm that you have received your order or notify us if you have not received it.
                               </p>
                             </div>
-                            <Button 
-                              onClick={() => openConfirmReceiptDialog(shippingLog.id!)}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                              disabled={!!confirmingReceipt}
-                            >
-                              <CheckCircle2 className="mr-2 h-4 w-4" />
-                              {confirmingReceipt === shippingLog.id ? 'Confirming...' : 'Confirm Receipt'}
-                            </Button>
+                            <div className="flex gap-2 flex-col md:flex-row">
+                              <Button 
+                                onClick={() => openConfirmReceiptDialog(shippingLog.id!)}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                                disabled={!!confirmingReceipt}
+                              >
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                                {confirmingReceipt === shippingLog.id ? 'Confirming...' : 'Confirm Receipt'}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                className="border-red-400 text-red-600 hover:bg-red-50"
+                                onClick={() => {
+                                  window.alert('If you have not received your order, please contact our support team or hotline for assistance.');
+                                }}
+                              >
+                                Not Received Yet
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       )}
