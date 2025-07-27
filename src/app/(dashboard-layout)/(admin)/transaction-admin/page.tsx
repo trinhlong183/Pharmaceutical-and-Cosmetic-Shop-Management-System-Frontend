@@ -48,7 +48,7 @@ const formatPayDate = (dateStr?: string): string => {
     const second = dateStr.substring(12, 14);
     
     return `${day}/${month}/${year} ${hour}:${minute}:${second}`;
-  } catch (error) {
+  } catch {
     return 'Invalid date';
   }
 };

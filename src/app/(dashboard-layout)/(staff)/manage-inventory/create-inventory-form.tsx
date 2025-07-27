@@ -79,7 +79,7 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
   const loadAllProducts = async () => {
     setSearchLoading(true);
     try {
-      const params: any = { limit: 1000 };
+      const params: { limit: number; category?: string[] } = { limit: 1000 };
       if (selectedCategoryId && selectedCategoryId !== "all") {
         params.category = [selectedCategoryId];
       }
