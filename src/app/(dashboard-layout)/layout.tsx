@@ -7,8 +7,6 @@ import {
   LayoutDashboard,
   Package,
   ShoppingCart,
-  Users,
-  Settings,
   FolderKanban,
   Layers2,
   Truck,

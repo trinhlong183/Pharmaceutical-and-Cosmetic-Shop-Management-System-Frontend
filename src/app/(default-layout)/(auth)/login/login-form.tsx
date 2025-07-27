@@ -72,7 +72,7 @@ export default function LoginForm() {
         setUser(profile?.payload || null);
       }
       router.push("/");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.log("Login error o login-form:", error);
       handleErrorApi({
         error,

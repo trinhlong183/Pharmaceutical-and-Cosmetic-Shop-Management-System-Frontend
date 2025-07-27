@@ -7,18 +7,15 @@ import {
   ShippingLog,
   ShippingStatus,
 } from "@/api/shippingLogsService";
-import { orderService } from "@/api/orderService";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -36,12 +33,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -50,20 +45,13 @@ import {
 import { toast } from "react-hot-toast";
 import {
   Package,
-  Truck,
-  CalendarClock,
-  MapPin,
   User,
-  Phone,
   Clipboard,
   TruckIcon,
   PackageOpen,
   Loader2,
   Search,
-  Filter,
-  CheckCircle,
   XCircle,
-  AlertCircle,
   RefreshCw,
   Clock,
   Info,

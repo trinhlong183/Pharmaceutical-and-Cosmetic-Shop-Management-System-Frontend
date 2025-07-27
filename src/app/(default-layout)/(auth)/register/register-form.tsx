@@ -54,7 +54,7 @@ function RegisterForm() {
 
       toast.success("Account created successfully!");
       router.push("/login");
-    } catch (error: any) {
+    } catch (error: unknown) {
       handleErrorApi({
         error,
         setError: form.setError,

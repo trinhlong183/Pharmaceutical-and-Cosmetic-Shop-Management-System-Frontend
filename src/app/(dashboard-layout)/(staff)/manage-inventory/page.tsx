@@ -300,19 +300,19 @@ function ManageInventoryPage() {
                               variant="outline"
                               onClick={() =>
                                 setSelectedLog(
-                                  selectedLog?._id === log._id ? null : log
+                                  selectedLog?.id === log.id ? null : log
                                 )
                               }
                             >
-                              {selectedLog?._id === log._id ? "Hide" : "View"}
+                              {selectedLog?.id === log.id ? "Hide" : "View"}
                             </Button>
                           </TableCell>
                         </TableRow>
-                        {selectedLog && selectedLog._id === log._id && (
+                        {selectedLog && selectedLog.id === log.id && (
                           <TableRow>
                             <TableCell colSpan={5} className="p-0">
                               <div className="p-4 bg-gray-50">
-                                <InventoryLogCard log={selectedLog as any} />
+                                <InventoryLogCard log={selectedLog as unknown as { _id: string; batch: string; products: { productId: string; quantity: number; _id?: string }[]; action: string; status: string; userId: { _id: string; email: string; fullName: string } | string; createdAt: string; updatedAt: string; reason?: string; items: { _id: string; inventoryLogId: string; productId: { productName: string; price: number; id: string; stock: number }; quantity: number; expiryDate: string; price: number; createdAt: string; updatedAt: string }[] }} />
                               </div>
                             </TableCell>
                           </TableRow>
