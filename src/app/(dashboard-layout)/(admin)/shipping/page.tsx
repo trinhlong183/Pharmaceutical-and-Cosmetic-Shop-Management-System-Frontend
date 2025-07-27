@@ -6,6 +6,7 @@ import {
   shippingLogsService,
   ShippingLog,
   ShippingStatus,
+  OrderItem,
 } from "@/api/shippingLogsService";
 import {
   Card,
@@ -80,7 +81,7 @@ export default function ShippingAdminPage() {
   );
   const [statusNote, setStatusNote] = useState("");
   const [currentLocation, setCurrentLocation] = useState("");
-  const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loadingOrderItems, setLoadingOrderItems] = useState(false);
   const [loadingAction, setLoadingAction] = useState(false);
   const router = useRouter();
@@ -100,12 +101,12 @@ export default function ShippingAdminPage() {
   ];
 
   // Define terminal statuses (can't progress further)
-  const terminalStatuses = [
-    ShippingStatus.DELIVERED,
-    ShippingStatus.RECEIVED,
-    ShippingStatus.CANCELLED,
-    ShippingStatus.RETURNED,
-  ];
+  // const terminalStatuses = [
+  //   ShippingStatus.DELIVERED,
+  //   ShippingStatus.RECEIVED,
+  //   ShippingStatus.CANCELLED,
+  //   ShippingStatus.RETURNED,
+  // ];
 
   // Get allowed statuses based on user role and current status
   const getAllowedStatuses = (currentStatus?: ShippingStatus): ShippingStatus[] => {
@@ -168,7 +169,7 @@ export default function ShippingAdminPage() {
       console.log("Shipping logs loaded:", data); // Log data for debugging
       setShippingLogs(data || []);
       setLoading(false);
-    } catch (error) {
+    } catch {
       toast.error("Failed to load shipping data");
       setLoading(false);
     }
@@ -212,7 +213,7 @@ export default function ShippingAdminPage() {
       };
 
       // Call API to update status
-      const updatedShipping = await shippingLogsService.updateStatus(
+      await shippingLogsService.updateStatus(
         shippingId,
         updateData
       );
@@ -240,7 +241,7 @@ export default function ShippingAdminPage() {
     if (!dateString) return "Not specified";
     try {
       return format(new Date(dateString), "dd/MM/yyyy HH:mm");
-    } catch (error) {
+    } catch {
       return "Invalid date";
     }
   };
@@ -312,8 +313,11 @@ export default function ShippingAdminPage() {
           (log.order?.shippingAddress
             ? log.order.shippingAddress.toLowerCase().includes(searchLower)
             : false) ||
-          (log.order?.contactPhone
-            ? log.order.contactPhone.toLowerCase().includes(searchLower)
+          (log.order?.recipientPhone
+            ? log.order.recipientPhone.toLowerCase().includes(searchLower)
+            : false) ||
+          (log.order?.phone
+            ? log.order.phone.toLowerCase().includes(searchLower)
             : false) ||
           // Product summary
           (log.productSummary && typeof log.productSummary === "string"
@@ -331,7 +335,7 @@ export default function ShippingAdminPage() {
   };
 
   // Extract order ID from different formats
-  const extractOrderId = (orderIdValue: string | any | undefined): string => {
+  const extractOrderId = (orderIdValue: string | { id?: string; _id?: string; orderId?: string; orderID?: string; order?: { id?: string; _id?: string } } | undefined): string => {
     if (!orderIdValue) return "";
 
     // Handle string format directly
@@ -341,21 +345,19 @@ export default function ShippingAdminPage() {
 
     // Handle object format (either direct orderId object or from .order field)
     if (typeof orderIdValue === "object" && orderIdValue) {
-      const orderIdObj = orderIdValue as Record<string, any>;
-
       // Try direct ID fields
       const directId =
-        orderIdObj.id ||
-        orderIdObj._id ||
-        orderIdObj.orderId ||
-        orderIdObj.orderID;
+        orderIdValue.id ||
+        orderIdValue._id ||
+        orderIdValue.orderId ||
+        orderIdValue.orderID;
       if (directId) {
         return directId;
       }
 
       // If we have an order object nested inside, use that
-      if (orderIdObj.order && typeof orderIdObj.order === "object") {
-        return orderIdObj.order.id || orderIdObj.order._id || "";
+      if (orderIdValue.order && typeof orderIdValue.order === "object") {
+        return orderIdValue.order.id || orderIdValue.order._id || "";
       }
     }
 
@@ -376,7 +378,7 @@ export default function ShippingAdminPage() {
     // Navigate to the order details page
     try {
       router.push(`/manage-orders/${orderId}`);
-    } catch (error) {
+    } catch {
       // console.error("Navigation error:", error);
       toast.error("Failed to open order details");
     }
@@ -418,7 +420,7 @@ export default function ShippingAdminPage() {
         setOrderItems([]);
         toast.error("No items found for this order");
       }
-    } catch (error) {
+    } catch {
       // console.error("Failed to load order items", error);
       toast.error("Failed to load order items");
       setOrderItems([]);
@@ -700,8 +702,8 @@ export default function ShippingAdminPage() {
                               }
 
                               // Fallback to order contact phone
-                              if (log.order && log.order.contactPhone) {
-                                return log.order.contactPhone;
+                              if (log.order && log.order.phone) {
+                                return log.order.phone;
                               }
 
                               // Fallback to recipientPhone if exists
@@ -889,7 +891,7 @@ export default function ShippingAdminPage() {
                 onClick={async () => {
                   try {
                     await handleUpdateStatus();
-                  } catch (error) {
+                  } catch {
                     toast.error("Failed to update shipping status");
                   }
                 }}
@@ -1044,7 +1046,7 @@ export default function ShippingAdminPage() {
                             style: "currency",
                             currency: "VND",
                           }).format(
-                            item.subtotal || item.price * item.quantity || 0
+                            item.subtotal || (item.price && item.quantity ? item.price * item.quantity : 0) || 0
                           )}
                         </TableCell>
                       </TableRow>
@@ -1070,7 +1072,7 @@ export default function ShippingAdminPage() {
                             (sum, item) =>
                               sum +
                               (item.subtotal ||
-                                item.price * item.quantity ||
+                                (item.price && item.quantity ? item.price * item.quantity : 0) ||
                                 0),
                             0
                           )
@@ -1135,8 +1137,7 @@ export default function ShippingAdminPage() {
                               typeof currentShipping.orderId === "object" &&
                               currentShipping.orderId
                             ) {
-                              const orderIdObj =
-                                currentShipping.orderId as Record<string, any>;
+                              const orderIdObj = currentShipping.orderId as { id?: string; _id?: string };
                               return (
                                 orderIdObj.id ||
                                 orderIdObj._id ||
@@ -1218,7 +1219,7 @@ export default function ShippingAdminPage() {
                             Payment:
                           </span>
                           <span>
-                            {currentShipping.transaction.paymentMethod ||
+                            {currentShipping.transaction.method ||
                               "Payment received"}
                             {currentShipping.transaction.status &&
                               ` (${currentShipping.transaction.status})`}
@@ -1285,7 +1286,7 @@ export default function ShippingAdminPage() {
                         <span className="text-muted-foreground">Phone:</span>
                         <span>
                           {currentShipping.customer?.phone ||
-                            currentShipping.order?.contactPhone ||
+                            currentShipping.order?.phone ||
                             "Not provided"}
                         </span>
                       </div>

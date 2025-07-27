@@ -63,7 +63,9 @@ const ProductForm = ({
   );
   const [imageUrl, setImageUrl] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    (product?.category as string[]) || []
+    product?.category ? 
+      product.category.map(cat => typeof cat === 'string' ? cat : cat._id) : 
+      []
   );
   const [uploading, setUploading] = useState(false);
 
@@ -85,7 +87,9 @@ const ProductForm = ({
           : product.expiryDate
         : new Date(),
       salePercentage: product?.salePercentage || 0,
-      category: (product?.category as string[]) || [],
+      category: product?.category ? 
+        product.category.map(cat => typeof cat === 'string' ? cat : cat._id) : 
+        [],
     },
   });
 
@@ -94,9 +98,9 @@ const ProductForm = ({
     if (product) {
       // Nếu product.category là mảng object, map sang id
       const catArr = Array.isArray(product.category)
-        ? product.category.map((cat: any) =>
+        ? product.category.map((cat: string | { _id?: string; id?: string }) =>
             typeof cat === "string" ? cat : cat._id || cat.id
-          )
+          ).filter((id): id is string => id !== undefined)
         : [];
       setSelectedCategories(catArr);
       setImageUrls(product.productImages || []);
@@ -106,7 +110,7 @@ const ProductForm = ({
   // Sync selectedCategories với form (luôn là mảng string id)
   useEffect(() => {
     form.setValue("category", selectedCategories);
-  }, [selectedCategories]);
+  }, [selectedCategories, form]);
 
   // Handle form submission
   const handleSubmitForm = (values: any) => {
@@ -165,7 +169,7 @@ const ProductForm = ({
       if (url && !imageUrls.includes(url)) {
         setImageUrls((prev) => [...prev, url]);
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to upload image");
     } finally {
       setUploading(false);
@@ -337,7 +341,7 @@ const ProductForm = ({
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        selected={field.value}
+                        selected={typeof field.value === 'string' ? new Date(field.value) : field.value}
                         onSelect={field.onChange}
                         disabled={(date) =>
                           date < new Date() || date > new Date("2050-01-01")

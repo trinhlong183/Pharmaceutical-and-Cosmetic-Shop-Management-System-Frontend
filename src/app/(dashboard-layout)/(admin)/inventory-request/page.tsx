@@ -73,7 +73,7 @@ function InventoryRequest() {
   const handleStatusChange = (value: string) => {
     setPendingFilters((prev) => ({
       ...prev,
-      status: value === "all" ? undefined : value,
+      status: value === "all" ? undefined : (value as "pending" | "approved" | "denied"),
     }));
   };
 
@@ -293,7 +293,7 @@ function InventoryRequest() {
                           </TableCell>
                           <TableCell>
                             {typeof log.userId === "object"
-                              ? log.userId.fullName
+                              ? (log.userId as { fullName?: string })?.fullName || "Unknown User"
                               : log.userId}
                           </TableCell>
                           <TableCell>{getStatusBadge(log.status)}</TableCell>
@@ -404,7 +404,7 @@ function InventoryRequest() {
               <Button
                 variant="destructive"
                 disabled={reviewing || !reason.trim()}
-                onClick={() => handleDeny(selectedLog?.id!)}
+                onClick={() => selectedLog?.id && handleDeny(selectedLog.id)}
                 type="button"
               >
                 {reviewing ? "Processing..." : "Confirm Deny"}

@@ -72,7 +72,7 @@ export default function ProfilePage() {
       // Validate and format dob as ISO 8601 or null
       const formattedData = {
         ...formData,
-        dob: formData.dob ? new Date(formData.dob).toISOString() : null,
+        dob: formData.dob ? new Date(formData.dob).toISOString() : undefined,
       };
 
       await userService.updateProfile(formattedData);
@@ -118,7 +118,7 @@ export default function ProfilePage() {
       const response = await userService.uploadAvatar(formData);
       console.log("Avatar upload response:", response);
 
-      const photoUrl: string | undefined = response?.payload?.data.photoUrl;
+      const photoUrl: string | undefined = (response as any)?.payload?.data?.photoUrl;
       if (photoUrl) {
         setUser((prev) => (prev ? { ...prev, photoUrl } : null));
         toast.success("Avatar updated successfully");

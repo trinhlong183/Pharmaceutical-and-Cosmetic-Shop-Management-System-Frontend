@@ -65,8 +65,8 @@ export default function LoginForm() {
     try {
       const result = await authApiRequest.login(values);
       toast.success("Login successful!");
-      if (result?.payload?.token) {
-        localStorage.setItem("accessToken", result.payload.token);
+      if ((result?.payload as any)?.token) {
+        localStorage.setItem("accessToken", (result.payload as any).token);
         // Lấy profile và cập nhật context user
         const profile = await authApiRequest.myProfile();
         setUser(profile?.payload || null);
@@ -76,7 +76,7 @@ export default function LoginForm() {
       console.log("Login error o login-form:", error);
       handleErrorApi({
         error,
-        setError: form.setError,
+        setError: form.setError as any,
       });
     } finally {
       setIsSubmitting(false);
@@ -92,7 +92,7 @@ export default function LoginForm() {
       toast.success("Check your email for the reset link.");
       setShowForgot(false);
       setForgotEmail("");
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error?.message || "Failed to send reset email.");
     } finally {
       setForgotLoading(false);
@@ -240,7 +240,7 @@ export default function LoginForm() {
       </CardContent>
       <CardFooter className="flex flex-col gap-2 text-sm text-muted-foreground border-t pt-4">
         <div className="text-center">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link
             href="/register"
             className="text-blue-600 font-medium hover:underline"

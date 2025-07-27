@@ -24,7 +24,6 @@ import { useUser } from "@/contexts/UserContext";
 
 interface DashboardLayoutProps {
   children: ReactNode;
-  userRole: "admin" | "staff";
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {

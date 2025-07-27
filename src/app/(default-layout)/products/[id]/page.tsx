@@ -61,13 +61,13 @@ export default function ProductDetailPage({
         productId,
         userId: "",
       });
-      let userSpecificReview = null;
+      let userSpecificReview: any = null;
       let otherReviews = allReviews || [];
 
       if (user?.id && allReviews && allReviews.length > 0) {
         userSpecificReview = allReviews.find(
           (review: any) => review.userId._id === user.id
-        );
+        ) || null;
 
         // Remove user's review from other reviews to avoid duplication
         if (userSpecificReview) {
@@ -100,7 +100,7 @@ export default function ProductDetailPage({
 
         setProduct(productData);
 
-        await fetchReviews(productData.id || productData._id);
+        await fetchReviews((productData.id || productData._id) as string);
 
         // If product has categories, fetch their details
         if (productData.category && productData.category.length > 0) {
@@ -171,7 +171,7 @@ export default function ProductDetailPage({
 
     try {
       const reviewData = {
-        productId: product.id,
+        productId: (product.id || product._id) as string,
         rating: data.rating,
         content: data.content,
         userId: user.id,
@@ -196,7 +196,7 @@ export default function ProductDetailPage({
       }
 
       // Refresh reviews
-      await fetchReviews(product.id);
+      await fetchReviews((product.id || product._id) as string);
       setReviewDialogOpen(false);
     } catch (error) {
       console.error("Error submitting review:", error);
@@ -213,7 +213,7 @@ export default function ProductDetailPage({
       toast.success("Review deleted successfully!");
 
       // Refresh reviews
-      await fetchReviews(product.id || product._id);
+      await fetchReviews((product.id || product._id) as string);
       setReviewDialogOpen(false);
     } catch (error) {
       console.error("Error deleting review:", error);

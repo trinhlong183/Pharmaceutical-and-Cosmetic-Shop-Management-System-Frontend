@@ -30,10 +30,9 @@ export default function CustomerHome() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        // Get the 5 newest products by sorting by createdAt in descending order
+        // Get the 5 newest products
         const response = await productService.getAllProducts({
           limit: 5,
-          sort: "-createdAt", // Sort by newest first
         });
 
         if (!response || !response.products) {
@@ -303,7 +302,7 @@ export default function CustomerHome() {
                       )}
 
                       {/* Badges */}
-                      {product.salePercentage > 0 && (
+                      {(product.salePercentage ?? 0) > 0 && (
                         <div className="absolute top-4 right-4 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-3 py-2 rounded-full shadow-lg">
                           -{product.salePercentage}% OFF
                         </div>
@@ -327,10 +326,10 @@ export default function CustomerHome() {
 
                       <div className="flex justify-between items-end">
                         <div className="flex-1">
-                          {product.salePercentage > 0 ? (
+                          {(product.salePercentage ?? 0) > 0 ? (
                             <div className="space-y-1">
                               <span className="text-2xl font-bold bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent">
-                                {formatCurrency(product.price * (1 - product.salePercentage / 100))}
+                                {formatCurrency(product.price * (1 - (product.salePercentage ?? 0) / 100))}
                               </span>
                               <div className="text-sm text-gray-400 line-through">
                                 {formatCurrency(product.price)}

@@ -66,6 +66,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -244,15 +245,10 @@ export default function ProductsPage() {
             {/* Mobile filter button */}
             <button
               className="md:hidden flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-5 py-3 rounded-lg mb-4 shadow-md"
-              onClick={() =>
-                handlePendingChange(
-                  "mobileFiltersOpen",
-                  !pendingFilter["mobileFiltersOpen"]
-                )
-              }
+              onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
             >
               <FiFilter />
-              {pendingFilter["mobileFiltersOpen"]
+              {mobileFiltersOpen
                 ? "Hide Filters"
                 : "Show Filters"}
             </button>
@@ -260,7 +256,7 @@ export default function ProductsPage() {
             {/* Filters */}
             <div
               className={`w-full md:w-72 ${
-                pendingFilter["mobileFiltersOpen"] ? "block" : "hidden"
+                mobileFiltersOpen ? "block" : "hidden"
               } md:block`}
             >
               <div className="bg-white p-6 rounded-xl shadow-md border border-indigo-100 mb-6">

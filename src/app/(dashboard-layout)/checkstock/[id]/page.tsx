@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import productService from "@/api/productService";
+import { Product } from "@/types/product";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
@@ -45,7 +46,7 @@ const CheckStock = () => {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [totalStock, setTotalStock] = useState<number>(0);
   const [loading, setLoading] = useState(true);
-  const [product, setProduct] = useState<any>(null);
+  const [product, setProduct] = useState<Product | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   useEffect(() => {

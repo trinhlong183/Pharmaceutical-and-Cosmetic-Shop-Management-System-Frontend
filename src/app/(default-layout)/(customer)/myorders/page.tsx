@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -126,7 +126,7 @@ interface ExtendedShippingLog {
   notes?: string;
 }
 
-export default function MyOrdersPage() {
+function MyOrdersPage() {
   const [shippingLogs, setShippingLogs] = useState<ShippingLog[]>([]);
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -339,7 +339,7 @@ export default function MyOrdersPage() {
             userId,
           });
           // Handle both direct array response and nested data response
-          const reviewsArray = Array.isArray(res) ? res : res?.data || [];
+          const reviewsArray = Array.isArray(res) ? res : (res as any)?.data || [];
           const myReview = reviewsArray.length > 0 ? reviewsArray[0] : null;
           setProductReviews((prev) => ({
             ...prev,
@@ -678,7 +678,7 @@ export default function MyOrdersPage() {
               });
 
               // Handle both direct array response and nested data response
-              const reviewsArray = Array.isArray(res) ? res : res?.data || [];
+              const reviewsArray = Array.isArray(res) ? res : (res as any)?.data || [];
               const myReview = reviewsArray.length > 0 ? reviewsArray[0] : null;
 
               setProductReviews((prev) => ({
@@ -1060,9 +1060,9 @@ export default function MyOrdersPage() {
                         <div key={idx} className="py-4 first:pt-0 last:pb-0">
                           <div className="flex items-center gap-4">
                             <div className="h-16 w-16 bg-gray-100 rounded-lg shrink-0 overflow-hidden relative">
-                              {item.productImage ? (
+                              {(item as any).productImage ? (
                                 <Image
-                                  src={item.productImage}
+                                  src={(item as any).productImage}
                                   alt={item.productName || "Product"}
                                   fill
                                   className="object-cover"
@@ -1331,4 +1331,12 @@ export default function MyOrdersPage() {
       </div>
     );
   }
+}
+
+export default function MyOrdersPageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <MyOrdersPage />
+    </Suspense>
+  );
 }
