@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { cartService } from '@/api/cartService';
 import { paymentService } from '@/api/paymentService';
 import { toast } from 'react-hot-toast';
 
-export default function PaymentResult() {
+function PaymentResult() {
   const [processing, setProcessing] = useState(true);
   const [success, setSuccess] = useState(false);
   const searchParams = useSearchParams();
@@ -132,5 +132,13 @@ export default function PaymentResult() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PaymentResultWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PaymentResult />
+    </Suspense>
   );
 }

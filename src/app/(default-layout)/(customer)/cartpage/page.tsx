@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { cartService } from '@/api/cartService';
 import { paymentService } from '@/api/paymentService';
 import { Button } from '@/components/ui/button';
@@ -64,7 +64,7 @@ const formatVND = (price: number): string => {
 //   return Math.round(price);
 // };
 
-export default function CartPage() {
+function CartPage() {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -806,5 +806,13 @@ export default function CartPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CartPageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CartPage />
+    </Suspense>
   );
 }

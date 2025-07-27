@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
@@ -16,7 +16,7 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 import authApiRequest from "@/api/auth";
 import { toast } from "sonner";
 
-export default function ResetPasswordPage() {
+function ResetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
@@ -33,7 +33,7 @@ export default function ResetPasswordPage() {
       toast.success("Password reset successful! Please login.");
       router.push("/login");
     } catch (error) {
-      toast.error(error?.message || "Failed to reset password.");
+      toast.error((error as any)?.message || "Failed to reset password.");
     } finally {
       setLoading(false);
     }
@@ -94,5 +94,13 @@ export default function ResetPasswordPage() {
         </Button>
       </CardFooter>
     </Card>
+  );
+}
+
+export default function ResetPasswordPageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ResetPasswordPage />
+    </Suspense>
   );
 }
