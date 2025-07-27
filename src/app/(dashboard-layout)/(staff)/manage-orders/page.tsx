@@ -148,6 +148,9 @@ const ManageOrdersPage = () => {
   // Add state to track if a refund operation is in progress
   const [isRefunding, setIsRefunding] = useState(false);
 
+  // Add state for expanded items in order details
+  const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
+
   // const router = useRouter();
 
 
