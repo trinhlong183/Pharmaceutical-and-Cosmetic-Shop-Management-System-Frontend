@@ -80,7 +80,7 @@ function ManageInventoryPage() {
   const handleStatusChange = (value: string) => {
     setPendingFilters((prev) => ({
       ...prev,
-      status: value === "all" ? undefined : value,
+      status: value === "all" ? undefined : (value as "pending" | "approved" | "denied"),
     }));
   };
 
@@ -105,8 +105,8 @@ function ManageInventoryPage() {
         userId: user.id,
       });
       console.log(res.payload);
-      if (res.payload.errorCode === 400) {
-        toast.error(res.payload.message || "Failed to create inventory log", {
+      if ((res.payload as any)?.errorCode === 400) {
+        toast.error((res.payload as any)?.message || "Failed to create inventory log", {
           duration: 16000,
           dismissible: true,
         });

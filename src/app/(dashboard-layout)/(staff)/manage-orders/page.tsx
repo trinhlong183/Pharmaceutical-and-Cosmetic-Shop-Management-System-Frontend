@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+// import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -44,17 +44,11 @@ import {
   Loader2,
   Package2,
   CheckCircle2,
-  TruckIcon,
-  XCircle,
 } from "lucide-react";
 import { orderService } from "@/api/orderService";
-import { userService } from "@/api/userService";
 import { shippingLogsService, ShippingLog } from "@/api/shippingLogsService";
 import {
   getUnifiedStatus,
-  getAvailableStatusTransitions,
-  formatStatusForDisplay,
-  hasShippingInfo,
   StatusConfigurations,
 } from "@/utils/statusUtils";
 
@@ -66,7 +60,7 @@ interface User {
   address: string;
   name?: string;
   fullName?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface Transaction {
@@ -94,10 +88,10 @@ interface Transaction {
 interface OrderItem {
   productId:
     | string
-    | { id?: string; _id?: string; name?: string; [key: string]: any };
+    | { id?: string; _id?: string; name?: string; [key: string]: unknown };
   price: number;
   quantity: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Updated Order interface to match the new API response structure
@@ -118,13 +112,13 @@ interface Order {
   refundReason?: string;
   processedBy?: string;
   notes?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 const ManageOrdersPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
-  const [users, setUsers] = useState<Record<string, User>>({});
+  // const [users, setUsers] = useState<Record<string, User>>({});
   const [shippingLogs, setShippingLogs] = useState<Record<string, ShippingLog>>({});
   const [loading, setLoading] = useState(true);
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
@@ -153,7 +147,7 @@ const ManageOrdersPage = () => {
   // Add state to track if a refund operation is in progress
   const [isRefunding, setIsRefunding] = useState(false);
 
-  const router = useRouter();
+  // const router = useRouter();
 
   useEffect(() => {
     setIsMounted(true);
@@ -207,7 +201,7 @@ const ManageOrdersPage = () => {
               // Use the most recent shipping log
               shippingLogsMap[orderId] = logs[logs.length - 1];
             }
-          } catch (error) {
+          } catch {
             console.log(`No shipping log found for order ${orderId}`);
             // This is expected for orders without shipping logs
           }
@@ -278,7 +272,7 @@ const ManageOrdersPage = () => {
               [orderId]: shippingLog
             }));
           }
-        } catch (error) {
+        } catch {
           console.log(`No shipping log found for order ${orderId}`);
         }
       }
@@ -318,7 +312,7 @@ const ManageOrdersPage = () => {
     setStatusUpdating(true);
     try {
       // Always use updateOrderStatus API for all status changes
-      const updatedOrder = await orderService.updateOrderStatus(orderId, newStatus);
+      await orderService.updateOrderStatus(orderId, newStatus);
       toast.success(`Order status updated to ${newStatus}`);
       
       // If status is changed to "approved", automatically create shipping log
@@ -491,7 +485,7 @@ const ManageOrdersPage = () => {
       }
 
       // Use orderService to refund the order
-      const refundedOrder = await orderService.refundOrder(orderId, {
+      await orderService.refundOrder(orderId, {
         refundReason: data.refundReason,
         note: data.note,
       });
@@ -529,18 +523,19 @@ const ManageOrdersPage = () => {
         refundReason: "",
         note: "",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle specific error types based on API documentation
-      if (error.message && error.message.includes("409")) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage && errorMessage.includes("409")) {
         toast.error("Order can only be refunded if it was previously rejected");
         setValidationError(
           "Order can only be refunded if it was previously rejected"
         );
-      } else if (error.message && error.message.includes("401")) {
+      } else if (errorMessage && errorMessage.includes("401")) {
         toast.error("Your session has expired. Please login again");
-      } else if (error.message && error.message.includes("403")) {
+      } else if (errorMessage && errorMessage.includes("403")) {
         toast.error("You don't have permission to perform this action");
-      } else if (error.message && error.message.includes("404")) {
+      } else if (errorMessage && errorMessage.includes("404")) {
         toast.error("Order not found");
       } else {
         toast.error("Failed to refund order");
@@ -1148,7 +1143,7 @@ const ManageOrdersPage = () => {
                                 <TableCell className="py-2">
                                   <div className="font-medium text-gray-900 text-xs">
                                     {getProductName(
-                                      item.productDetails.productName
+                                      item.productId
                                     )}
                                   </div>
                                 </TableCell>

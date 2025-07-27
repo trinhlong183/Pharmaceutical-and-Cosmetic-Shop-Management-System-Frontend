@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,13 +59,6 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
     loadCategories();
   }, []);
 
-  // Load all products when modal opens
-  useEffect(() => {
-    if (searchModalOpen) {
-      loadAllProducts();
-    }
-  }, [searchModalOpen]);
-
   const loadCategories = async () => {
     try {
       const categoriesData = await categoriesService.getAllCategories();
@@ -76,7 +69,7 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
     }
   };
 
-  const loadAllProducts = async () => {
+  const loadAllProducts = useCallback(async () => {
     setSearchLoading(true);
     try {
       const params: { limit: number; category?: string[] } = { limit: 1000 };
@@ -94,7 +87,14 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
     } finally {
       setSearchLoading(false);
     }
-  };
+  }, [selectedCategoryId]);
+
+  // Load all products when modal opens
+  useEffect(() => {
+    if (searchModalOpen) {
+      loadAllProducts();
+    }
+  }, [searchModalOpen, loadAllProducts]);
 
   // Filter products based on search query (name only) and selected category
   useEffect(() => {
@@ -138,7 +138,7 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
     if (emptySlotIndex !== -1) {
       const products = [...form.products];
       products[emptySlotIndex] = {
-        productId: product.id,
+        productId: product.id || product._id || "",
         quantity: 1,
         price: 0,
         expiryDate: "",
@@ -151,7 +151,7 @@ const CreateInventoryForm: React.FC<CreateInventoryFormProps> = ({
         products: [
           ...form.products,
           {
-            productId: product.id,
+            productId: product.id || product._id || "",
             quantity: 1,
             price: 0,
             expiryDate: "",

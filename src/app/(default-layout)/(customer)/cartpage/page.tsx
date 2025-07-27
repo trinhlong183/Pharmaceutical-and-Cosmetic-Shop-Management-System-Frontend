@@ -44,11 +44,11 @@ interface Cart {
   updatedAt: string;
 }
 
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message: string;
-}
+// interface ApiResponse<T> {
+//   success: boolean;
+//   data: T;
+//   message: string;
+// }
 
 // Helper function to format price in Vietnamese currency
 const formatVND = (price: number): string => {
@@ -60,9 +60,9 @@ const formatVND = (price: number): string => {
 };
 
 // Helper to convert decimal prices to VND integer (no decimal)
-const convertToVNDAmount = (price: number): number => {
-  return Math.round(price);
-};
+// const convertToVNDAmount = (price: number): number => {
+//   return Math.round(price);
+// };
 
 export default function CartPage() {
   const [cart, setCart] = useState<Cart | null>(null);
@@ -175,7 +175,7 @@ export default function CartPage() {
       } else {
         toast.error('Error loading cart data');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to fetch cart');
     } finally {
       setLoading(false);
@@ -188,7 +188,7 @@ export default function CartPage() {
       // Remove from selected items if it was selected
       setSelectedProductIds(prev => prev.filter(id => id !== productId));
       await fetchCart();
-    } catch (error) {
+    } catch {
       toast.error('Failed to remove item');
     }
   };
@@ -499,7 +499,7 @@ export default function CartPage() {
             </div>
             <CardTitle className="text-2xl mb-3">Your cart is empty</CardTitle>
             <p className="text-gray-500 mb-6">
-              You haven't added any products to your cart
+              You haven&apos;t added any products to your cart
             </p>
             <Link href="/products" passHref>
               <Button className="w-full">
