@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { toast } from "sonner";
 import { UseFormSetError } from "react-hook-form";
-import { EntityError } from "@/lib/http";
+import { EntityError, HttpError } from "@/lib/http";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -13,8 +13,8 @@ export const handleErrorApi = ({
   setError,
   duration,
 }: {
-  error: any;
-  setError?: UseFormSetError<any>;
+  error: unknown;
+  setError?: UseFormSetError<Record<string, unknown>>;
   duration?: number;
 }) => {
   if (error instanceof EntityError && setError) {
@@ -25,7 +25,7 @@ export const handleErrorApi = ({
       });
     });
   } else {
-    toast.error(error?.payload?.message ?? "Lỗi không xác định", {
+    toast.error((error as HttpError)?.payload?.message ?? "Lỗi không xác định", {
       duration: duration ?? 5000,
     });
   }

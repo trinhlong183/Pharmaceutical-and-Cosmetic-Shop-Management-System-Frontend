@@ -47,8 +47,8 @@ function ManageCategories() {
       const response = await categoriesService.getAllCategories();
 
       setCategories(response || []);
-    } catch (err: any) {
-      setError(err.message || "Error fetching categories");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error fetching categories");
     }
     setLoading(false);
   };
@@ -73,8 +73,8 @@ function ManageCategories() {
       setError(null);
       toast.success("Category created successfully");
       fetchCategories();
-    } catch (err: any) {
-      setError(err.message || "Error creating category");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error creating category");
     }
   };
 
@@ -101,8 +101,8 @@ function ManageCategories() {
       setError(null);
       toast.success("Category updated successfully");
       fetchCategories();
-    } catch (err: any) {
-      setError(err.message || "Error updating category");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error updating category");
     }
   };
 
@@ -112,8 +112,8 @@ function ManageCategories() {
       fetchCategories();
       toast.success("Category deleted successfully");
       setError(null);
-    } catch (err: any) {
-      setError(err.message || "Error deleting category");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error deleting category");
     }
   };
 
@@ -249,8 +249,8 @@ function ManageCategories() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to delete the category "
-                            {cat.categoryName}"? This action cannot be undone.
+                            Are you sure you want to delete the category &quot;
+                            {cat.categoryName}&quot;? This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

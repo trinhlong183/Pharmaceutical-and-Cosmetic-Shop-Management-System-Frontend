@@ -98,7 +98,10 @@ const InventoryLogCard: React.FC<InventoryLogCardProps> = ({ log }) => {
       : log.products;
 
   const grandTotal = displayItems
-    ? displayItems.reduce((sum, item) => sum + item.quantity * item.price, 0)
+    ? displayItems.reduce((sum, item) => {
+        const price = (item as any).price || (item as any).salePrice || 0;
+        return sum + item.quantity * price;
+      }, 0)
     : 0;
 
   const formatVND = (price: number) => {

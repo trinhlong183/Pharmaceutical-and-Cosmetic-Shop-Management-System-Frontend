@@ -1,5 +1,23 @@
 import http from "@/lib/http";
 
+interface ChatHistory {
+  id: string;
+  userId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ChatMessage {
+  id: string;
+  chatId: string;
+  userId: string;
+  messageContent: string;
+  sender: "user" | "ai";
+  createdAt: string;
+  updatedAt: string;
+}
+
 type createChatMessageBodyType = {
   chatId: string;
   userId: string;
@@ -18,7 +36,7 @@ export const chatService = {
   },
   getChatHistory: (userId: string) => {
     return http
-      .get<{ data: any[] }>(`chat-history/user/${userId}`)
+      .get<{ data: ChatHistory[] }>(`chat-history/user/${userId}`)
       .then((response) => response.payload.data);
   },
   deleteChatHistory: (chatId: string) => {
@@ -30,7 +48,7 @@ export const chatService = {
   },
   getAllChatMessages: (chatHistoryId: string) => {
     return http
-      .get<{ messages: any[] }>(`chat-messages/chat/${chatHistoryId}`)
+      .get<{ messages: ChatMessage[] }>(`chat-messages/chat/${chatHistoryId}`)
       .then((response) => response.payload.messages);
   },
   updateChatMessage: (messageId: string, data: createChatMessageBodyType) => {

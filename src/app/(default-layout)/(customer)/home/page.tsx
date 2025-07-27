@@ -11,15 +11,11 @@ import {
   ShieldCheck,
   Clock,
   CreditCard,
-  Star,
-  Sparkles,
-  Heart,
   Eye,
   ShoppingBag,
   Award,
   Users,
   TrendingUp,
-  Zap,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -30,10 +26,9 @@ export default function CustomerHome() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        // Get the 5 newest products by sorting by createdAt in descending order
+        // Get the 5 newest products
         const response = await productService.getAllProducts({
           limit: 5,
-          sort: "-createdAt", // Sort by newest first
         });
 
         if (!response || !response.products) {
@@ -60,62 +55,6 @@ export default function CustomerHome() {
     { name: "Cetaphil", logo: "/images/brands/cetaphil.png" },
     { name: "La Roche-Posay", logo: "/images/brands/laroche.png" },
     { name: "Bioderma", logo: "/images/brands/bioderma.png" },
-  ];
-
-  // Testimonials data
-  const testimonials = [
-    {
-      name: "Emma Thompson",
-      role: "Regular Customer",
-      image: "/images/testimonials/emma.jpg",
-      quote:
-        "I've been shopping here for years. The product range and quality is exceptional!",
-      rating: 5,
-    },
-    {
-      name: "Michael Chen",
-      role: "Skincare Enthusiast",
-      image: "/images/testimonials/michael.jpg",
-      quote:
-        "Their cosmetics collection is amazing. I always find what I need here.",
-      rating: 5,
-    },
-    {
-      name: "Sarah Johnson",
-      role: "Beauty Blogger",
-      image: "/images/testimonials/sarah.jpg",
-      quote:
-        "As someone who reviews products professionally, I can say this shop has premium quality items.",
-      rating: 4,
-    },
-  ];
-
-  // Trending categories data
-  const trendingCategories = [
-    {
-      name: "Skincare",
-      icon: Sparkles,
-      color: "from-pink-500 to-rose-500",
-      count: "250+ Products",
-    },
-    {
-      name: "Makeup",
-      icon: Heart,
-      color: "from-purple-500 to-indigo-500",
-      count: "180+ Products",
-    },
-    {
-      name: "Fragrance",
-      icon: Zap,
-      color: "from-blue-500 to-cyan-500",
-      count: "120+ Products",
-    },
-    {
-      name: "Hair Care",
-      icon: Star,
-      color: "from-green-500 to-emerald-500",
-      count: "90+ Products",
-    },
   ];
 
   // Statistics data
@@ -303,7 +242,7 @@ export default function CustomerHome() {
                       )}
 
                       {/* Badges */}
-                      {product.salePercentage > 0 && (
+                      {(product.salePercentage ?? 0) > 0 && (
                         <div className="absolute top-4 right-4 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-3 py-2 rounded-full shadow-lg">
                           -{product.salePercentage}% OFF
                         </div>
@@ -327,10 +266,10 @@ export default function CustomerHome() {
 
                       <div className="flex justify-between items-end">
                         <div className="flex-1">
-                          {product.salePercentage > 0 ? (
+                          {(product.salePercentage ?? 0) > 0 ? (
                             <div className="space-y-1">
                               <span className="text-2xl font-bold bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent">
-                                {formatCurrency(product.price * (1 - product.salePercentage / 100))}
+                                {formatCurrency(product.price * (1 - (product.salePercentage ?? 0) / 100))}
                               </span>
                               <div className="text-sm text-gray-400 line-through">
                                 {formatCurrency(product.price)}
@@ -392,59 +331,6 @@ export default function CustomerHome() {
         </div>
       </section>
 
-      {/* Testimonials Section - Enhanced */}
-      <section className="py-20 bg-gradient-to-br from-gray-50 via-white to-blue-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-4">
-              What Our Customers Say
-            </h2>
-            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-              Don't just take our word for it - hear from our satisfied
-              customers
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <div
-                key={index}
-                className="group bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-100 relative overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-500 to-purple-500"></div>
-                <div className="flex items-center mb-6">
-                  <div className="w-16 h-16 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full overflow-hidden mr-4 group-hover:scale-110 transition-transform duration-300">
-                    <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-purple-500 text-white font-bold text-xl">
-                      {testimonial.name[0]}
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg text-gray-900">
-                      {testimonial.name}
-                    </h3>
-                    <p className="text-gray-500">{testimonial.role}</p>
-                  </div>
-                </div>
-                <div className="flex mb-6">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-6 h-6 ${
-                        i < testimonial.rating
-                          ? "text-yellow-400 fill-yellow-400"
-                          : "text-gray-300"
-                      }`}
-                    />
-                  ))}
-                </div>
-                <p className="text-gray-600 italic text-lg leading-relaxed">
-                  "{testimonial.quote}"
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Featured Brands - Enhanced */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -453,7 +339,7 @@ export default function CustomerHome() {
               Trusted Brands
             </h2>
             <p className="text-gray-600 text-lg">
-              We partner with the world's leading beauty and pharmaceutical
+              We partner with the world&apos;s leading beauty and pharmaceutical
               brands
             </p>
           </div>

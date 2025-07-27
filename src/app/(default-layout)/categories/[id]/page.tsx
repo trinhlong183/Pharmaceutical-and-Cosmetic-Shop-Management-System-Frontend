@@ -162,7 +162,7 @@ function CategoryPage() {
                       )}
 
                       {/* Sale Badge */}
-                      {product.salePercentage > 0 && (
+                      {(product.salePercentage ?? 0) > 0 && (
                         <div className="absolute top-4 right-4">
                           <span className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
                             -{product.salePercentage}%

@@ -7,8 +7,6 @@ import {
   LayoutDashboard,
   Package,
   ShoppingCart,
-  Users,
-  Settings,
   FolderKanban,
   Layers2,
   Truck,
@@ -26,7 +24,6 @@ import { useUser } from "@/contexts/UserContext";
 
 interface DashboardLayoutProps {
   children: ReactNode;
-  userRole: "admin" | "staff";
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {

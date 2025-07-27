@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import authApiRequest from "@/api/auth";
 import { CheckCircle, XCircle } from "lucide-react";
@@ -75,4 +75,21 @@ function VerifyEmailPage() {
   );
 }
 
-export default VerifyEmailPage;
+function VerifyEmailPageWrapper() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
+          <div className="mb-4 animate-spin mx-auto w-10 h-10 border-4 border-indigo-400 border-t-transparent rounded-full"></div>
+          <div className="text-lg font-semibold text-gray-700">
+            Loading...
+          </div>
+        </div>
+      </div>
+    }>
+      <VerifyEmailPage />
+    </Suspense>
+  );
+}
+
+export default VerifyEmailPageWrapper;

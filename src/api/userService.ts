@@ -10,8 +10,8 @@ export interface User {
   photoUrl?: string;
   isVerified?: boolean;
   isActive?: boolean;
-  skinAnalysisHistory?: any[];
-  purchaseHistory?: any[];
+  skinAnalysisHistory?: unknown[];
+  purchaseHistory?: unknown[];
   role?: string;
   createdAt?: string;
   updatedAt?: string;

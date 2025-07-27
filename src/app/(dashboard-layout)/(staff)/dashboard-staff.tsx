@@ -10,6 +10,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+interface RecentOrder {
+  id: string;
+  customer: string;
+  date: string;
+  status: string;
+  total: number;
+}
+
 export default function StaffDashboard() {
   const [stats, setStats] = useState({
     totalSales: 0,
@@ -18,7 +26,7 @@ export default function StaffDashboard() {
     activeCustomers: 0
   });
   
-  const [recentOrders, setRecentOrders] = useState([]);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,9 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  PieChart,
-  Pie,
-  Cell,
   ResponsiveContainer,
   BarChart,
   Bar,
@@ -28,8 +26,6 @@ import {
   AreaChart,
   Area,
   Legend,
-  RadialBarChart,
-  RadialBar,
 } from "recharts";
 import {
   AlertTriangle,
@@ -38,7 +34,6 @@ import {
   Users,
   ShoppingCart,
   TrendingUp,
-  Clock,
   Eye,
   RefreshCw,
 } from "lucide-react";
@@ -48,58 +43,70 @@ import {
   DashboardStats,
   SalesData,
   TopProduct,
-  RecentOrder,
-  OrderStatusStats,
-  RecentActivity,
   InventoryAlert,
 } from "@/api/dashboardService";
 import StatsCards from "@/components/admin/StatsCards";
 import SalesChart from "@/components/admin/SalesChart";
-import TopProductsTable from "@/components/admin/TopProductsTable";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 
 function AdminDashboard() {
+  // Temporary fallback if dashboardService.getNewestProducts is not available
+  const getNewestProducts = async (limit = 4) => {
+    try {
+      // Lấy tất cả sản phẩm từ productService
+      const res = await import("@/api/productService").then(m => m.productService.getAllProducts());
+      const products = res.products || [];
+      // Sắp xếp theo createdAt mới nhất
+      return products
+        .filter(p => p.createdAt)
+        .sort((a, b) => new Date(String(b.createdAt ?? "")).getTime() - new Date(String(a.createdAt ?? "")).getTime())
+        .slice(0, limit)
+        .map(product => ({
+          id: product._id || product.id || '',
+          name: product.productName,
+          sales: 0,
+          revenue: 0,
+          image: product.productImages?.[0],
+          price: product.price,
+          createdAt: product.createdAt,
+        }));
+    } catch {
+      return [];
+    }
+  };
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
-  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
-  const [orderStatusStats, setOrderStatusStats] = useState<OrderStatusStats[]>([]);
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [inventoryAlerts, setInventoryAlerts] = useState<InventoryAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [salesPeriod, setSalesPeriod] = useState<"7d" | "30d" | "90d">("30d");
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
 
       // Fetch all dashboard data in parallel từ các API có sẵn
+
+
       const [
         statsData,
         salesResponse,
         productsData,
-        recentOrdersData,
-        orderStatusData,
-        activityData,
         alertsData,
+        newestProductsData,
       ] = await Promise.all([
         dashboardService.getDashboardStats(),
         dashboardService.getSalesData(salesPeriod),
         dashboardService.getTopProducts(10),
-        dashboardService.getRecentOrders(10),
-        dashboardService.getOrderStatusStats(),
-        dashboardService.getRecentActivity(8),
         dashboardService.getInventoryAlerts(),
+        getNewestProducts(4),
       ]);
 
       setStats(statsData);
       setSalesData(salesResponse);
-      setTopProducts(productsData);
-      setRecentOrders(recentOrdersData);
-      setOrderStatusStats(orderStatusData);
-      setRecentActivity(activityData);
+      setTopProducts(newestProductsData && newestProductsData.length > 0 ? newestProductsData : productsData.slice(0, 4));
       setInventoryAlerts(alertsData);
 
       if (refreshing) {
@@ -122,131 +129,20 @@ function AdminDashboard() {
       });
       setSalesData([]);
       setTopProducts([]);
-      setRecentOrders([]);
-      setOrderStatusStats([]);
-      setRecentActivity([]);
       setInventoryAlerts([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [salesPeriod, refreshing]);
 
   useEffect(() => {
     fetchDashboardData();
-  }, [salesPeriod]);
+  }, [salesPeriod, fetchDashboardData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchDashboardData();
     setRefreshing(false);
-  };
-
-  // Mock data generators for development
-  const generateMockSalesData = (): SalesData[] => {
-    const days = salesPeriod === "7d" ? 7 : salesPeriod === "30d" ? 30 : 90;
-    return Array.from({ length: days }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (days - 1 - i));
-      return {
-        date: date.toISOString().split("T")[0],
-        revenue: Math.floor(Math.random() * 500000) + 100000,
-        orders: Math.floor(Math.random() * 50) + 10,
-      };
-    });
-  };
-
-  const generateMockTopProducts = (): TopProduct[] => [
-    { id: "1", name: "Vitamin C Serum", sales: 234, revenue: 4680000 },
-    { id: "2", name: "Moisturizing Cream", sales: 189, revenue: 3780000 },
-    { id: "3", name: "Sunscreen SPF 50", sales: 156, revenue: 3120000 },
-    { id: "4", name: "Anti-aging Serum", sales: 134, revenue: 2680000 },
-    { id: "5", name: "Face Cleanser", sales: 123, revenue: 1845000 },
-  ];
-
-  const generateMockActivity = (): RecentActivity[] => [
-    {
-      id: "1",
-      type: "order",
-      description: "New order #ORD-1234 received",
-      timestamp: new Date().toISOString(),
-      status: "pending",
-    },
-    {
-      id: "2",
-      type: "product",
-      description: 'Product "Vitamin C Serum" updated',
-      timestamp: new Date(Date.now() - 1800000).toISOString(),
-    },
-    {
-      id: "3",
-      type: "inventory",
-      description: "Inventory request approved",
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-      status: "approved",
-    },
-    {
-      id: "4",
-      type: "customer",
-      description: "New customer registration",
-      timestamp: new Date(Date.now() - 5400000).toISOString(),
-    },
-  ];
-
-  const generateMockAlerts = (): InventoryAlert[] => [
-    {
-      productId: "1",
-      productName: "Vitamin E Oil",
-      currentStock: 5,
-      minimumStock: 10,
-      status: "low",
-    },
-    {
-      productId: "2",
-      productName: "Face Mask",
-      currentStock: 0,
-      minimumStock: 15,
-      status: "out",
-    },
-    {
-      productId: "3",
-      productName: "Eye Cream",
-      currentStock: 3,
-      minimumStock: 8,
-      status: "low",
-    },
-  ];
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case "order":
-        return <ShoppingCart className="h-4 w-4" />;
-      case "product":
-        return <Package className="h-4 w-4" />;
-      case "customer":
-        return <Users className="h-4 w-4" />;
-      case "inventory":
-        return <Package className="h-4 w-4" />;
-      default:
-        return <Activity className="h-4 w-4" />;
-    }
-  };
-
-  const getActivityColor = (type: string, status?: string) => {
-    if (status === "pending") return "text-yellow-600 bg-yellow-50";
-    if (status === "approved") return "text-green-600 bg-green-50";
-
-    switch (type) {
-      case "order":
-        return "text-blue-600 bg-blue-50";
-      case "product":
-        return "text-purple-600 bg-purple-50";
-      case "customer":
-        return "text-indigo-600 bg-indigo-50";
-      case "inventory":
-        return "text-orange-600 bg-orange-50";
-      default:
-        return "text-gray-600 bg-gray-50";
-    }
   };
 
   return (
@@ -271,7 +167,7 @@ function AdminDashboard() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
           <p className="text-gray-600 mt-1">
-            Welcome back! Here's what's happening with your business today.
+            Welcome back! Here&apos;s what&apos;s happening with your business today.
           </p>
         </div>
         <Button
@@ -311,57 +207,59 @@ function AdminDashboard() {
           />
         </div>
 
-        {/* Order Status Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-blue-600" />
-              Order Status Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="h-64 bg-gray-100 animate-pulse rounded"></div>
-            ) : orderStatusStats.length > 0 ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadialBarChart 
-                    cx="50%" 
-                    cy="50%" 
-                    innerRadius="20%" 
-                    outerRadius="90%" 
-                    data={orderStatusStats}
-                  >
-                    <RadialBar
-                      dataKey="count"
-                      cornerRadius={4}
-                      fill="#8884d8"
-                      label={{ position: 'insideStart', fill: '#fff', fontSize: 12 }}
-                    />
-                    <Legend 
-                      iconType="circle" 
-                      layout="vertical" 
-                      verticalAlign="middle" 
-                      align="right"
-                      wrapperStyle={{ fontSize: '12px' }}
-                    />
-                    <Tooltip
-                      formatter={(value, name) => [`${value} orders`, name]}
-                    />
-                  </RadialBarChart>
-                </ResponsiveContainer>
+      {/* Top 4 Newest Products Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-green-600" />
+            Top 4 Newest Products
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="h-64 bg-gray-100 animate-pulse rounded"></div>
+          ) : topProducts.length > 0 ? (
+            <div className="h-64 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Image</TableHead>
+                    <TableHead>Name</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {topProducts.slice(0, 4).map((product) => (
+                    <TableRow key={product.id}>
+                      <TableCell>
+                        {product.image ? (
+                          <Image 
+                            src={product.image} 
+                            alt={product.name} 
+                            width={48}
+                            height={48}
+                            className="w-12 h-12 object-cover rounded" 
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400">-</div>
+                        )}
+                      </TableCell>
+                      <TableCell>{product.name}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-gray-500">
+              <div className="text-center">
+                <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No product data available</p>
+                <p className="text-sm">Newest products will appear here</p>
               </div>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                  <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>No order data available</p>
-                  <p className="text-sm">Order statistics will appear here once orders are placed</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       </div>
 
       {/* Enhanced Charts Row */}
@@ -497,7 +395,7 @@ function AdminDashboard() {
                       tickFormatter={(value) => value.length > 12 ? `${value.substring(0, 12)}...` : value}
                     />
                     <Tooltip
-                      formatter={(value, name) => {
+                      formatter={(value: string | number, name: string) => {
                         if (name === 'sales') {
                           return [`${value} units sold`, 'Sales'];
                         }

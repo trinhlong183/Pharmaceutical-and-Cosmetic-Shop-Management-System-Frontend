@@ -9,7 +9,6 @@ type CustomOptions = Omit<RequestInit, "method"> & {
 };
 
 const ENTITY_ERROR_STATUS = 422;
-const AUTHENTICATION_ERROR_STATUS = 401;
 
 type EntityErrorPayload = {
   message: string;
@@ -144,7 +143,7 @@ function buildQueryString(params: Record<string, any>) {
   return (
     "?" +
     Object.entries(params)
-      .filter(([_, v]) => v !== undefined && v !== null)
+      .filter(([, v]) => v !== undefined && v !== null)
       .map(([k, v]) =>
         Array.isArray(v)
           ? v.map((item) => `${esc(k)}=${esc(item)}`).join("&")
@@ -166,7 +165,7 @@ const http = {
       fullUrl += url.includes("?") ? "&" + query.slice(1) : query;
     }
     // Loại bỏ params khỏi options khi truyền xuống request
-    const { params, ...restOptions } = options || {};
+    const { params: _, ...restOptions } = options || {};
     return request<Response>("GET", fullUrl, restOptions);
   },
   post<Response>(

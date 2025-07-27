@@ -44,20 +44,20 @@ function RegisterForm() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      // Convert empty dob string to null
+      // Convert empty dob string to undefined
       const payload = {
         ...values,
-        dob: values.dob && values.dob.trim() !== "" ? values.dob : null,
+        dob: values.dob && values.dob.trim() !== "" ? values.dob : undefined,
       };
       const result = await authApiRequest.register(payload);
       console.log("Registration result:", result);
 
       toast.success("Account created successfully!");
       router.push("/login");
-    } catch (error: any) {
+    } catch (error: unknown) {
       handleErrorApi({
         error,
-        setError: form.setError,
+        setError: form.setError as any,
       });
     } finally {
       setIsSubmitting(false);

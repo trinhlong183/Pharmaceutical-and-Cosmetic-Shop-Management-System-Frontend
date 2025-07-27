@@ -34,7 +34,7 @@ export default function Header() {
     const fetchCategories = async () => {
       try {
         const data = await categoriesService.getAllCategories();
-        setCategories(data);
+        setCategories(data as any);
       } catch (error) {
         console.error("Failed to fetch categories:", error);
       }

@@ -6,19 +6,17 @@ import {
   shippingLogsService,
   ShippingLog,
   ShippingStatus,
+  OrderItem,
 } from "@/api/shippingLogsService";
-import { orderService } from "@/api/orderService";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -36,12 +34,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -50,20 +46,13 @@ import {
 import { toast } from "react-hot-toast";
 import {
   Package,
-  Truck,
-  CalendarClock,
-  MapPin,
   User,
-  Phone,
   Clipboard,
   TruckIcon,
   PackageOpen,
   Loader2,
   Search,
-  Filter,
-  CheckCircle,
   XCircle,
-  AlertCircle,
   RefreshCw,
   Clock,
   Info,
@@ -72,8 +61,10 @@ import { format } from "date-fns";
 import { Textarea } from "@/components/ui/textarea";
 import RoleRoute from "@/components/auth/RoleRoute";
 import { Role } from "@/constants/type";
+import { useUser } from "@/contexts/UserContext";
 
 export default function ShippingAdminPage() {
+  const { user, loading: userLoading } = useUser();
   const [shippingLogs, setShippingLogs] = useState<ShippingLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
@@ -90,7 +81,7 @@ export default function ShippingAdminPage() {
   );
   const [statusNote, setStatusNote] = useState("");
   const [currentLocation, setCurrentLocation] = useState("");
-  const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loadingOrderItems, setLoadingOrderItems] = useState(false);
   const [loadingAction, setLoadingAction] = useState(false);
   const router = useRouter();
@@ -99,6 +90,78 @@ export default function ShippingAdminPage() {
     loadShippingLogs();
   }, []);
 
+  // Define status progression order
+  const statusProgression = [
+    ShippingStatus.PENDING,
+    ShippingStatus.PROCESSING,
+    ShippingStatus.IN_TRANSIT,
+    ShippingStatus.SHIPPED,
+    ShippingStatus.DELIVERED,
+    ShippingStatus.RECEIVED,
+  ];
+
+  // Define terminal statuses (can't progress further)
+  // const terminalStatuses = [
+  //   ShippingStatus.DELIVERED,
+  //   ShippingStatus.RECEIVED,
+  //   ShippingStatus.CANCELLED,
+  //   ShippingStatus.RETURNED,
+  // ];
+
+  // Get allowed statuses based on user role and current status
+  const getAllowedStatuses = (currentStatus?: ShippingStatus): ShippingStatus[] => {
+    const allStatuses = Object.values(ShippingStatus);
+    
+    // If user is not loaded yet, return empty array
+    if (!user) return [];
+    
+    // Admin can change to any status
+    if (user.role === Role.ADMIN) {
+      return allStatuses;
+    }
+
+    // Staff can only progress forward or mark as cancelled/returned
+    if (user.role === Role.STAFF) {
+      if (!currentStatus) {
+        return allStatuses; // If no current status, allow any
+      }
+
+      const currentIndex = statusProgression.indexOf(currentStatus);
+      const allowedStatuses: ShippingStatus[] = [];
+
+      // If current status is in main progression
+      if (currentIndex !== -1) {
+        // Only allow next statuses in progression (không cho phép giữ nguyên status hiện tại)
+        for (let i = currentIndex + 1; i < statusProgression.length; i++) {
+          allowedStatuses.push(statusProgression[i]);
+        }
+        
+        // Always allow cancelled and returned from any status in progression
+        allowedStatuses.push(ShippingStatus.CANCELLED, ShippingStatus.RETURNED);
+      } else if (currentStatus === ShippingStatus.CANCELLED || currentStatus === ShippingStatus.RETURNED) {
+        // If already cancelled or returned, no further changes allowed for staff
+        // Staff cannot change from terminal states
+        return [];
+      } else {
+        // If current status is not in main progression, allow cancelled and returned
+        allowedStatuses.push(ShippingStatus.CANCELLED, ShippingStatus.RETURNED);
+      }
+
+      return [...new Set(allowedStatuses)]; // Remove duplicates
+    }
+
+    // Default: no status changes allowed
+    return [];
+  };
+
+  // Check if status change is allowed
+  const isStatusChangeAllowed = (fromStatus?: ShippingStatus, toStatus?: ShippingStatus): boolean => {
+    if (!toStatus) return false;
+    
+    const allowedStatuses = getAllowedStatuses(fromStatus);
+    return allowedStatuses.includes(toStatus);
+  };
+
   const loadShippingLogs = async () => {
     try {
       setLoading(true);
@@ -106,8 +169,7 @@ export default function ShippingAdminPage() {
       console.log("Shipping logs loaded:", data); // Log data for debugging
       setShippingLogs(data || []);
       setLoading(false);
-    } catch (error) {
-      console.error("Failed to load shipping logs", error);
+    } catch {
       toast.error("Failed to load shipping data");
       setLoading(false);
     }
@@ -115,6 +177,16 @@ export default function ShippingAdminPage() {
 
   const handleUpdateStatus = async () => {
     if (!currentShipping) return;
+
+    // Validate status transition based on user role
+    if (!isStatusChangeAllowed(currentShipping.status as ShippingStatus, newStatus)) {
+      toast.error(
+        user?.role === Role.STAFF 
+          ? "Staff can only move forward in status progression or mark as cancelled/returned"
+          : "Status change not allowed"
+      );
+      return;
+    }
 
     try {
       setLoadingAction(true);
@@ -127,12 +199,8 @@ export default function ShippingAdminPage() {
       } else if (currentShipping._id) {
         shippingId = currentShipping._id;
       } else {
-        throw new Error("Không thể tìm thấy ID của đơn hàng");
+        throw new Error("Cannot find shipping log ID");
       }
-
-      console.log(
-        `Updating shipping log ${shippingId} to status: ${newStatus}`
-      );
 
       // Prepare update data
       const updateData = {
@@ -145,34 +213,24 @@ export default function ShippingAdminPage() {
       };
 
       // Call API to update status
-      const updatedShipping = await shippingLogsService.updateStatus(
+      await shippingLogsService.updateStatus(
         shippingId,
         updateData
       );
-
-      console.log("Updated shipping:", updatedShipping);
-
-      // Show success message
-      toast.success(`Đã cập nhật trạng thái thành ${newStatus}`);
-
-      // Close dialog and reload data
+      toast.success(`Shipping status updated to ${newStatus}`);
       setStatusDialogOpen(false);
       loadShippingLogs();
 
-      // Special handling for delivered status - notify user
       if (newStatus === ShippingStatus.DELIVERED) {
         toast.success(
-          "Đơn hàng đã được đánh dấu là đã giao. Khách hàng sẽ nhận được thông báo."
+          "Order has been marked as delivered. The customer will be notified."
         );
       }
     } catch (error) {
-      console.error("Failed to update shipping status", error);
-
-      // Handle different error types
       if (error instanceof Error) {
-        toast.error(`Không thể cập nhật trạng thái: ${error.message}`);
+        toast.error(`Unable to update status: ${error.message}`);
       } else {
-        toast.error("Không thể cập nhật trạng thái vận chuyển");
+        toast.error("Unable to update shipping status");
       }
     } finally {
       setLoadingAction(false);
@@ -183,7 +241,7 @@ export default function ShippingAdminPage() {
     if (!dateString) return "Not specified";
     try {
       return format(new Date(dateString), "dd/MM/yyyy HH:mm");
-    } catch (error) {
+    } catch {
       return "Invalid date";
     }
   };
@@ -255,8 +313,11 @@ export default function ShippingAdminPage() {
           (log.order?.shippingAddress
             ? log.order.shippingAddress.toLowerCase().includes(searchLower)
             : false) ||
-          (log.order?.contactPhone
-            ? log.order.contactPhone.toLowerCase().includes(searchLower)
+          (log.order?.recipientPhone
+            ? log.order.recipientPhone.toLowerCase().includes(searchLower)
+            : false) ||
+          (log.order?.phone
+            ? log.order.phone.toLowerCase().includes(searchLower)
             : false) ||
           // Product summary
           (log.productSummary && typeof log.productSummary === "string"
@@ -274,14 +335,8 @@ export default function ShippingAdminPage() {
   };
 
   // Extract order ID from different formats
-  const extractOrderId = (orderIdValue: string | any | undefined): string => {
+  const extractOrderId = (orderIdValue: string | { id?: string; _id?: string; orderId?: string; orderID?: string; order?: { id?: string; _id?: string } } | undefined): string => {
     if (!orderIdValue) return "";
-
-    // Debug the type of orderIdValue
-    console.log(`Extracting OrderID from:`, {
-      type: typeof orderIdValue,
-      value: orderIdValue,
-    });
 
     // Handle string format directly
     if (typeof orderIdValue === "string") {
@@ -290,21 +345,19 @@ export default function ShippingAdminPage() {
 
     // Handle object format (either direct orderId object or from .order field)
     if (typeof orderIdValue === "object" && orderIdValue) {
-      const orderIdObj = orderIdValue as Record<string, any>;
-
       // Try direct ID fields
       const directId =
-        orderIdObj.id ||
-        orderIdObj._id ||
-        orderIdObj.orderId ||
-        orderIdObj.orderID;
+        orderIdValue.id ||
+        orderIdValue._id ||
+        orderIdValue.orderId ||
+        orderIdValue.orderID;
       if (directId) {
         return directId;
       }
 
       // If we have an order object nested inside, use that
-      if (orderIdObj.order && typeof orderIdObj.order === "object") {
-        return orderIdObj.order.id || orderIdObj.order._id || "";
+      if (orderIdValue.order && typeof orderIdValue.order === "object") {
+        return orderIdValue.order.id || orderIdValue.order._id || "";
       }
     }
 
@@ -320,13 +373,13 @@ export default function ShippingAdminPage() {
     }
 
     // Log for debugging
-    console.log("Viewing order details for:", orderId);
+    // console.log("Viewing order details for:", orderId);
 
     // Navigate to the order details page
     try {
       router.push(`/manage-orders/${orderId}`);
-    } catch (error) {
-      console.error("Navigation error:", error);
+    } catch {
+      // console.error("Navigation error:", error);
       toast.error("Failed to open order details");
     }
   };
@@ -350,7 +403,7 @@ export default function ShippingAdminPage() {
         Array.isArray(shippingLog.items) &&
         shippingLog.items.length > 0
       ) {
-        console.log("Using items from shipping log:", shippingLog.items);
+        // console.log("Using items from shipping log:", shippingLog.items);
         setOrderItems(shippingLog.items);
         setLoadingOrderItems(false);
         return;
@@ -358,17 +411,17 @@ export default function ShippingAdminPage() {
 
       // Fallback: try to fetch from API if items not available in shipping log
       const data = await shippingLogsService.getOrderItems(orderId);
-      console.log("Order items loaded from API:", data);
+      // console.log("Order items loaded from API:", data);
 
       if (data && data.items) {
         setOrderItems(data.items);
       } else {
-        console.warn("No items found in API response");
+        // console.warn("No items found in API response");
         setOrderItems([]);
         toast.error("No items found for this order");
       }
-    } catch (error) {
-      console.error("Failed to load order items", error);
+    } catch {
+      // console.error("Failed to load order items", error);
       toast.error("Failed to load order items");
       setOrderItems([]);
     } finally {
@@ -395,7 +448,7 @@ export default function ShippingAdminPage() {
       setDeleteDialogOpen(false);
       loadShippingLogs(); // Reload the list
     } catch (error) {
-      console.error("Failed to delete shipping log", error);
+      // console.error("Failed to delete shipping log", error);
 
       // Handle different error types
       if (error instanceof Error) {
@@ -410,22 +463,36 @@ export default function ShippingAdminPage() {
 
   return (
     <RoleRoute allowedRoles={[Role.ADMIN, Role.STAFF]}>
-      <div className="container mx-auto p-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Shipping Management
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Manage and track all orders in the shipping process
-            </p>
-          </div>
-          <div className="mt-4 md:mt-0">
-            <Button onClick={loadShippingLogs} className="flex gap-2">
-              <RefreshCw className="h-4 w-4" /> Refresh Data
-            </Button>
+      {userLoading ? (
+        <div className="container mx-auto p-6">
+          <div className="flex flex-col items-center justify-center p-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Loading user information...</p>
           </div>
         </div>
+      ) : (
+        <div className="container mx-auto p-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">
+                Shipping Management
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Manage and track all orders in the shipping process
+              </p>
+            </div>
+            <div className="mt-4 md:mt-0 flex flex-col md:flex-row gap-3">
+              <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200">
+                <User className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-800">
+                  {user?.role === Role.ADMIN ? "Admin Access" : "Staff Access"}
+                </span>
+              </div>
+              <Button onClick={loadShippingLogs} className="flex gap-2">
+                <RefreshCw className="h-4 w-4" /> Refresh Data
+              </Button>
+            </div>
+          </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card>
@@ -518,8 +585,8 @@ export default function ShippingAdminPage() {
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="processing">Processing</SelectItem>
-                  <SelectItem value="shipped">Shipped</SelectItem>
                   <SelectItem value="in_transit">In Transit</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
                   <SelectItem value="delivered">Delivered</SelectItem>
                   <SelectItem value="received">Received</SelectItem>
                   <SelectItem value="returned">Returned</SelectItem>
@@ -635,8 +702,8 @@ export default function ShippingAdminPage() {
                               }
 
                               // Fallback to order contact phone
-                              if (log.order && log.order.contactPhone) {
-                                return log.order.contactPhone;
+                              if (log.order && log.order.phone) {
+                                return log.order.phone;
                               }
 
                               // Fallback to recipientPhone if exists
@@ -675,18 +742,32 @@ export default function ShippingAdminPage() {
                           >
                             Details
                           </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setCurrentShipping(log);
-                              setNewStatus(log.status as ShippingStatus);
-                              setCurrentLocation(log.currentLocation || "");
-                              setStatusNote("");
-                              setStatusDialogOpen(true);
-                            }}
-                          >
-                            Update
-                          </Button>
+                          {(() => {
+                            const allowedStatuses = getAllowedStatuses(log.status as ShippingStatus);
+                            const hasUpdatePermission = allowedStatuses.length > 0;
+                            
+                            return (
+                              <Button
+                                size="sm"
+                                disabled={!hasUpdatePermission}
+                                onClick={() => {
+                                  setCurrentShipping(log);
+                                  setNewStatus(log.status as ShippingStatus);
+                                  setCurrentLocation(log.currentLocation || "");
+                                  setStatusNote("");
+                                  setStatusDialogOpen(true);
+                                }}
+                                title={!hasUpdatePermission ? 
+                                  (user?.role === Role.STAFF ? 
+                                    "No further status changes available" : 
+                                    "No status changes allowed") : 
+                                  "Update status"
+                                }
+                              >
+                                Update
+                              </Button>
+                            );
+                          })()}
                           <div className="relative">
                             <Button
                               variant="ghost"
@@ -734,13 +815,23 @@ export default function ShippingAdminPage() {
             <DialogHeader>
               <DialogTitle>Update Shipping Status</DialogTitle>
               <DialogDescription>
-                Update the status of this shipment. This will be visible to the
-                customer.
+                Change the shipping status. This will be visible to the customer and update the order tracking information.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="status">Status</Label>
+                <Label htmlFor="current-status">Current Status</Label>
+                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-md border">
+                  <Badge className={`${getStatusColor(currentShipping?.status)}`}>
+                    {currentShipping?.status || "Unknown"}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    Current shipping status
+                  </span>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="status">New Status</Label>
                 <Select
                   value={newStatus}
                   onValueChange={(value) =>
@@ -748,35 +839,26 @@ export default function ShippingAdminPage() {
                   }
                 >
                   <SelectTrigger id="status">
-                    <SelectValue placeholder="Select status" />
+                    <SelectValue>
+                      {newStatus || currentShipping?.status || "Select new status"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ShippingStatus.PENDING}>
-                      Pending
-                    </SelectItem>
-                    <SelectItem value={ShippingStatus.PROCESSING}>
-                      Processing
-                    </SelectItem>
-                    <SelectItem value={ShippingStatus.IN_TRANSIT}>
-                      In Transit
-                    </SelectItem>
-                    <SelectItem value={ShippingStatus.SHIPPED}>
-                      Shipped
-                    </SelectItem>
-                    <SelectItem value={ShippingStatus.DELIVERED}>
-                      Delivered
-                    </SelectItem>
-                    <SelectItem value={ShippingStatus.RECEIVED}>
-                      Received
-                    </SelectItem>
-                    <SelectItem value={ShippingStatus.CANCELLED}>
-                      Cancelled
-                    </SelectItem>
-                    <SelectItem value={ShippingStatus.RETURNED}>
-                      Returned
-                    </SelectItem>
+                    {getAllowedStatuses(currentShipping?.status as ShippingStatus).map((status) => (
+                      <SelectItem 
+                        key={status} 
+                        value={status}
+                      >
+                        {status}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                {getAllowedStatuses(currentShipping?.status as ShippingStatus).length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {getAllowedStatuses(currentShipping?.status as ShippingStatus).length} status option(s) available
+                  </p>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="location">Current Location</Label>
@@ -805,7 +887,16 @@ export default function ShippingAdminPage() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleUpdateStatus} disabled={loadingAction}>
+              <Button
+                onClick={async () => {
+                  try {
+                    await handleUpdateStatus();
+                  } catch {
+                    toast.error("Failed to update shipping status");
+                  }
+                }}
+                disabled={loadingAction}
+              >
                 {loadingAction ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -955,7 +1046,7 @@ export default function ShippingAdminPage() {
                             style: "currency",
                             currency: "VND",
                           }).format(
-                            item.subtotal || item.price * item.quantity || 0
+                            item.subtotal || (item.price && item.quantity ? item.price * item.quantity : 0) || 0
                           )}
                         </TableCell>
                       </TableRow>
@@ -981,7 +1072,7 @@ export default function ShippingAdminPage() {
                             (sum, item) =>
                               sum +
                               (item.subtotal ||
-                                item.price * item.quantity ||
+                                (item.price && item.quantity ? item.price * item.quantity : 0) ||
                                 0),
                             0
                           )
@@ -1005,9 +1096,9 @@ export default function ShippingAdminPage() {
         <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
           <DialogContent className="sm:max-w-3xl">
             <DialogHeader>
-              <DialogTitle>Chi tiết vận chuyển</DialogTitle>
+              <DialogTitle>Shipping Details</DialogTitle>
               <DialogDescription>
-                Thông tin đầy đủ về lô hàng này
+                Full information about this shipment
               </DialogDescription>
             </DialogHeader>
 
@@ -1016,7 +1107,7 @@ export default function ShippingAdminPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <h3 className="text-lg font-semibold flex items-center gap-2 mb-2">
-                      <Package className="h-5 w-5" /> Thông tin đơn hàng
+                      <Package className="h-5 w-5" /> Order Information
                     </h3>
                     <div className="space-y-3">
                       <div className="flex justify-between">
@@ -1046,8 +1137,7 @@ export default function ShippingAdminPage() {
                               typeof currentShipping.orderId === "object" &&
                               currentShipping.orderId
                             ) {
-                              const orderIdObj =
-                                currentShipping.orderId as Record<string, any>;
+                              const orderIdObj = currentShipping.orderId as { id?: string; _id?: string };
                               return (
                                 orderIdObj.id ||
                                 orderIdObj._id ||
@@ -1129,7 +1219,7 @@ export default function ShippingAdminPage() {
                             Payment:
                           </span>
                           <span>
-                            {currentShipping.transaction.paymentMethod ||
+                            {currentShipping.transaction.method ||
                               "Payment received"}
                             {currentShipping.transaction.status &&
                               ` (${currentShipping.transaction.status})`}
@@ -1196,7 +1286,7 @@ export default function ShippingAdminPage() {
                         <span className="text-muted-foreground">Phone:</span>
                         <span>
                           {currentShipping.customer?.phone ||
-                            currentShipping.order?.contactPhone ||
+                            currentShipping.order?.phone ||
                             "Not provided"}
                         </span>
                       </div>
@@ -1457,20 +1547,34 @@ export default function ShippingAdminPage() {
                     <Info className="h-5 w-5" /> Admin Actions
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Button
-                      onClick={() => {
-                        setDetailDialogOpen(false);
-                        setNewStatus(currentShipping.status as ShippingStatus);
-                        setCurrentLocation(
-                          currentShipping.currentLocation || ""
-                        );
-                        setStatusNote("");
-                        setStatusDialogOpen(true);
-                      }}
-                      className="flex gap-2 items-center"
-                    >
-                      <Clock className="h-4 w-4" /> Update Status
-                    </Button>
+                    {(() => {
+                      const allowedStatuses = getAllowedStatuses(currentShipping?.status as ShippingStatus);
+                      const hasUpdatePermission = allowedStatuses.length > 0;
+                      
+                      return (
+                        <Button
+                          onClick={() => {
+                            setDetailDialogOpen(false);
+                            setNewStatus(currentShipping.status as ShippingStatus);
+                            setCurrentLocation(
+                              currentShipping.currentLocation || ""
+                            );
+                            setStatusNote("");
+                            setStatusDialogOpen(true);
+                          }}
+                          disabled={!hasUpdatePermission}
+                          className="flex gap-2 items-center"
+                          title={!hasUpdatePermission ? 
+                            (user?.role === Role.STAFF ? 
+                              "No further status changes available" : 
+                              "No status changes allowed") : 
+                            "Update shipping status"
+                          }
+                        >
+                          <Clock className="h-4 w-4" /> Update Status
+                        </Button>
+                      );
+                    })()}
 
                     <Button
                       variant="outline"
@@ -1529,7 +1633,8 @@ export default function ShippingAdminPage() {
             )}
           </DialogContent>
         </Dialog>
-      </div>
+        </div>
+      )}
     </RoleRoute>
   );
 }

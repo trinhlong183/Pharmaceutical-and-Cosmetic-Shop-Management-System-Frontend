@@ -1,6 +1,6 @@
 const API_URL = process.env.NEXT_PUBLIC_API_ENDPOINT;
 
-interface ApiResponse<T = any> {
+interface ApiResponse<T = unknown> {
   success: boolean;
   message: string;
   data?: T;
