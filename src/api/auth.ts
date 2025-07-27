@@ -4,13 +4,12 @@ import {
   RegisterBodyType,
   LoginResType,
 } from "@/schemaValidations/auth.schema";
-import { verify } from "crypto";
 
 const authApiRequest = {
   login: (body: LoginBodyType) =>
     http.post<{ status: number; payload: LoginResType }>("/auth/login", body),
   register: (body: RegisterBodyType) =>
-    http.post<{ status: number; payload: any }>("/auth/register", body),
+    http.post<{ status: number; payload: LoginResType }>("/auth/register", body),
   myProfile: () => http.get<{ status: number }>("/auth/my-profile"),
   changePassword: (body: { currentPassword: string; newPassword: string }) =>
     http.patch<{ status: number }>("/auth/change-password", body),
