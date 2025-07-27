@@ -60,6 +60,30 @@ import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 
 function AdminDashboard() {
+  // Temporary fallback if dashboardService.getNewestProducts is not available
+  const getNewestProducts = async (limit = 4) => {
+    try {
+      // Lấy tất cả sản phẩm từ productService
+      const res = await import("@/api/productService").then(m => m.productService.getAllProducts());
+      const products = res.products || [];
+      // Sắp xếp theo createdAt mới nhất
+      return products
+        .filter(p => p.createdAt)
+        .sort((a, b) => new Date(String(b.createdAt ?? "")).getTime() - new Date(String(a.createdAt ?? "")).getTime())
+        .slice(0, limit)
+        .map(product => ({
+          id: product._id || product.id || '',
+          name: product.productName,
+          sales: 0,
+          revenue: 0,
+          image: product.productImages?.[0],
+          price: product.price,
+          createdAt: product.createdAt,
+        }));
+    } catch {
+      return [];
+    }
+  };
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
@@ -76,6 +100,8 @@ function AdminDashboard() {
       setLoading(true);
 
       // Fetch all dashboard data in parallel từ các API có sẵn
+
+
       const [
         statsData,
         salesResponse,
@@ -84,6 +110,7 @@ function AdminDashboard() {
         orderStatusData,
         activityData,
         alertsData,
+        newestProductsData,
       ] = await Promise.all([
         dashboardService.getDashboardStats(),
         dashboardService.getSalesData(salesPeriod),
@@ -92,11 +119,12 @@ function AdminDashboard() {
         dashboardService.getOrderStatusStats(),
         dashboardService.getRecentActivity(8),
         dashboardService.getInventoryAlerts(),
+        getNewestProducts(4),
       ]);
 
       setStats(statsData);
       setSalesData(salesResponse);
-      setTopProducts(productsData);
+      setTopProducts(newestProductsData && newestProductsData.length > 0 ? newestProductsData : productsData.slice(0, 4));
       setRecentOrders(recentOrdersData);
       setOrderStatusStats(orderStatusData);
       setRecentActivity(activityData);
@@ -311,57 +339,53 @@ function AdminDashboard() {
           />
         </div>
 
-        {/* Order Status Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-blue-600" />
-              Order Status Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="h-64 bg-gray-100 animate-pulse rounded"></div>
-            ) : orderStatusStats.length > 0 ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadialBarChart 
-                    cx="50%" 
-                    cy="50%" 
-                    innerRadius="20%" 
-                    outerRadius="90%" 
-                    data={orderStatusStats}
-                  >
-                    <RadialBar
-                      dataKey="count"
-                      cornerRadius={4}
-                      fill="#8884d8"
-                      label={{ position: 'insideStart', fill: '#fff', fontSize: 12 }}
-                    />
-                    <Legend 
-                      iconType="circle" 
-                      layout="vertical" 
-                      verticalAlign="middle" 
-                      align="right"
-                      wrapperStyle={{ fontSize: '12px' }}
-                    />
-                    <Tooltip
-                      formatter={(value, name) => [`${value} orders`, name]}
-                    />
-                  </RadialBarChart>
-                </ResponsiveContainer>
+      {/* Top 4 Newest Products Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-green-600" />
+            Top 4 Newest Products
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="h-64 bg-gray-100 animate-pulse rounded"></div>
+          ) : topProducts.length > 0 ? (
+            <div className="h-64 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Image</TableHead>
+                    <TableHead>Name</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {topProducts.slice(0, 4).map((product: any) => (
+                    <TableRow key={product.id}>
+                      <TableCell>
+                        {product.image ? (
+                          <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded" />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400">-</div>
+                        )}
+                      </TableCell>
+                      <TableCell>{product.name}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-gray-500">
+              <div className="text-center">
+                <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No product data available</p>
+                <p className="text-sm">Newest products will appear here</p>
               </div>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                  <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>No order data available</p>
-                  <p className="text-sm">Order statistics will appear here once orders are placed</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       </div>
 
       {/* Enhanced Charts Row */}
