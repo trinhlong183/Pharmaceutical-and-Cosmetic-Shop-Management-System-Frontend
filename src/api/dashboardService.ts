@@ -1,9 +1,6 @@
-import http from "@/lib/http";
-import { orderService, Order } from "./orderService";
+import { orderService } from "./orderService";
 import { productService } from "./productService";
-import { userService, User } from "./userService";
-import { Product } from "@/types/product";
-import { Category } from "@/types/category";
+import { userService } from "./userService";
 
 export interface DashboardStats {
   totalRevenue: number;
