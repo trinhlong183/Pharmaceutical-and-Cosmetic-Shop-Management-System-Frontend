@@ -1,5 +1,15 @@
 import http from "@/lib/http";
 
+interface Review {
+  id: string;
+  productId: string;
+  rating: number;
+  content: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 type createReviewBodyType = {
   productId: string;
   rating: number;
@@ -15,7 +25,7 @@ export const reviewService = {
   },
   getAllReviews: (params: { productId: string; userId: string }) => {
     return http
-      .get<{ data: any }>("/reviews", { params })
+      .get<{ data: Review[] }>("/reviews", { params })
       .then((response) => response.payload.data);
   },
   getReviewById: (reviewId: string) => {

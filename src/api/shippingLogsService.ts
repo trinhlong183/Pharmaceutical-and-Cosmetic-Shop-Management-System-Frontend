@@ -11,7 +11,16 @@ export interface OrderDetail {
   orderNumber?: string;
   orderDate?: string;
   paymentStatus?: string;
-  [key: string]: any;
+  customer?: CustomerDetail;
+  userId?: string | CustomerDetail;
+  items?: OrderItem[];
+  shipping?: ShippingLog;
+  shippingLogs?: ShippingLog[];
+  shippingAddress?: string;
+  deliveryAddress?: string;
+  recipientName?: string;
+  recipientPhone?: string;
+  phone?: string;
 }
 
 export interface CustomerDetail {
@@ -19,12 +28,13 @@ export interface CustomerDetail {
   _id?: string;
   name?: string;
   fullName?: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
   phone?: string;
   phoneNumber?: string;
   address?: string;
   shippingAddress?: string;
-  [key: string]: any;
 }
 
 export interface TransactionDetail {
@@ -35,7 +45,6 @@ export interface TransactionDetail {
   method?: string;
   date?: string;
   reference?: string;
-  [key: string]: any;
 }
 
 export interface OrderItem {
@@ -43,11 +52,11 @@ export interface OrderItem {
   _id?: string;
   productId?: string;
   productName?: string;
+  name?: string;
   quantity?: number;
   price?: number;
   subtotal?: number;
   image?: string;
-  [key: string]: any;
 }
 
 export interface ShippingLog {
@@ -60,7 +69,6 @@ export interface ShippingLog {
     status?: string;
     createdAt?: string;
     updatedAt?: string;
-    [key: string]: any;
   };
   trackingNumber?: string;
   carrier?: string;
@@ -166,6 +174,14 @@ export interface OrderItemsResponse {
   totalQuantity: number;
 }
 
+interface QueryParams {
+  status?: string;
+  orderId?: string;
+  carrier?: string;
+  page?: number;
+  limit?: number;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -181,7 +197,7 @@ export const shippingLogsService = {
   },
 
   // Get all shipping logs
-  getAll: async (params?: any): Promise<ShippingLog[]> => {
+  getAll: async (params?: QueryParams): Promise<ShippingLog[]> => {
     try {
       const response = await http.get<ApiResponse<ShippingLog[]>>("/shipping-logs", { params });
       
@@ -270,7 +286,7 @@ export const shippingLogsService = {
       if (!shippingLog.order && shippingLog.orderId && typeof shippingLog.orderId === 'string') {
         try {
           const { orderService } = await import('@/api/orderService');
-          const orderDetails = await orderService.getOrderById(shippingLog.orderId) as Record<string, any>;
+          const orderDetails = await orderService.getOrderById(shippingLog.orderId) as OrderDetail;
           
           // Thêm thông tin đơn hàng
           shippingLog.order = {
@@ -369,7 +385,7 @@ export const shippingLogsService = {
         
         // Try to fetch from the regular orders endpoint as fallback
         try {
-          const orderResponse = await http.get<ApiResponse<any>>(`/orders/${cleanOrderId}`);
+          const orderResponse = await http.get<ApiResponse<OrderDetail>>(`/orders/${cleanOrderId}`);
           const orderData = orderResponse?.payload?.data || orderResponse?.payload;
           
           // Handle different possible response structures
@@ -480,7 +496,7 @@ export const shippingLogsService = {
       }
       
       // Send the delete request
-      const response = await http.delete<ApiResponse<any>>(`/shipping-logs/${id}`);
+      await http.delete<ApiResponse<boolean>>(`/shipping-logs/${id}`);
       
       // Return true to indicate success
       return true;
@@ -510,15 +526,15 @@ export const shippingLogsService = {
       const { orderService } = await import('@/api/orderService');
       const { userService } = await import('@/api/userService');
       
-      // Get order data - use any type to prevent TypeScript errors with dynamic fields
-      const orderData = await orderService.getOrderById(orderId) as Record<string, any>;
+      // Get order data
+      const orderData = await orderService.getOrderById(orderId) as OrderDetail;
       
       if (!orderData) {
         throw new Error("Failed to fetch order information");
       }
       
       // Get user data for shipping information
-      let userData: any = null;
+      let userData: CustomerDetail | null = null;
       
       // Try multiple ways to get customer information
       try {
@@ -531,9 +547,11 @@ export const shippingLogsService = {
                 (typeof orderData.userId === 'object' && orderData.userId && orderData.userId.id)) {
           const userId = typeof orderData.userId === 'string' ? 
                         orderData.userId : 
-                        (orderData.userId.id || orderData.userId._id);
+                        (orderData.userId?.id || orderData.userId?._id);
           
-          userData = await userService.getUserById(userId);
+          if (userId) {
+            userData = await userService.getUserById(userId);
+          }
         }
       } catch (error) {
         console.warn("Could not fetch user data, continuing with order data only:", error);
@@ -597,7 +615,7 @@ export const shippingLogsService = {
       
       if (orderData.items && Array.isArray(orderData.items) && orderData.items.length > 0) {
         // Tìm thông tin sản phẩm để hiển thị trong productSummary
-        productSummaryText = orderData.items.slice(0, 3).map((item: any) => {
+        productSummaryText = orderData.items.slice(0, 3).map((item: OrderItem) => {
           const quantity = item.quantity || 1;
           const name = item.productName || item.name || 'Sản phẩm';
           return `${quantity}x ${name}`;
@@ -610,7 +628,7 @@ export const shippingLogsService = {
         
         // Tính toán số lượng mục và tổng số lượng
         itemCount = orderData.items.length;
-        totalQuantity = orderData.items.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
+        totalQuantity = orderData.items.reduce((sum: number, item: OrderItem) => sum + (item.quantity || 1), 0);
       }
       
       // Tạo dữ liệu shipping log với định dạng API mới

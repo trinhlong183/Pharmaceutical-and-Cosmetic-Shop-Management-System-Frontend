@@ -43,9 +43,6 @@ import {
   DashboardStats,
   SalesData,
   TopProduct,
-  RecentOrder,
-  OrderStatusStats,
-  RecentActivity,
   InventoryAlert,
 } from "@/api/dashboardService";
 import StatsCards from "@/components/admin/StatsCards";
