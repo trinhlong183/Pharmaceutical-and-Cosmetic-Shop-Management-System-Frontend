@@ -73,7 +73,7 @@ function InventoryRequest() {
   const handleStatusChange = (value: string) => {
     setPendingFilters((prev) => ({
       ...prev,
-      status: value === "all" ? undefined : (value as "pending" | "approved" | "denied"),
+      status: value === "all" ? undefined : value,
     }));
   };
 
@@ -293,7 +293,7 @@ function InventoryRequest() {
                           </TableCell>
                           <TableCell>
                             {typeof log.userId === "object"
-                              ? (log.userId as { fullName?: string })?.fullName || "Unknown User"
+                              ? log.userId.fullName
                               : log.userId}
                           </TableCell>
                           <TableCell>{getStatusBadge(log.status)}</TableCell>
@@ -317,11 +317,11 @@ function InventoryRequest() {
                             </Button>
                           </TableCell>
                         </TableRow>
-                        {selectedLog && selectedLog.id === log.id && (
+                        {selectedLog && selectedLog._id === log._id && (
                           <TableRow>
                             <TableCell colSpan={5} className="p-0">
                               <div className="p-4">
-                                <InventoryLogCard log={selectedLog as unknown as { _id: string; batch: string; products: { productId: string; quantity: number; _id?: string }[]; action: string; status: string; userId: { _id: string; email: string; fullName: string } | string; createdAt: string; updatedAt: string; reason?: string; items: { _id: string; inventoryLogId: string; productId: { productName: string; price: number; id: string; stock: number }; quantity: number; expiryDate: string; price: number; createdAt: string; updatedAt: string }[] }} />
+                                <InventoryLogCard log={selectedLog as any} />
                                 <div className="mt-6 flex gap-3 flex-wrap justify-end border-t pt-4">
                                   {selectedLog.status === "pending" && (
                                     <>
@@ -330,7 +330,7 @@ function InventoryRequest() {
                                         className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
                                         disabled={reviewing}
                                         onClick={() =>
-                                          handleApprove(selectedLog.id!)
+                                          handleApprove(selectedLog._id)
                                         }
                                       >
                                         <CheckCircle className="w-4 h-4 mr-2" />
@@ -404,7 +404,7 @@ function InventoryRequest() {
               <Button
                 variant="destructive"
                 disabled={reviewing || !reason.trim()}
-                onClick={() => selectedLog?.id && handleDeny(selectedLog.id)}
+                onClick={() => handleDeny(selectedLog?._id)}
                 type="button"
               >
                 {reviewing ? "Processing..." : "Confirm Deny"}
