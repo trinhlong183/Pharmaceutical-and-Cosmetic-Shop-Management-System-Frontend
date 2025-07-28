@@ -238,11 +238,11 @@ export default function ProfilePage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-4 rounded-lg">
-                    <div className="text-2xl font-bold text-indigo-600">12</div>
+                    <div className="text-2xl font-bold text-indigo-600">0</div>
                     <div className="text-sm text-gray-600">Orders</div>
                   </div>
                   <div className="bg-gradient-to-br from-purple-50 to-pink-100 p-4 rounded-lg">
-                    <div className="text-2xl font-bold text-purple-600">8</div>
+                    <div className="text-2xl font-bold text-purple-600">0</div>
                     <div className="text-sm text-gray-600">Reviews</div>
                   </div>
                 </div>
