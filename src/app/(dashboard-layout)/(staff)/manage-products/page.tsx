@@ -43,7 +43,7 @@ import { Badge } from "@/components/ui/badge";
 import { Product } from "@/types/product";
 import { Category } from "@/types/category";
 import ProductForm from "@/app/(dashboard-layout)/(staff)/manage-products/ProductForm";
-import { PlusIcon, SearchIcon } from "lucide-react";
+import { PlusIcon, SearchIcon, ArrowUpDown } from "lucide-react";
 import Image from "next/image";
 import { useUser } from "@/contexts/UserContext";
 import { formatCurrency } from "@/lib/utils";
@@ -54,6 +54,8 @@ export default function ManageProductsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortField, setSortField] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -66,8 +68,14 @@ export default function ManageProductsPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        const queryParams: any = {};
+        if (sortField) {
+          queryParams.sortBy = sortField;
+          queryParams.order = sortOrder;
+        }
+
         const [productsData, categoriesData] = await Promise.all([
-          productService.getAllProducts(),
+          productService.getAllProducts(queryParams),
           categoriesService.getAllCategories(),
         ]);
 
@@ -83,7 +91,7 @@ export default function ManageProductsPage() {
     };
 
     fetchData();
-  }, []);
+  }, [sortField, sortOrder]);
 
   // Filter products based on search query
   const filteredProducts = products.filter((product) => {
@@ -95,13 +103,45 @@ export default function ManageProductsPage() {
     );
   });
 
+  const handleSort = async (
+    field: "price" | "stock",
+    order: "asc" | "desc"
+  ) => {
+    try {
+      setLoading(true);
+      setSortField(field);
+      setSortOrder(order);
+
+      const productsData = await productService.getAllProducts({
+        sortBy: field,
+        order: order,
+      });
+
+      const productList = productsData.products || [];
+      setProducts(productList);
+    } catch (error) {
+      console.error("Error sorting products:", error);
+      toast.error("Failed to sort products");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAddProduct = async (productData: any) => {
     try {
       setLoading(true);
       await productService.createProduct(productData);
 
-      // Refresh products list
-      const updatedProductsData = await productService.getAllProducts();
+      // Refresh products list with current sorting
+      const queryParams: any = {};
+      if (sortField) {
+        queryParams.sortBy = sortField;
+        queryParams.order = sortOrder;
+      }
+
+      const updatedProductsData = await productService.getAllProducts(
+        queryParams
+      );
       const updatedProducts = updatedProductsData.products || [];
       setProducts(updatedProducts);
 
@@ -125,8 +165,16 @@ export default function ManageProductsPage() {
       setLoading(true);
       await productService.updateProduct(productId, productData);
 
-      // Refresh products list
-      const updatedProductsData = await productService.getAllProducts();
+      // Refresh products list with current sorting
+      const queryParams: any = {};
+      if (sortField) {
+        queryParams.sortBy = sortField;
+        queryParams.order = sortOrder;
+      }
+
+      const updatedProductsData = await productService.getAllProducts(
+        queryParams
+      );
       const updatedProducts = updatedProductsData.products || [];
       setProducts(updatedProducts);
 
@@ -188,15 +236,49 @@ export default function ManageProductsPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            {/* Search bar */}
-            <div className="relative mb-6">
-              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <Input
-                placeholder="Search products by name, description, or brand..."
-                className="pl-10 w-full md:w-1/2"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            {/* Search bar and Sort controls */}
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <div className="relative flex-1">
+                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Input
+                  placeholder="Search products by name, description, or brand..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <ArrowUpDown className="w-4 h-4" />
+                    Sort {sortField && `by ${sortField} (${sortOrder})`}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Sort by Price</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => handleSort("price", "asc")}>
+                    Price: Low to High
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleSort("price", "desc")}>
+                    Price: High to Low
+                  </DropdownMenuItem>
+                  <DropdownMenuLabel>Sort by Stock</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => handleSort("stock", "asc")}>
+                    Stock: Low to High
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleSort("stock", "desc")}>
+                    Stock: High to Low
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSortField("");
+                      setSortOrder("asc");
+                    }}
+                  >
+                    Clear Sort
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Products table */}

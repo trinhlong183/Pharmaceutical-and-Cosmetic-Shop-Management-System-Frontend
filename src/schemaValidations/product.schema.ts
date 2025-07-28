@@ -132,7 +132,7 @@ export const ProductQueryParams = z
     maxPrice: z.number().optional(),
     suitableFor: z.nativeEnum(SuitableFor).optional(),
     sortBy: z
-      .enum(["price", "salePercentage", "expiryDate", "createdAt"])
+      .enum(["price", "salePercentage", "expiryDate", "createdAt", "stock"])
       .optional(),
     order: z.enum(["asc", "desc"]).optional(),
     page: z.number().optional(),

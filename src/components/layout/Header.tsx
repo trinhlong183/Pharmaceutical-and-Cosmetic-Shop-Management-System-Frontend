@@ -12,7 +12,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { ShoppingCart, Menu, X, ChevronDown } from "lucide-react";
+import { Menu, X, ChevronDown } from "lucide-react";
 import CartIcon from "./CartIcon";
 import { Role } from "@/constants/type";
 import { categoriesService } from "@/api/categoriesService";
@@ -27,6 +27,7 @@ export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
+  const [isMobileCategoriesOpen, setIsMobileCategoriesOpen] = useState(false);
   const { user, setUser, loading } = useUser();
   const pathname = usePathname();
 
@@ -151,69 +152,67 @@ export default function Header() {
           {loading ? (
             <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse" />
           ) : user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-100 transition-colors">
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={user.photoUrl} />
-                    <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
-                      {user.fullName ? user.fullName[0].toUpperCase() : "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                  <div className="font-semibold text-gray-800">
-                    {user.fullName || user.email}
-                  </div>
-                  <div className="text-xs text-gray-500">{user.email}</div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <Link href="/profile" passHref>
-                  <DropdownMenuItem className="cursor-pointer">
-                    My Profile
-                  </DropdownMenuItem>
-                </Link>
-                <Link href="/myorders" passHref>
-                  <DropdownMenuItem className="cursor-pointer">
-                    My Orders
-                  </DropdownMenuItem>
-                </Link>
-                <Link href="/skin-history" passHref>
-                  <DropdownMenuItem className="cursor-pointer">
-                    Skin Analysis History
-                  </DropdownMenuItem>
-                </Link>
-                {user.role === Role.STAFF && (
-                  <Link href="/manage-orders" passHref>
+            <div className="hidden md:block">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-100 transition-colors">
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={user.photoUrl} />
+                      <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
+                        {user.fullName ? user.fullName[0].toUpperCase() : "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="font-semibold text-gray-800">
+                      {user.fullName || user.email}
+                    </div>
+                    <div className="text-xs text-gray-500">{user.email}</div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <Link href="/profile" passHref>
                     <DropdownMenuItem className="cursor-pointer">
-                      Manage
+                      My Profile
                     </DropdownMenuItem>
                   </Link>
-                )}
-                {user.role === Role.ADMIN && (
-                  <Link href="/dashboard" passHref>
+                  <Link href="/myorders" passHref>
                     <DropdownMenuItem className="cursor-pointer">
-                      Dashboard
+                      My Orders
                     </DropdownMenuItem>
                   </Link>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="cursor-pointer text-red-600"
-                  onClick={() => {
-                    localStorage.removeItem("accessToken");
-                    setUser(null);
-                    window.location.href = "/login";
-                  }}
-                >
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+
+                  {user.role === Role.STAFF && (
+                    <Link href="/manage-orders" passHref>
+                      <DropdownMenuItem className="cursor-pointer">
+                        Manage
+                      </DropdownMenuItem>
+                    </Link>
+                  )}
+                  {user.role === Role.ADMIN && (
+                    <Link href="/dashboard" passHref>
+                      <DropdownMenuItem className="cursor-pointer">
+                        Dashboard
+                      </DropdownMenuItem>
+                    </Link>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="cursor-pointer text-red-600"
+                    onClick={() => {
+                      localStorage.removeItem("accessToken");
+                      setUser(null);
+                      window.location.href = "/login";
+                    }}
+                  >
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           ) : (
-            <div className="flex items-center space-x-3">
+            <div className="hidden md:flex items-center space-x-3">
               <Link
                 href="/login"
                 className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
@@ -249,12 +248,13 @@ export default function Header() {
           <div className="container mx-auto px-4 py-4">
             <nav className="flex flex-col space-y-4">
               <Link
-                href="/"
+                href="/home"
                 className={`py-2 font-medium transition-colors ${
                   pathname === "/" || pathname === "/home"
                     ? "text-blue-600 font-bold"
                     : "text-gray-600 hover:text-blue-600"
                 }`}
+                onClick={() => setIsMenuOpen(false)}
               >
                 Home
               </Link>
@@ -265,43 +265,50 @@ export default function Header() {
                     ? "text-blue-600 font-bold"
                     : "text-gray-600 hover:text-blue-600"
                 }`}
+                onClick={() => setIsMenuOpen(false)}
               >
                 Products
               </Link>
-              <Link
-                href="/mobile-app"
-                className={`py-2 font-medium transition-colors flex items-center space-x-2 ${
-                  pathname === "/mobile-app"
-                    ? "text-blue-600 font-bold"
-                    : "text-gray-600 hover:text-blue-600"
-                }`}
-              >
-                <span className="text-lg">📱</span>
-                <span>Mobile App</span>
-              </Link>
-              <Link
-                href="/categories"
-                className={`py-2 font-medium transition-colors flex items-center space-x-2 ${
-                  pathname?.startsWith("/categories")
-                    ? "text-blue-600 font-bold"
-                    : "text-gray-600 hover:text-blue-600"
-                }`}
-              >
-                <span className="text-lg">📦</span>
-                <span>Categories</span>
-              </Link>
 
-              <Link
-                href="/cart"
-                className={`py-2 font-medium transition-colors flex items-center ${
-                  pathname === "/cart"
-                    ? "text-blue-600 font-bold"
-                    : "text-gray-600 hover:text-blue-600"
-                }`}
-              >
-                <ShoppingCart className="w-5 h-5 mr-2" />
-                Shopping Cart
-              </Link>
+              {/* Mobile Categories */}
+              <div className="py-2">
+                <button
+                  className={`font-medium transition-colors flex items-center justify-between w-full ${
+                    pathname?.startsWith("/categories")
+                      ? "text-blue-600 font-bold"
+                      : "text-gray-600 hover:text-blue-600"
+                  }`}
+                  onClick={() =>
+                    setIsMobileCategoriesOpen(!isMobileCategoriesOpen)
+                  }
+                >
+                  <span>Categories</span>
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${
+                      isMobileCategoriesOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {isMobileCategoriesOpen && (
+                  <div className="mt-2 ml-4 space-y-2 max-h-60 overflow-y-auto">
+                    {categories.map((category) => (
+                      <Link
+                        key={category._id}
+                        href={`/categories/${category._id}`}
+                        className="block py-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          setIsMobileCategoriesOpen(false);
+                        }}
+                      >
+                        {category.categoryName}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <Link
                 href="/aboutus"
                 className={`py-2 font-medium transition-colors ${
@@ -309,29 +316,53 @@ export default function Header() {
                     ? "text-blue-600 font-bold"
                     : "text-gray-600 hover:text-blue-600"
                 }`}
+                onClick={() => setIsMenuOpen(false)}
               >
                 About Us
               </Link>
-              {user && (
-                <>
-                  <div className="border-t border-gray-200 pt-4">
-                    <Link
-                      href="/profile"
-                      className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
-                    >
-                      My Profile
-                    </Link>
-                  </div>
+
+              {/* Mobile Auth Links */}
+              {!user && (
+                <div className="border-t border-gray-200 pt-4 space-y-3">
                   <Link
-                    href="/orders"
-                    className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
+                    href="/login"
+                    className="block py-2 text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="block bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium text-center"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              )}
+
+              {/* Mobile User Menu */}
+              {user && (
+                <div className="border-t border-gray-200 pt-4 space-y-3">
+                  <Link
+                    href="/profile"
+                    className="block py-2 text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    My Profile
+                  </Link>
+                  <Link
+                    href="/myorders"
+                    className="block py-2 text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
                   >
                     My Orders
                   </Link>
                   {user.role === Role.STAFF && (
                     <Link
                       href="/manage-orders"
-                      className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
+                      className="block py-2 text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                      onClick={() => setIsMenuOpen(false)}
                     >
                       Manage Orders
                     </Link>
@@ -339,12 +370,24 @@ export default function Header() {
                   {user.role === Role.ADMIN && (
                     <Link
                       href="/dashboard"
-                      className="text-gray-600 hover:text-blue-600 py-2 font-medium transition-colors"
+                      className="block py-2 text-gray-600 hover:text-blue-600 font-medium transition-colors"
+                      onClick={() => setIsMenuOpen(false)}
                     >
                       Dashboard
                     </Link>
                   )}
-                </>
+                  <button
+                    className="block w-full text-left py-2 text-red-600 font-medium transition-colors hover:text-red-700"
+                    onClick={() => {
+                      localStorage.removeItem("accessToken");
+                      setUser(null);
+                      setIsMenuOpen(false);
+                      window.location.href = "/login";
+                    }}
+                  >
+                    Logout
+                  </button>
+                </div>
               )}
             </nav>
           </div>

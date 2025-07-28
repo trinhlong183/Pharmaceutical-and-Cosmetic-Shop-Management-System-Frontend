@@ -152,11 +152,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     My Profile
                   </DropdownMenuItem>
                 </Link>
-                <Link href="/skin-history" passHref>
-                  <DropdownMenuItem className="cursor-pointer">
-                    Skin Analysis History
-                  </DropdownMenuItem>
-                </Link>
+            
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="cursor-pointer text-red-600"

@@ -11,9 +11,16 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   RegisterBody,
@@ -23,9 +30,64 @@ import authApiRequest from "@/api/auth";
 import { toast } from "sonner";
 import { handleErrorApi } from "@/lib/utils";
 
+interface Ward {
+  name: string;
+}
+
+interface ProvinceApiResponse {
+  success: boolean;
+  data: {
+    province: string;
+    wards: Ward[];
+  };
+}
+
+const PROVINCES = [
+  "Hà Nội",
+  "Huế",
+  "Hải Phòng",
+  "Đà Nẵng",
+  "Hồ Chí Minh",
+  "Cần Thơ",
+  "Tuyên Quang",
+  "Lào Cai",
+  "Thái Nguyên",
+  "Phú Thọ",
+  "Bắc Ninh",
+  "Hưng Yên",
+  "Ninh Bình",
+  "Quảng Trị",
+  "Quảng Ngãi",
+  "Gia Lai",
+  "Đắk Lắk",
+  "Khánh Hòa",
+  "Lâm Đồng",
+  "Đồng Nai",
+  "Tây Ninh",
+  "Đồng Tháp",
+  "An Giang",
+  "Vĩnh Long",
+  "Cà Mau",
+  "Cao Bằng",
+  "Lai Châu",
+  "Điện Biên",
+  "Sơn La",
+  "Lạng Sơn",
+  "Quảng Ninh",
+  "Thanh Hóa",
+  "Nghệ An",
+  "Hà Tĩnh",
+];
+
 function RegisterForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [wards, setWards] = React.useState<Ward[]>([]);
+  const [loadingWards, setLoadingWards] = React.useState(false);
+  const [selectedProvince, setSelectedProvince] = React.useState("");
+  const [selectedWard, setSelectedWard] = React.useState("");
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
   const form = useForm<RegisterBodyType>({
     resolver: zodResolver(RegisterBody),
@@ -39,6 +101,55 @@ function RegisterForm() {
       dob: "",
     },
   });
+
+  const fetchWards = async (province: string) => {
+    setLoadingWards(true);
+    try {
+      const response = await fetch(
+        `https://vietnamlabs.com/api/vietnamprovince?province=${encodeURIComponent(
+          province
+        )}`
+      );
+      const data: ProvinceApiResponse = await response.json();
+
+      if (data.success) {
+        setWards(data.data.wards);
+      } else {
+        setWards([]);
+        toast.error("Failed to load wards for selected province");
+      }
+    } catch (error) {
+      console.error("Error fetching wards:", error);
+      setWards([]);
+      toast.error("Failed to load wards");
+    } finally {
+      setLoadingWards(false);
+    }
+  };
+
+  const handleProvinceChange = (province: string) => {
+    setSelectedProvince(province);
+    setSelectedWard("");
+    form.setValue("address", province);
+    setWards([]);
+    fetchWards(province);
+  };
+
+  const handleWardChange = (ward: string) => {
+    setSelectedWard(ward);
+    const fullAddress = `${selectedProvince} - ${ward}`;
+    form.setValue("address", fullAddress);
+  };
+
+  const handleHouseAddressChange = (houseAddress: string) => {
+    let fullAddress = selectedProvince;
+    if (selectedWard) {
+      fullAddress = `${houseAddress}, ${selectedWard}, ${selectedProvince}`;
+    } else {
+      fullAddress = `${houseAddress}, ${selectedProvince}`;
+    }
+    form.setValue("address", fullAddress);
+  };
 
   async function onSubmit(values: RegisterBodyType) {
     if (isSubmitting) return;
@@ -112,7 +223,24 @@ function RegisterForm() {
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="********" {...field} />
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="********"
+                        {...field}
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-gray-500" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-gray-500" />
+                        )}
+                      </button>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -126,7 +254,26 @@ function RegisterForm() {
                 <FormItem>
                   <FormLabel>Confirm Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="********" {...field} />
+                    <div className="relative">
+                      <Input
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="********"
+                        {...field}
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4 text-gray-500" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-gray-500" />
+                        )}
+                      </button>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -170,19 +317,65 @@ function RegisterForm() {
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Address</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Your address" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Province Selection */}
+            <div>
+              <label className="text-sm font-medium">Province/City</label>
+              <Select
+                onValueChange={handleProvinceChange}
+                value={selectedProvince}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a province/city" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROVINCES.map((province) => (
+                    <SelectItem key={province} value={province}>
+                      {province}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Ward Selection */}
+            {selectedProvince && (
+              <div>
+                <label className="text-sm font-medium">Ward/District</label>
+                <Select
+                  onValueChange={handleWardChange}
+                  value={selectedWard}
+                  disabled={loadingWards}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={
+                        loadingWards
+                          ? "Loading wards..."
+                          : "Select a ward/district"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {wards.map((ward, index) => (
+                      <SelectItem key={index} value={ward.name}>
+                        {ward.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* House Address */}
+            {selectedWard && (
+              <div>
+                <label className="text-sm font-medium">House Address</label>
+                <Input
+                  placeholder="Enter your house address (street, house number, etc.)"
+                  onChange={(e) => handleHouseAddressChange(e.target.value)}
+                />
+              </div>
+            )}
           </div>
         </div>
 

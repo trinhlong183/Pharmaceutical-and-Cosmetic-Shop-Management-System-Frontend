@@ -28,7 +28,7 @@ export default function CustomerHome() {
       try {
         // Get the 5 newest products
         const response = await productService.getAllProducts({
-          limit: 5,
+          limit: 4,
         });
 
         if (!response || !response.products) {
@@ -202,8 +202,8 @@ export default function CustomerHome() {
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
-              {[...Array(5)].map((_, index) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+              {[...Array(4)].map((_, index) => (
                 <div
                   key={index}
                   className="bg-white rounded-2xl shadow-lg overflow-hidden animate-pulse"
@@ -217,7 +217,7 @@ export default function CustomerHome() {
               ))}
             </div>
           ) : products.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
               {products.map((product) => (
                 <div
                   key={product.id}

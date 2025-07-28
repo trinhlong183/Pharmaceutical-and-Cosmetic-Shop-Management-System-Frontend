@@ -25,4 +25,5 @@ const authApiRequest = {
   verifyEmail: (token: string) => http.post("/auth/verify-email", { token }),
 };
 
+  
 export default authApiRequest;
