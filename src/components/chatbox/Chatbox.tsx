@@ -183,7 +183,7 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent
-        className="max-w-6xl w-full p-0 overflow-hidden" // tăng max-w lên 6xl
+        className="max-w-6xl w-full p-0 overflow-hidden z-[200]" // tăng max-w lên 6xl
         style={{
           left: "85%",
           top: "95%",
@@ -346,10 +346,10 @@ export default function Chatbox({ open, onClose }: ChatboxProps) {
           </div>
         </div>
       </DialogContent>
-      {/* Modal xác nhận xóa chat */}
+      {/* Modal  confirm delete chat */}
       {confirmDeleteId && (
-        <Dialog open={true} onOpenChange={() => setConfirmDeleteId(null)}>
-          <DialogContent className="max-w-xs w-full">
+        <Dialog open={true}  onOpenChange={() => setConfirmDeleteId(null)} >
+          <DialogContent className="max-w-xs w-full z-[300] ">
             <DialogHeader>
               <DialogTitle>Delete chat?</DialogTitle>
             </DialogHeader>
